@@ -1,0 +1,9 @@
+Number of log entries: 5
+In file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/compareController.h: Added the following include directives:
+	#include <QVBoxLayout> 
+No changes made to file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/distanceMapper.h
+In file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/distanceViewer.h: Added the following include directives:
+	#include <QCustomEvent> 
+No changes made to file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/pointDrawer.h
+In file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/tdPointDrawer.h: Added the following include directives:
+	#include <QMouseEvent> 

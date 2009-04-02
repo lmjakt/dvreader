@@ -1,0 +1,35 @@
+#ifndef CLUSTERWIDGET_H
+#define CLUSTERWIDGET_H
+
+#include <vector>
+#include "kClusterProcess.h"
+#include <qwidget.h>
+
+using namespace std;
+
+class ClusterWidget : public QWidget
+{
+    Q_OBJECT
+
+
+	public :
+	ClusterWidget(int id, Cluster& clust, QWidget* parent=0, const char* name=0);
+
+    signals :
+	void plotMembers(int, vector<vector<float> >);    // (int is the id of the thing (set up a specific colour for it)
+	void plotMembers(int, vector<simple_drop>);    // (int is the id of the thing (set up a specific colour for it)
+    void plotCenter(int, vector<float>);                  // plot the center
+    void unPlotMembers(int);
+    void unPlotCenter(int);
+
+    private slots :
+	void plot_members(bool on);
+    void plot_center(bool on);
+    
+    private :
+	Cluster cluster;                                   // which contains everything that I need to know..
+    int identifier;
+};
+
+
+#endif

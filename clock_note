@@ -1,0 +1,3 @@
+clock time functions appear to be set in librt 
+(not mentioned in man clock_gettime  
+but necessary to get inclucde lrt in Makefile .. 

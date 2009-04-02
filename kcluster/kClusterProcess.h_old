@@ -1,0 +1,66 @@
+#ifndef KCLUSTERPROCESS_H
+#define KCLUSTERPROCESS_H
+
+#include <qthread.h>
+#include <qmutex.h>
+#include <iostream>
+#include <vector>           // only for initialisation of clusters.. which doesn't take much processing. 
+#include <set>
+#include "../../raw2/probe_set.h"
+#include "../../raw2/probeSetSet2.h"
+
+using namespace std;
+
+// first a simple struct that holds the actual data for the clusters
+// things like the cluster centres, the thingies, and so on.. 
+
+
+// the above should do it, and allow me to easily initialise the clusterSet which can then be passed around..
+// OK... now for the big one..
+
+
+class KClusterProcess : public QThread
+{
+  public :
+    KClusterProcess(int cNo, int* genes, int genesSize, vector<probe_set*>* data, int* expts, int exptNo, bool localNorm, set<void*>* cs, QMutex* cM);
+  ~KClusterProcess();
+  //KClusterProcess(int cNo, int* genes, int genesSize, ProbeSetSet2* ps, int* expts, int exptNo, bool localNorm, set<void*>* cs, QMutex* cM);
+  struct clusterSet {
+    int k;                 // the number of clusters. 
+    int N;                 // the number of dimensions,, i.e. it is equal to the number of experiments. 
+    int geneNo;            // the number of genes. (so the 2D arrays will be k x N and geneNo * N 
+    float** centres;       // the cluster centres. Initially chosen at random..
+    float** points;        // arrays defining the N-dimensional coordiates for each probe set. 
+    int** clusters;        // contains the probe set indices for each cluster. Allocated at the end.
+    int* clusterSizes;      // allocate at the end along with the clusters.. Necessary for the thing. 
+    int* membership;       // 0-N cluster membership. Set to k+1 at the beginning to indicate unallocated.
+    float* centreDistances; // the distance to the closest cluster center
+    int* pIndices;         // the probe Set indices, as created in the beginning..
+    int* exptSelection;    // the experiments used in the clustering.. -- size is stored in N -- number of dimensions
+    bool localNorm;        // data normalised by local or global thingies. 
+    clusterSet(int cNo, int* genes, int genesSize, vector<probe_set*>* data, int* expts, int exptNo, bool lN);
+    //    clusterSet(int cNo, int* genes, int genesSize, ProbeSetSet2* ps, int* expts, int exptNo, bool lN);
+    clusterSet();     // needed for the connectionObject which needs to pass one in the constructor. 
+    ~clusterSet();
+    void normalise(float* v, int s);             // normalise..  
+  };
+  clusterSet* clusters;
+
+  protected :
+    void run();
+
+  private :
+    set<void*>* parentClusters;    // what a great name..
+  QMutex* clusterMutex;
+  //   need a mutex,but think that this should be defined globally in the other file, or somewhere.. hmm.
+  int allocate();           // allocates genes to clusters, returns the number of changes.
+  void calculateCentres();  // calculates new cluster centers  based on the new cluster allocations.. (just a mean function).
+  float euclidean(float* v1, float* v2, int s);   // a function for calculating the euclidean distance
+  // and that is probably everything... 
+};
+
+#endif
+
+  
+  
+

@@ -1,0 +1,4 @@
+Number of log entries: 2
+No changes made to file /home/martin/cellular/deltavision/qt4/panelViewer/customWidgets/fSpinBox.cpp
+In file /home/martin/cellular/deltavision/qt4/panelViewer/customWidgets/lSpinBox.cpp: Added the following include directives:
+	#include <QLabel> 	#include <QVBoxLayout> 

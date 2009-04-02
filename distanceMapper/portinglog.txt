@@ -1,0 +1,16 @@
+Number of log entries: 11
+In file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/compareController.cpp at line 31 column 1: #include <qfiledialog.h> -> q3filedialog.h
+In file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/compareController.cpp at line 160 column 30: QFileDialog -> Q3FileDialog
+In file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/compareController.cpp at line 226 column 32: QFileDialog -> Q3FileDialog
+In file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/compareController.cpp: Added the following include directives:
+	#include <QVBoxLayout> 	#include <QHBoxLayout> 
+No changes made to file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/distanceMapper.cpp
+In file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/distanceViewer.cpp: Added the following include directives:
+	#include <QCustomEvent> 	#include <QVBoxLayout> 	#include <QHBoxLayout> 
+In file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/pointDrawer.cpp at line 37 column 1: #include <qpointarray.h> -> q3pointarray.h
+In file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/pointDrawer.cpp at line 47 column 23: QPopupMenu -> Q3PopupMenu
+In file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/pointDrawer.cpp at line 251 column 13: QPointArray -> Q3PointArray
+In file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/pointDrawer.cpp: Added the following include directives:
+	#include <QMouseEvent> 	#include <Q3PopupMenu> 	#include <QPaintEvent> 
+In file /home/martin/cellular/deltavision/qt4/panelViewer/distanceMapper/tdPointDrawer.cpp: Added the following include directives:
+	#include <QMouseEvent> 

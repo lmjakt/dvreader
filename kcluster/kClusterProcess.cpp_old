@@ -1,0 +1,358 @@
+#include "kClusterProcess.h"
+#include "../../raw2/probe_set.h"
+#include "../../raw2/probeSetSet2.h"
+#include "connectionobject.h"        // just for dist_set, not so good hmm. 
+#include <vector>
+#include <set>
+#include <qthread.h>
+#include <iostream>
+#include <qmutex.h>                 // for changing the variable thingy.. 
+#include <time.h>
+#include <stdlib.h>
+#include <math.h>
+
+using namespace std;
+
+KClusterProcess::clusterSet::clusterSet(){
+  k = 0;
+  N = 0;
+  geneNo = 0;
+  centres = 0;
+  points = 0;
+  clusters = 0;
+  clusterSizes = 0;
+  membership = 0;
+  centreDistances = 0;
+  pIndices = 0;
+  exptSelection = 0;
+  localNorm = true;
+}
+
+KClusterProcess::clusterSet::~clusterSet(){
+  cout << "Deleting a cluster set at address " << this << endl;
+  for(int i=0; i < geneNo; i++){
+    cout << "deleting for gene " << i << endl;
+    delete []points[i];
+  }
+  delete []points;
+  for(int i=0; i < k; i++){
+    cout << "deleting for cluster " << i << endl;
+    delete []centres[i];
+    delete []clusters[i];
+  }
+  delete []centres;
+  delete []clusters;
+  cout << "deleting cluster Sizes " << endl;
+  delete []membership;
+  delete []centreDistances;
+  delete []pIndices;
+  delete []exptSelection;
+  cout << "sizeof clusterSizes " << sizeof(clusterSizes) << "\t" << "size of *clusterSizes " << sizeof(*clusterSizes) << endl;
+  cout << "deleting cluster membership" << endl;
+  for(int i=0; i < k; i++){
+    cout << "size of cluster " << i << "  is " << clusterSizes[i] << endl;
+  }
+  delete []clusterSizes;
+  cout << "finished deleting the cluster Set" << endl;
+}
+
+KClusterProcess::clusterSet::clusterSet(int cNo, int* genes, int genesSize, vector<probe_set*>* data, int* expts, int exptNo, bool lN){
+  //KClusterProcess::clusterSet::clusterSet(int cNo, int* genes, int genesSize, ProbeSetSet2* ps, int* expts, int exptNo, bool lN){
+  // the big one. 
+  // first allocate the data, from the appropriate experiments. 
+  // how to decide on which ones to use the various things..
+  cout << "beginning of the clusterSet constructor" << endl;
+  k = cNo;
+  N = exptNo;                                 // the dimensionality.. 
+  localNorm = lN;
+  //ut << "set k, N, and localNorm" << endl;
+  points = new float*[genesSize];          // so we have enough..
+  membership = new int[genesSize];
+  centreDistances = new float[genesSize];
+  //cout << "made memory for points, membership, centreDistances " << endl;
+  exptSelection = expts;                      // so we can return the included experiments.. 
+  geneNo = 0;                                     // for the number of genes that we can collect.. !!! 
+  pIndices = new int[genesSize];               // the maximum amount of size that we may require.. 
+  centres = new float*[k];              
+  clusters = new int*[k];                        // so whatever happens we don't get a problem when we delete.. 
+  clusterSizes = new int[k];
+  for(int i=0; i < k; i++){ clusterSizes[k] = 0; }
+  //ut << "set the clusterSizes to 0" << endl;
+
+  int* exptIndex = new int[exptNo];          // so we can just see if we have enough.. 
+  float* tempValues;
+  if(localNorm){
+    tempValues = new float[exptNo];
+  }else{
+    tempValues = new float[(*data)[0]->allExptNo];       // so we have enough space..
+  }
+  // I also need an array of mins and maxes so that I know the size of the space into which I should put
+  // my random points. 
+  float* min = new float[N];
+  float* max = new float[N];   // which I will need to set to something. as I normalise at some point 0 is OK..
+  for(int i=0; i < N; i++){
+    min[i] = max[i] = 0;
+  }
+
+  //cout << "allocated most of the space required, now going through the genes, to see how things go.. " << endl;
+  bool ok = true;
+  probe_set* p;  //
+  for(int i=0; i < genesSize; i++){
+    //out << "doing gene " << i << endl;
+    if(genes[i] > data->size()){
+      continue;
+    }
+    p = (*data)[genes[i]];                  // that should be ok..
+    //cout << "exptNo is " << exptNo << endl;
+    for(int j=0; j < exptNo; j++){            // collect some data if possible
+      //cout << "j is now " << j << "   and expts[j] is " << expts[j] << endl;
+      if(expts[j] < p->allExptNo){            // at least we can look it up.. 
+	ok = true;                            // it's alright
+	//cout << "but is expts[j] small enough" << endl;
+	if(p->exptLookup[expts[j]] != -1){
+	  exptIndex[j] = p->exptLookup[expts[j]];
+	  //cout << "expts[" << j << "] is now " << expts[j] << endl;
+	  //cout << "exptIndex[" << j << "]  is now " << exptIndex[j] << endl;
+	}else{
+	  ok = false;
+	  //cout << "calling break as not enough as thingy is -1" << endl;
+	  break;    // from the inner loop only
+	}
+      }else{
+	ok = false;
+	cout << "expts[j] is larger than p->allExptNo" << endl;
+	break;
+      }
+    }
+    if(!ok){
+      continue;
+      //cout << "not ok, so I'm continuing" << endl;
+    }
+    //cout << "managed to work out an experimental index " << endl;
+    // if we got to this stage, then it seems that the data exists and we have an experimental index that should allow us 
+    // to lookup the data. At this point we should make a new float* array for the mean values. 
+    // if local norm, we normalise this data as we go along, otherwise we have to make a copy of the thing. 
+    float* meanValues = new float[exptNo];
+    // make sure everything is 0.
+    for(int j=0; j < exptNo; j++){
+      meanValues[j] = 0;
+    }
+    //cout << "set all the new meanValues to 0" << endl;
+    // and then go through the different probes and fill the tempValues thing.. 
+    for(int j=0; j < p->probeNo; j++){
+      if(localNorm){
+	for(int l=0; l < exptNo; l++){
+	  //cout << j << "\t" << l << "   before normalisation" <<  endl;
+	  tempValues[l] = p->probes[j][exptIndex[l]];
+	}
+	normalise(tempValues, exptNo);
+	for(int l=0; l < exptNo; l++){
+	  //cout << j << "\t" << l << "   incrementing mean Values " << endl;
+	  meanValues[l] += tempValues[l];
+	}
+      }else{
+	for(int l=0; l < p->exptSize; l++){
+	  tempValues[l] = p->probes[j][l];
+	}
+	normalise(tempValues, p->exptSize);
+	for(int l=0; l < exptNo; l++){
+	  meanValues[l] += tempValues[exptIndex[l]];
+	}
+      }
+    }
+    //cout << "managed to allocate meanValues without puking" << endl;
+    /// Ok, we now have the appropriate values in meanValues, and we can just assign tempValues to the appropriate thing.
+    /// but we have one choice to make..
+    ///
+    ///  we can at this point choose to normalise the data, or not , as we have anyway normalised the data before making the
+    ///  mean profile there are good arguments to do one or the other... -- so let's put in another choice here later on
+    ///  for now, let's normalise the mean, and then stick it into the appropriate structure..
+    //cout << "calling normalise" << endl;
+    normalise(meanValues, exptNo);
+    points[geneNo] = meanValues;
+    //cout << "and am almost done for " << p->index << endl;
+    pIndices[geneNo] = p->index;     // should be 1.. to the end.. hmm arghh. 
+    // let's check if this is any good..
+    if(p->index == 74){
+      for(int j=0; j < N; j++){
+	cout << "\t\texpt: " << expts[j] << "  value : " << points[geneNo][j] << endl;
+      }
+    }
+
+    //cout << "and just before initialising it to cluster " << k << endl;
+    membership[geneNo] = k;               // since k is the number of clusters, counting from 0 cluster k doesn't exist.
+    // and let's just go through and check whether we need to change the mins and max arrays..
+    //cout << "checking mins and maxes, what's going on?" << endl;
+    for(int j=0; j < N; j++){
+      if(min[j] > meanValues[j]){ min[j] = meanValues[j]; }
+      if(max[j] < meanValues[j]){ max[j] = meanValues[j]; }
+    }
+    geneNo++;                             // I think that should do it.. but that is ugly indeed 
+    //cout << "geneNo is now " << geneNo << endl;
+  }
+  // make sure to delete things and then initialise the random points..
+  //cout << "before deleting exptindex " << endl;
+  delete []exptIndex;
+  //cout << "before deleting tempvalues " << endl;
+  delete []tempValues;     // I think that is everything.. 
+  // use the values in min and max to work out the cluster centers. the first dimension has already been initialised to k..
+  srand(time(0));  // initialise the random number generator..
+  cout << "setting the original centres " << endl;
+  // I want to see what the mins and maxes are at this point.. 
+  for(int i=0; i < N; i++){
+    cout << "max Value[" << i << "] " << max[i] << "   min[" << i << "] " << min[i] << endl;
+  }
+  for(int i=0; i < k; i++){
+    //cout << k << "  ";
+    centres[i] = new float[N];
+    for(int j=0; j < N; j++){
+      //cout << j << "\t";
+      centres[i][j] = min[j] + ( (max[j]-min[j]) * ((float)rand()/(float)RAND_MAX) );
+    }
+  }
+  //  cout << endl; 
+  // and since we don't need the mins and maxes anymore..
+  cout << "before deleting mins and maxes. " << endl;
+  delete []min;
+  delete []max;
+  // and I actually have a feeling that is all we need to do. My only worry is that the above may not be completely thread safe.
+  // hoooah. 
+  cout << "all done " << endl;
+}	
+
+void KClusterProcess::clusterSet::normalise(float* v, int s){  //s for the size.. 
+  // find the mean and std deviation..
+  // Note..      SS = sum of squared devieates (squared sum)
+  // AND         SS = sum(X^2) - ((sum(X))^2 / N)
+  // so          std = sqrt( SS / N-1)
+  // which should be reasonably fast to calculate.. (rather than using the std function.. (which I could rewrite)
+  float std;
+  float mean;
+  if(s > 1){
+    float xsum = 0;
+    float xsquaredSum = 0;
+    for(int i=0; i < s; i++){
+      xsum += v[i];
+      xsquaredSum += (v[i]*v[i]);
+    }
+    mean = xsum/s;
+    float SS = xsquaredSum - (xsum*xsum)/(float)s;
+    std = sqrt(SS/(float)(s-1));
+    // then go through and  modify
+    for(int i=0; i < s; i++){
+      v[i] = (v[i]-mean)/std;
+    }
+  }
+}	
+
+// I think here is the appropriate place to declare any mutexes that we may need.. 
+
+//KClusterProcess::KClusterProcess(int cNo, int* genes, int genesSize, ProbeSetSet2* ps, int* expts, int exptNo, bool localNorm, set<void*>* cs, QMutex* cM){
+KClusterProcess::KClusterProcess(int cNo, int* genes, int genesSize, vector<probe_set*>* data, int* expts, int exptNo, bool localNorm, set<void*>* cs, QMutex* cM){
+  // first initialise the cluster set, very simply..
+  cout << "the beginning of the KClusterProcess constructor" << endl;
+  parentClusters = cs;            // ok. !! 
+  //cout << "set the parent clusters " << endl;
+  clusterMutex = cM; 
+  //cout << "set the clusterMutext" << endl;
+  clusters = new clusterSet(cNo, genes, genesSize, data, expts, exptNo, localNorm);     // and this is very good. control handed over to somewhere else.
+  cout << "created the clusterSet, oh my god" << endl;
+  // although I will now be modifying something that is owned by the parent process, it is the responsibility of the parent process
+  // not to touch this until I say it is OK. I suppose that we could share some sort of mutex, but I've yet to work out how to do that
+  // and anyway, this is quite a simple process to do anyway.. 
+  
+  // we don't actually have to do anything else in the constructor, as it's all done in in the cluster set constructor..
+}
+
+KClusterProcess::~KClusterProcess(){
+  delete clusters;  // which is really all that I have to do. 
+}
+
+float KClusterProcess::euclidean(float* v1, float* v2, int s){
+  float e = 0;
+  if(s <= 0){
+    return(-1);
+  }
+  for(int i=0; i < s; i++){
+    e += ((v1[i] - v2[i]) * (v1[i] - v2[i]));
+  }
+  return(sqrt(e)/s);
+}
+
+void KClusterProcess::run(){
+  while(allocate()){                 // that is a bit dangerous as it can happen that allocate never returns 0.. but never mind..
+    calculateCentres();
+  }
+  // allocate the membership in the clusters..
+  int* clusterCounts = new int[clusters->k];     // so I know where I am..
+  for(int i=0; i < clusters->k; i++){
+    clusters->clusters[i] = new int[clusters->clusterSizes[i]];
+    clusterCounts[i] = 0;
+  }
+  for(int i=0; i < clusters->geneNo; i++){
+    clusters->clusters[clusters->membership[i]][clusterCounts[clusters->membership[i]]] = clusters->pIndices[i];
+    clusterCounts[clusters->membership[i]]++;
+  }
+  delete []clusterCounts;
+  clusterMutex->lock();
+  parentClusters->insert(clusters);
+  clusterMutex->unlock();
+  // and it is up to connectionobject to check if and when this gets filled..
+}
+
+int KClusterProcess::allocate(){
+  // simple process. Go through all of the data points and see which centre it is closest to
+  // then allocate the membership in the membership array..
+  int changes = 0;
+  // and set the clusterSizes to 0;
+  for(int i=0; i < clusters->k; i++) { clusters->clusterSizes[i] = 0; }
+  for(int i=0; i < clusters->geneNo; i++){
+    //int oldCluster = clusters->membership[i];    // so we know if it changes or not..
+    float minDistance =  euclidean(clusters->points[i], clusters->centres[0], clusters->N);
+    int minCentre = 0;
+    for(int j=1; j < clusters->k; j++){
+      float d = euclidean(clusters->points[i], clusters->centres[j], clusters->N);
+      if(minDistance > d){
+	minDistance = d;
+	minCentre = j;
+      }
+    }
+    if(minCentre != clusters->membership[i]){
+      changes++;
+      clusters->membership[i] = minCentre;
+    }
+    clusters->clusterSizes[minCentre]++;
+  }
+  cout << "changes : " << changes << endl;
+  return(changes);
+}
+	
+void KClusterProcess::calculateCentres(){
+  cout << "calculating centres " << endl;
+  float** tempCentres = new float*[clusters->k];   // to store them in so I can just reallocate. 
+  for(int i=0; i < clusters->k; i++){
+    tempCentres[i] = new float[clusters->N];
+  }
+  for(int i=0; i < clusters->geneNo; i++){
+    for(int j=0; j < clusters->N; j++){
+      tempCentres[clusters->membership[i]][j] += clusters->points[i][j];
+    }
+  }
+  // and now divide each cluster centre by the number of members it has..
+  for(int i=0; i < clusters->k; i++){
+    if(clusters->clusterSizes[i] > 0){
+      for(int j=0; j < clusters->N; j++){
+	tempCentres[i][j] /= clusters->clusterSizes[i];
+      }
+    }
+  }
+  /// and now delete the old centres and allocate the new ones.
+  //  cout << "finished calculating centres swapping centres" << endl;
+  for(int i=0; i < clusters->k; i++){
+    delete []clusters->centres[i];
+  }
+  clusters->centres = tempCentres;
+  cout << "finished the allocating clusters->centres" << endl;
+}
+
+// and really that should be most of the things done..
