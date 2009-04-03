@@ -2,6 +2,7 @@ TEMPLATE        = app
 CONFIG          += qt opengl release  thread
 QT		+= qt3support 
 CONFIG          += console
+LIBS		+= -lrt
 HEADERS		= \
 		dvReader.h \
 		deltaViewer.h \
@@ -52,6 +53,8 @@ HEADERS		= \
 		image/imageFunc.h \
 		image/imageAnalyser.h \
 		image/threeDPeakFinder.h \
+		image/bitMask.h \
+		image/volumeMask.h \
 		distanceMapper/compareController.h \
 		distanceMapper/distanceMapper.h \
 		distanceMapper/distanceViewer.h \
@@ -110,6 +113,8 @@ SOURCES		= \
 		image/imageFunc.cpp \
 		image/imageAnalyser.cpp \
 		image/threeDPeakFinder.cpp \
+		image/bitMask.cpp \
+		image/volumeMask.cpp \
 		distanceMapper/compareController.cpp \
 		distanceMapper/distanceMapper.cpp \
 		distanceMapper/distanceViewer.cpp \

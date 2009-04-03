@@ -1,7 +1,7 @@
 /****************************************************************************
 ** JpgView meta object code from reading C++ file 'jpgView.h'
 **
-** Created: Tue Mar 13 13:53:27 2007
+** Created: Fri Apr 3 13:43:53 2009
 **      by: The Qt MOC ($Id: qt/moc_yacc.cpp   3.3.3   edited Aug 5 16:40 $)
 **
 ** WARNING! All changes made in this file will be lost!

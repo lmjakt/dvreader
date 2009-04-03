@@ -108,7 +108,6 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 	  cerr << "No file name given" << endl;
 	  exit(1);
       }
-//      cout << "Filename is " << s << "  converts to : " << ifName << endl;
       ifName = fName.latin1();
   }else{
       fName = ifName;
@@ -137,10 +136,8 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   reader->dimensions(w, h, d);    // the dimensions of the thingy we are looking at.
   cout << "Dimensions of the image are : " << w << " * " << h << " * " << d << "  um" << endl;
 
-  // test a new version of the glViewer ..
-  
 
-  textureSize = 1024;      // the size of the textures that we are going to be painting to.. //  textureSize = 1024;      // the size of the textures that we are going to be painting to.. 
+  textureSize = 1024;      // the size of the textures that we are going to be painting to.. 
   texColNo = 1 + fileSet->pwidth() / textureSize;   // one extra since it is unlikely that we will see an absolute fit
   texRowNo = 1 + fileSet->pheight() / textureSize;
 
@@ -152,15 +149,13 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   glViewer = new GLImage(texColNo, texRowNo, textureSize);   // total of 12 panels.. 
   glViewer->resize(textureSize, textureSize);         // which is just the simple thing to do.. 
 
-//  glViewer = new GLImage(reader->width(), reader->height());
-//  glViewer->resize(reader->width(), reader->height());
   glViewer->setCaption(ifName);
   connect(glViewer, SIGNAL(nextImage()), this, SLOT(nextImage()) );
   connect(glViewer, SIGNAL(previousImage()), this, SLOT(previousImage()) );
   connect(glViewer, SIGNAL(newLine(int, int, int, int)), this, SLOT(newLine(int, int, int, int)) );
   glViewer->show();   // which is very simple interface, nothing in particular there.. 
 
-  projection = new GLImage(texColNo, texRowNo, textureSize);   // total of 12 panels.. 
+  projection = new GLImage(texColNo, texRowNo, textureSize);   
   projection->resize(textureSize, textureSize);         // which is just the simple thing to do.. 
   QString p_name(ifName);
   p_name.append(" Projection");
@@ -168,10 +163,9 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   projection->show();
 
   // a thingy for plotting stuff...
-//  linePlotter = new PlotWidget();
   spotWindow = new SpotWindow(fileSet->pwidth(), fileSet->pheight(), fileSet->sectionNo());
   spotsUseProjection = false;
-//  spotWindow = new SpotWindow(reader->width(), reader->height(), reader->sliceNo());
+
   connect(spotWindow, SIGNAL(findLocalMaxima(int, int, float, float)), this, SLOT(findLocalMaxima(int, int, float, float)) );
   connect(spotWindow, SIGNAL(findAllLocalMaxima(int, int, float, float, int, float, bool)), 
 	  this, SLOT(findAllLocalMaxima(int, int, float, float, int, float, bool)) );
