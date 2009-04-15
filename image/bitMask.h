@@ -12,6 +12,7 @@ class BitMask {
     bool set_bit(bool b, unsigned long p);
     bool bit(unsigned long p);
     void printMask();
+    void zeroMask();
 
  private:
     unsigned char* mask;

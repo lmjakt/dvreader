@@ -100,6 +100,7 @@ class SpotWindow : public QWidget
     ModelWidget* modelWidget;
     NucleusWidget* nucleusWidget;
     NucleusWidget* contrastWidget;
+    NucleusWidget* blobMapperWidget;
     SetWidget* setWidget;   // bad name, but can't think of anything better.. 
     BlurWidget* blurWidget;  // and then a load of controls for other stuff.. but that's for later ...
     std::map<int, linearPeaks> linePeaks;
@@ -133,6 +134,7 @@ class SpotWindow : public QWidget
     void recalculateSpotVolumes();        
     void findNuclearPerimeters(int, float);
     void findContrasts(int, float);     // not sure what the float represents at the moment, but it might be useful for something..
+    void mapBlobs(int, float);
     void findSets(int, int, int, float); 
     void findSpotDensity(int, double, double);
     void blur(std::set<uint>, int, double, double);

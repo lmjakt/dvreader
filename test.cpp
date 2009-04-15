@@ -27,6 +27,12 @@ void print_bits(unsigned char b){
 int main(int argc, char** argv){
     // try some bitwise operations. To see what we can do.
 
+    {
+	int dx = -1;
+	unsigned long ul = 20;
+	cout << "ul is " << ul << " dx is " << dx << "  and ul + dx is " << ul + dx << endl;
+    }
+
     BitMask* bm = new BitMask(100);
     bm->set_bit(true, 23);
     bm->set_bit(true, 0);

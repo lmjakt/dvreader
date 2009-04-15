@@ -65,6 +65,9 @@ SpotWindow::SpotWindow(int Width, int Height, int Depth, QWidget* parent, const 
     contrastWidget = new NucleusWidget("Find Contrasts", this, "contrastWidget");
     connect(contrastWidget, SIGNAL(findNuclearPerimeters(int, float)), this, SIGNAL(findContrasts(int, float)) );
     
+    blobMapperWidget = new NucleusWidget("Map Blobs", this);
+    connect(blobMapperWidget, SIGNAL(findNuclearPerimeters(int, float)), this, SIGNAL(mapBlobs(int, float)) );
+
     setWidget = new SetWidget("Find Sets", this);
     connect(setWidget, SIGNAL(findSets(int, int, int, float)), this, SIGNAL(findSets(int, int, int, float)) );
 
@@ -98,6 +101,7 @@ SpotWindow::SpotWindow(int Width, int Height, int Depth, QWidget* parent, const 
     vbox->addWidget(modelWidget);
     vbox->addWidget(nucleusWidget);
     vbox->addWidget(contrastWidget);
+    vbox->addWidget(blobMapperWidget);
     vbox->addWidget(setWidget);
     vbox->addWidget(spotDensityWidget);
     vbox->addWidget(blurWidget);
@@ -184,6 +188,7 @@ void SpotWindow::setChannels(vector<QString> Channels){
     cout << "\t\t\tcalling setChannels on nucleus widget " << endl;
     nucleusWidget->setChannels(Channels);
     contrastWidget->setChannels(Channels);
+    blobMapperWidget->setChannels(Channels);
     setWidget->setChannels(Channels);
     blurWidget->setChannels(Channels);
     cout << "\t\t\tstuff OK " << endl;

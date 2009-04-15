@@ -20,6 +20,10 @@ bool VolumeMask::setMask(bool b, unsigned long x, unsigned long y, unsigned long
     return( bitMask->set_bit(b, (z * w * h) + (y * w) + x ) );
 }
 
+bool VolumeMask::setMask(bool b, int x, int y, int z){
+    return( setMask(b, (unsigned long)x, (unsigned long)y, (unsigned long)z) );
+}
+
 void VolumeMask::printMask(){
     for(unsigned long z = 0; z < d; ++z){
 	std::cout << "Slice " << z << std::endl;
@@ -33,3 +37,6 @@ void VolumeMask::printMask(){
     }
 }
 
+void VolumeMask::zeroMask(){
+    bitMask->zeroMask();
+}

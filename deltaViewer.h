@@ -61,6 +61,7 @@
 #include "panels/fileSet.h"
 #include "panels/overlapWindow.h"
 #include "image/imageAnalyser.h"
+#include "image/blobMapper.h"
 
 using namespace std;
 
@@ -114,6 +115,9 @@ class DeltaViewer : public QWidget
   void paintProjection();
   void exportProjection();
   void paintPeaks(float* area, int px, int py, int w, int h);   // this checks if there are peaks to be painted from the spotsWidgets .. 
+  //void paintBlobs(float* area, int xo, int yo, int z, int w, int h);
+  void paintBlobs(float* area, int xo, int yo, int z, int w, int h, 
+		  set<blob*> blobs);
   void exportPeaks();  // write the peaks to a file in a reasonable manner.. 
   void paintNuclei(float* area, int px, int py, int w, int h);  // and this checks if there are any nuclei to be painted.. (but a bit more tricky)
   void paintParameterData(float* area, int px, int py, int w, int h);
@@ -136,7 +140,7 @@ class DeltaViewer : public QWidget
 
   void setWaveColors(int wi, float r, float g, float b);
   void setWaveColors();   // basically just for init.. 
-  void findObjects(int wl);
+  //void findObjects(int wl);
 //  void clearObjects();
   
   void addMergedChannel();
@@ -169,6 +173,7 @@ class DeltaViewer : public QWidget
   void recalculateSpotVolumes();
   void findNuclearPerimeters(int wi, float minValue);
   void findContrasts(int wi, float value);   // not sure what the value represents, but.. 
+  void mapBlobs(int wi, float minEdge);
   void findSets(int wi, int minSize, int maxSize, float minValue);
 
   void setSpotsToSpotMapper();
@@ -190,6 +195,9 @@ class DeltaViewer : public QWidget
   void paramDataColorChanged(int wl, float r, float g, float b);
 
   private :
+      /// Move this later, bull
+      set<blob*> blobs;
+
       QString fName;
     DVReader* reader;
   FileSet* fileSet;

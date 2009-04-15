@@ -50,6 +50,8 @@
 #include "tiff/tiffReader.h"    // this is one screwed up class so use with care !! 
 #include "dataStructs.h"
 #include "stat/stat.h"
+#include "image/blobMapper.h"   // probably move this to somewhere else.. 
+#include "image/coordConverter.h"
 
 //#include "pointViewer/pointViewWidget.h"
 
@@ -144,6 +146,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   spotMapperWindow = new SpotMapperWindow(this, fileSet->pwidth(), fileSet->pheight(), fileSet->sectionNo(), textureSize);
   spotMapperWindow->resize(1100, 1100);
   cout << "file set is reproting a pixel size of " << fileSet->pwidth() << ", " << fileSet->pheight() << "  giving " << 1 + fileSet->pwidth() / textureSize << "  columns" << endl;
+  cout << "And .. the number of sections is " << fileSet->sectionNo() << endl;
   connect(perimeterWindow, SIGNAL(perimetersFinalised(std::vector<PerimeterSet>, float, int)), spotMapperWindow, SLOT(setPerimeters(std::vector<PerimeterSet>, float, int)) );
   
   glViewer = new GLImage(texColNo, texRowNo, textureSize);   // total of 12 panels.. 
@@ -178,6 +181,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   connect(spotWindow, SIGNAL(recalculateSpotVolumes()), this, SLOT(recalculateSpotVolumes()) );
   connect(spotWindow, SIGNAL(findNuclearPerimeters(int, float)), this, SLOT(findNuclearPerimeters(int, float)) );
   connect(spotWindow, SIGNAL(findContrasts(int, float)), this, SLOT(findContrasts(int, float)) );
+  connect(spotWindow, SIGNAL(mapBlobs(int, float)), this, SLOT(mapBlobs(int, float)) );
   connect(spotWindow, SIGNAL(findSets(int, int, int, float)), this, SLOT(findSets(int, int, int, float)) );
   connect(spotWindow, SIGNAL(setUseProjection(bool)), this, SLOT(setSpotsUseProjection(bool)) );
   connect(spotWindow, SIGNAL(findSpotDensity(int, double, double)), this, SLOT(determineSpotDensities(int, double, double)) );
@@ -672,8 +676,8 @@ void DeltaViewer::addMergedChannel(){
     setLinePlotterColors();
 }
 
-void DeltaViewer::findObjects(int wl){
-wl = wl;//   // first find the minValue from the relevant distchooser..
+//void DeltaViewer::findObjects(int wl){
+//wl = wl;//   // first find the minValue from the relevant distchooser..
 //   float minValue = 0;
 //   for(int i=0; i < reader->channelNo(); i++){
 //     if(reader->channel(i) == wl){
@@ -698,24 +702,14 @@ wl = wl;//   // first find the minValue from the relevant distchooser..
 //   mx = mx * 1.1;   // which is a better way of doing it..
 //   objectSums->setData(object_sums, 0, mx, true);
 //   objectSums->show();
-}
-    
-//void DeltaViewer::clearObjects(){
-//  reader->clearObjects();
 //}
+    
 
 void DeltaViewer::nextImage(){
-//  int n = reader->nextSection();
-//  setSliceNo(n);
-  // then we should get the image and display it.. but that's for later.
-//  displayImage();
     setImage(++currentSliceNo);
 }
 
 void DeltaViewer::previousImage(){
-//  int n = reader->previousSection();
-//  setSliceNo(n);
-//  displayImage();
     setImage(--currentSliceNo);
 }
 
@@ -728,8 +722,7 @@ void DeltaViewer::setImage(int slice){
     sectionSpin->blockSignals(true);
     sectionSpin->setValue(slice);
     sectionSpin->blockSignals(false);
-//    setSliceNo(slice);  // this just sets the label 
-    
+
     // this should be set somewhere else, but for now..
     // and since I need to give a vector of a colour map rather than a map.. 
     vector<color_map> cv;
@@ -746,10 +739,9 @@ void DeltaViewer::setImage(int slice){
     }
     raw = 0;
 
-    if(updateDist->isOn()){
-	cout << "making a new raw_data with dimensions " << fileSet->channelNo() << " , " << currentView.pw * currentView.ph << " (" << currentView.pw << "x" << currentView.ph << endl;
+    if(updateDist->isOn())
 	raw = new raw_data(fileSet->channelNo(), currentView.pw * currentView.ph);
-    }
+    
 
     int rowCounter = 0;
     int colCounter = 0;
@@ -757,31 +749,15 @@ void DeltaViewer::setImage(int slice){
     for(int yb = currentView.py; yb < currentView.py + currentView.ph; yb += textureSize){
 	colCounter = 0;
 	int th = yb + textureSize < currentView.py + currentView.ph ? textureSize : (currentView.py + currentView.ph) - yb;
-	// which is a bit of an ugly way of putting it..
-//	float yf = fileSet->ypos() + float(yb) * currentView.yscale;
-//	float hf = th * currentView.yscale;
+
 	for(int xb = currentView.px; xb < currentView.px + currentView.pw; xb += textureSize){
 	    int tw = xb + textureSize < currentView.px + currentView.pw ? textureSize : (currentView.px + currentView.pw) - xb;
-	    // at this point...
-	    // 1. convert the coordinates to float coordinates, since this is more convenient for handling file stacks
-	    // 2. get the appropriate data from fileSet
-	    // 3. set image in glviewer (specifying which thingy and so on.. 
-//	    float xf = fileSet->xpos() + float(xb) * currentView.xscale;
-//	    float wf = tw * currentView.xscale;
-//	    cout << "reading into texture at : " << colCounter << "," << rowCounter << " requesting " 
-//		 << xf << "," << yf << " w: " << wf << "  h: " << hf 
-//		 << "  pixels : " << xb << "," << yb << "   " << tw << "," << th << endl; 
 	    memset((void*)data, 0, textureSize * textureSize * 3 * sizeof(float));
 	
 	    cout << "calling fileset reatToRGB with " << xb << "," << yb << " : " << tw << "x" << th << endl;
 	    if(fileSet->readToRGB(data, xb, yb, tw, th, currentSliceNo, maxLevel, biases, scales, cv, raw)){
-//	    if(fileSet->readToRGB(data, xb, yb, textureSize, textureSize, currentSliceNo, maxLevel, biases, scales, cv, raw)){
-
-
-//	    if(fileSet->readToRGB(data, xf, yf, wf, hf, textureSize, textureSize, currentSliceNo, maxLevel, biases, scales, cv, raw)){
 		textureCounter++;
-		// and in this case let's copy data to the appropriate texture..
-//		glViewer->setImage(data, textureSize, textureSize, colCounter, rowCounter);
+		paintBlobs(data, xb, yb, currentSliceNo, tw, th, blobs);
 		glViewer->setImage(data, tw, th, colCounter, rowCounter);
 	    }
 	    colCounter++;
@@ -1192,6 +1168,44 @@ void DeltaViewer::paintPeaks(float* area, int px, int py, int w, int h){
 
 }
 
+void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h, 
+			     set<blob*> blobs){
+    // There is no indication here as to what is the waveIndex represented by the blobs.
+    // This is because we'll modify this function to use a reference to some kind of widget that
+    // we can use to select colours and the like a bit later on. For now, I just want to leave as
+    // is.
+    CoordConverter cc(fileSet->pwidth(),fileSet->pheight(), fileSet->sectionNo());
+    float r, g, blue;
+    r = blue = 1.0;
+    for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
+	blob* b = (*it);
+	// check if it overlaps in any of the dimensions..
+	if( !( b->min_x <= xo + w && b->max_x >= xo ) )
+	    continue;
+	if( !( b->min_y <= yo + h && b->max_y >= yo) )
+	    continue;
+	if( !(b->min_z <= z && b->max_z >= z) )
+	    continue;
+	// Then simply go through the  points and see whether or not
+	for(uint i=0; i < b->points.size(); ++i){
+	    int b_x, b_y, b_z;  // the point coordinates
+	    cc.vol(b->points[i], b_x, b_y, b_z);
+	    if(b_z != z)
+		continue;
+	    if( !( b_y >= yo && b_y <= yo + h) )
+		continue;
+	    if( !(b_x >= xo && b_x <= xo + h) )
+		continue;
+	    g = 0.0;
+	    if(b->surface[i])
+		g = 1.0;
+	    int area_offset = 3 * ((b_y - yo) * w + b_x - xo);
+	    area[ area_offset ] = r;
+	    area[ area_offset + 1] = g;
+	    area[ area_offset + 2] = blue;
+	}
+    }
+}
 
 void DeltaViewer::exportPeaks(){
     // first check if we have some peaks worth exporting
@@ -2014,31 +2028,6 @@ void DeltaViewer::findContrasts(int wi, float minValue){
     colorBox->addWidget(chooser);
     chooser->show();
 
- //    // do a findPerimters on the contrast data with a starting value of .. 0 ? (everything is above 0, so that is not good.. but)
-//     PerimeterData perData = imageAnalyser->findPerimeters(contrastData.values, completeArea.pw, completeArea.ph, 100, 10000, 2.5e-4);
-// //    parameterData setData = imageAnalyser->findPerimeters(source, completeArea.pw, completeArea.ph, minSize, maxSize, minValue);
-// //    parameterData setData = imageAnalyser->findSets(source, completeArea.pw, completeArea.ph, minSize, maxSize, minValue);
-
-//     cout << "findSets was called with a source of dims : " << completeArea.pw << "x" << completeArea.ph << endl;
-
-//     //QString labelString;
-//     labelString.setNum(fileSet->channel(wi));
-//     labelString.append(" contrast perimeter");
-
-//     perimeterWindow->setPerimeters(perData.perimeterData);
-//     perimeterWindow->show();
-
-//     ParameterChooser* chooser3 = new ParameterChooser(perData.p_data, labelString, wi, fileSet->channel(wi), QColor(255, 255, 0), this);
-//     connect(chooser3, SIGNAL(colorChanged(int, float, float, float)), this, SLOT(paramDataColorChanged(int, float, float, float)) );
-//     connect(chooser3, SIGNAL(newRanges(float, float)), this, SLOT(paramDataRangeChanged(float, float)) );
-//     parameterSets.insert(make_pair(chooser3, perData.p_data));
-//     colorBox->addWidget(chooser3);
-//     chooser3->show();
-
-//////////////////
-
-    /////
-
     // and for the secondary data.. 
     labelString = "";
     labelString.setNum(fileSet->channel(wi));
@@ -2051,6 +2040,32 @@ void DeltaViewer::findContrasts(int wi, float minValue){
     chooser2->show();
 
 }
+
+////// This is a very temporary function and I should probably move it to somewhere else. 
+////// I should also change things to use the volume cache and stuff in imageAnalyser.
+////// but do that later maybe.. 
+void DeltaViewer::mapBlobs(int wi, float minValue){
+    cout << "Deltaviewer map blobs.. " << endl;
+
+    // first delete any known blobs..
+    while(blobs.size()){
+	delete *(blobs.begin());
+	blobs.erase(blobs.begin());
+    }
+    cout << "deleted old blobs" << endl;
+    // and let's make a thingy blobmapper
+    BlobMapper bm(new ImageAnalyser(fileSet));
+    blobs = bm.mapBlobs(minValue, (unsigned int)wi, 1, true);
+    cout << "mapBlobs Made a total of " << blobs.size() << endl;    
+    
+//     while(blobs.size()){
+// 	delete *blobs.begin();
+// 	blobs.erase(blobs.begin());
+//     }
+    cout << "blobs assigned what's going to happen now.. " << endl;
+
+}
+
 
 void DeltaViewer::findSets(int wi, int minSize, int maxSize, float minValue){
     cout << "DeltaViewer FindSets " << endl;

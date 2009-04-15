@@ -113,6 +113,9 @@ class ImageAnalyser
 	ImageAnalyser(FileSet* fs);
     ~ImageAnalyser();
     
+    void dims(int& w, int& h, int& d);  // the dimensions of the thing.
+    void dims(unsigned long& w, unsigned long& h, unsigned long& d);  // the dimensions of the thing.
+
     bool simpleLine(float* line, int xb, int yb, int zb, int l, Dimension dim, unsigned int wi);   // tries the appropriate cache first, if not then makes a new cache and returns the line
     bool point(float& p, int xp, int yp, int zp, unsigned int wi);                                   // tries the volume_cache, if not ok, makes a new cache.. 
     threeDPeaks* findAllPeaks(unsigned int wl, int pr, float minPeakValue, float maxEdgeProportion, float bgm);   // the same as above but goes through all the slices.. 

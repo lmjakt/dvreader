@@ -1,5 +1,6 @@
 #include "bitMask.h"
 #include <iostream>
+#include <string.h>
 
 BitMask::BitMask(unsigned long size){
     bit_size = size;
@@ -50,4 +51,8 @@ void BitMask::print_byte(unsigned char b){
     for(int i=0; i < 8; ++i)
 	std::cout << (bool) ((b << i) & 128);
     std::cout << std::endl;
+}
+
+void BitMask::zeroMask(){
+    memset((void*)mask, 0, byte_size);
 }

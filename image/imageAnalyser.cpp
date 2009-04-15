@@ -278,6 +278,19 @@ vector<vector<float> > ImageAnalyser::mip_yline(int xpos){
     return(lines);
 }
 
+void ImageAnalyser::dims(int& w, int& h, int& d){
+    w = data->pwidth();
+    h = data->pheight();
+    d = data->sectionNo();
+}
+
+void ImageAnalyser::dims(unsigned long& w, unsigned long& h, unsigned long& d){
+    w = (unsigned long)data->pwidth();
+    h = (unsigned long)data->pheight();
+    d = (unsigned long)data->sectionNo();
+}
+
+
 bool ImageAnalyser::simpleLine(float* line, int xb, int yb, int zb, int l, Dimension dim, unsigned int wi){
     bool ok = false;
     switch(dim){
