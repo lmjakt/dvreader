@@ -174,8 +174,8 @@ fluorInfo FileSet::channelInfo(unsigned int pos){
 
 bool FileSet::getStack(float& xpos, float& ypos){
     // since the x and y positions don't always line up. I'm simply saying if they 
-    // differ by less than 1% then consider them to be the same. This is an arbitrary choice
-    float maxDif = 0.01;
+    // differ by less than 0.1% then consider them to be the same. This is an arbitrary choice
+    float maxDif = 0.001;
     bool foundOne = false;
     for(map<float, map<float, FrameStack*> >::iterator it = frames.begin(); it != frames.end(); it++){
 	if( fabs((2 * ((*it).first - xpos)) / (xpos + (*it).first)) < maxDif ){
@@ -308,7 +308,7 @@ bool FileSet::finalise(){
 	for(uint i=0; i < x_positions.size(); i++){
 	    for(uint j=0; j < y_positions.size(); j++){
 		cout << "frame " << i << ", " << j << endl;
-		vector<overlap_data*> o_data = frames[x_positions[i]][y_positions[j]]->adjustNeighbourPositions(15, 32, 32, 30, i, j);
+		vector<overlap_data*> o_data = frames[x_positions[i]][y_positions[j]]->adjustNeighbourPositions(15, 18, 32, 30, i, j);
 		for(uint k=0; k < o_data.size(); k++){
 		    overlapData.push_back(o_data[k]);
 		}

@@ -17,7 +17,7 @@ BlobMapper::~BlobMapper()
 }
 
 // margin only refers to horizontal stuff.
-set<blob*> BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, bool eatContained){
+set<blob*> BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, bool eatContained, bool eat_neighbors){
     vMask->zeroMask();
     blobs.clear();
     blobMap.clear();
@@ -41,6 +41,10 @@ set<blob*> BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, bool
 	eatContainedBlobs();
 	finaliseBlobs();
     }
+    if(eat_neighbors){
+	eatNeighbors();
+	finaliseBlobs();
+    }
     return(blobs);
 }
 
@@ -54,7 +58,7 @@ void BlobMapper::makeBlob(int x, int y, int z, int w){
     vMask->setMask(true, x, y, z);
     blobMap.insert(make_pair( linear(x, y, z), b));
     blobs.insert(b);
-    cout << "Made a new blob. " << blobs.size() << endl;
+//    cout << "Made a new blob. " << blobs.size() << endl;
     extendBlob(x, y, z, b, w);
 }
 
@@ -155,6 +159,11 @@ bool BlobMapper::isSurface(int x, int y, int z, blob* b, bool tight){
 } 
 
 
+////////////// There may be an issue with the mergeBlobs function, in that it removes elements from 
+/////////////  a set (blobs) whilst we are iterating over that set. However, as long as we don't ask
+/////////////  it to remove the set that is pointed to by the iterator it should be ok. So we have
+////////////   to be very careful when using this function.
+
 // oldBlob eats new blob.
 void BlobMapper::mergeBlobs(blob* newBlob, blob* oldBlob){
     for(uint i=0; i < newBlob->points.size(); ++i){
@@ -237,6 +246,63 @@ void BlobMapper::eatContents(blob* b, VolumeMask* vm, int x, int y, int z){
 	eatContents(b, vm, x, y, z + d);
     }
 }
+
+void BlobMapper::eatNeighbors(){
+    for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
+	eatNeighbors(*it);
+}
+
+void BlobMapper::eatNeighbors(blob* b){
+    map<blob*, NeighborInfo> neighbors;
+    int x, y, z;
+    // go through surface and find things..
+    for(uint i=0; i < b->points.size(); ++i){
+	if(b->surface[i]){
+	    vector<off_set> nei = findNeighbors(b, b->points[i]);
+	    for(uint j=0; j < nei.size(); ++j){
+		blob* bb = blobMap[nei[j]];
+		toVol(nei[j], x, y, z);
+		neighbors[bb].addPoint( value(x, y, z) );
+	    }
+	}
+    }
+    // and then we simply find which neighbor has the highest sum, (we might want to
+    // use the highest mean, or lowest min, or something like that. but let's start
+    // simply.
+    if(!neighbors.size())
+	return;
+
+    map<blob*, NeighborInfo>::iterator it = neighbors.begin();
+    blob* maxBlob = it->first;
+    float maxSum = it->second.sum;
+    for(it=neighbors.begin(); it != neighbors.end(); ++it){
+	if( maxSum < it->second.sum ){
+	    maxBlob = it->first;
+	    maxSum = it->second.sum;
+	}
+    }
+    // the best neighbor is maxBlob, so just eat maxBlob
+    cout << "Eat Neighbours calling mergeBlobs, blob# is " << blobs.size() << endl;
+    mergeBlobs(maxBlob, b);
+		    
+}
+
+vector<off_set> BlobMapper::findNeighbors(blob* b, off_set p){
+    int x, y, z;
+    toVol(p, x, y, z);
+    vector<off_set> neighbors;
+    // search only in the reasonable directions
+    for(int d=-1; d < 2; d += 2){
+	if( differentBlob(x+d, y, z, b) )
+	    neighbors.push_back(linear(x+d, y, z));
+	if( differentBlob(x, y+d, z, b) )
+	    neighbors.push_back(linear(x, y+d, z));
+	if( differentBlob(x, y, z+d, b) )
+	    neighbors.push_back(linear(x, y, z+d));
+    }
+    return(neighbors);
+}
+
 
 void BlobMapper::finaliseBlobs(){
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){

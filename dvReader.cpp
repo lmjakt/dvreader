@@ -73,6 +73,9 @@ bool DVReader::readDVFile(const char* fName){
     //
     headerSize = 1024;   // use for seeking to appropriate place... 
 
+
+///  The below comment is untrue. I cannot open up an unlimited number of file handles. So I think I ended up
+///  using one for each thingy.. 
 //// It seems that there is no problem to open up to 50,000 handles on a given file. That is useful, since it should
 //// mean that we can make an object for every frame. This frame has all the information that we need to extract data..
 //// 

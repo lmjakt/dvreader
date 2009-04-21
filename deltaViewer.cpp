@@ -2055,7 +2055,7 @@ void DeltaViewer::mapBlobs(int wi, float minValue){
     cout << "deleted old blobs" << endl;
     // and let's make a thingy blobmapper
     BlobMapper bm(new ImageAnalyser(fileSet));
-    blobs = bm.mapBlobs(minValue, (unsigned int)wi, 1, true);
+    blobs = bm.mapBlobs(minValue, (unsigned int)wi, 1, false, true);
     cout << "mapBlobs Made a total of " << blobs.size() << endl;    
     
 //     while(blobs.size()){

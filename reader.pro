@@ -55,6 +55,7 @@ HEADERS		= \
 		image/threeDPeakFinder.h \
 		image/bitMask.h \
 		image/volumeMask.h \
+		image/volumeMap.h \
 		image/blobMapper.h \
 		image/coordConverter.h \
 		distanceMapper/compareController.h \
@@ -117,6 +118,7 @@ SOURCES		= \
 		image/threeDPeakFinder.cpp \
 		image/bitMask.cpp \
 		image/volumeMask.cpp \
+		image/volumeMap.cpp \
 		image/blobMapper.cpp \
 		distanceMapper/compareController.cpp \
 		distanceMapper/distanceMapper.cpp \
