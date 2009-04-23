@@ -6,6 +6,10 @@ using namespace std;
 // although this could fail due to a long overflow; we would almost
 // certainly fail due to lack of memory in that case..
 
+VolumeMap::VolumeMap(){
+    cout << "Empty constructor for Volume Map , we should'nt really see this" << endl;
+}
+
 VolumeMap::VolumeMap(int width, int height, int depth){
     if(width < 0 || height < 0 || depth < 0){
 	cerr << "VolumeMap constructor, negative dimension specified. That sucks" << endl;
@@ -13,7 +17,7 @@ VolumeMap::VolumeMap(int width, int height, int depth){
     }
 
     w = width; h = height; d = depth;
-    size = (uint)w * (uint)h * (uint)d;
+    size = (ulong)w * (ulong)h * (ulong)d;
     lineNo = (uint)h * (uint)d;
     
     lines.resize(lineNo);
@@ -21,7 +25,7 @@ VolumeMap::VolumeMap(int width, int height, int depth){
 };
 
 VolumeMap::~VolumeMap(){
-    cout << "VolumeMap destructor doing nothing" << endl;
+    delete mask;
 }
 
 bool VolumeMap::insert(off_set pos, ptr* obj){
@@ -37,7 +41,9 @@ bool VolumeMap::insert(int x, int y, int z, ptr* obj){
     if(!mask->setMask(true, x, y, z))
 	return(false);
     
-    lines[(z * h) + y ].insert(make_pair(x, obj));
+    // do not use insert(make_pair()), as we want to be able to change an old value
+    lines[(z * h) + y ][x] = obj; 
+
     return(true);
     
 }
@@ -50,13 +56,21 @@ ptr* VolumeMap::value(off_set pos){
 
 ptr* VolumeMap::value(int x, int y, int z){
     if(outOfBounds(x, y, z))
+	return(0);
+    if(!mask->mask(x, y, z))
 	return(false);
     map<int, ptr*>::iterator it = lines[(z * h) + y].find(x);
     if(it == lines[(z * h) + y].end())
-	return((ptr*)0);
+	return(0);
     return(it->second);
 }
 
+void VolumeMap::clear(){
+    mask->zeroMask();
+    for(uint i=0; i < lines.size(); ++i){
+	lines[i].clear();
+    }
+}
 
     
 	

@@ -7,30 +7,33 @@ BlobMapper::BlobMapper(ImageAnalyser* ia)
 {
     image = ia;
     image->dims(width, height, depth);
-    vMask = new VolumeMask((unsigned long)width, (unsigned long)height, (unsigned long)depth);
+//    vMask = new VolumeMask((unsigned long)width, (unsigned long)height, (unsigned long)depth);
+    blobMap = new VolumeMap(width, height, depth);
 }
 
 BlobMapper::~BlobMapper()
 {
-    delete vMask;
+//    delete vMask;
     delete image;
+    delete blobMap;
 }
 
 // margin only refers to horizontal stuff.
 set<blob*> BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, bool eatContained, bool eat_neighbors){
-    vMask->zeroMask();
+//    vMask->zeroMask();
     blobs.clear();
-    blobMap.clear();
+    blobMap->clear();
     waveIndex = wi;
     // go through all voxels and make some little paths..
     for(int z=0; z < depth; ++z){
 	cout << "Looking at section " << z << endl;
 	for(int y=0; y < height ; ++y){
 	    for(int x=0; x < width; ++x){
-		if(vMask->mask(x, y, z))
+		if(blobMap->masked(x, y, z))
 		    continue;
 		if(value(x, y, z) < minEdge)
 		    continue;
+//		cout << "calling makeBlob " << x << "," << y << "," << z  << endl;
 		makeBlob(x, y, z, window);
 	    }
 	}
@@ -38,13 +41,23 @@ set<blob*> BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, bool
     finaliseBlobs();
     // if eatContained then we eat contained and refinalise..
     if(eatContained){
+	cout << "Eating contained blobs" << endl;
 	eatContainedBlobs();
 	finaliseBlobs();
     }
     if(eat_neighbors){
+	cout << "Eating neighbours" << endl;
 	eatNeighbors();
 	finaliseBlobs();
+	cout << "finaliseBlobs returned" << endl;
+	cout << "giving us a blob size of " << blobs.size() << endl;
     }
+    int count = 0;
+    for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
+	cout << "blob " << ++count << "  of " << blobs.size() << endl;
+	cout << "blob after finalising with size of : " << (*it)->points.size() << endl;
+    }
+    cout << "and just about to return the blobs to the parent" << endl;
     return(blobs);
 }
 
@@ -55,11 +68,13 @@ void BlobMapper::makeBlob(int x, int y, int z, int w){
     b->points.push_back( linear(x, y, z) );
     b->values.push_back( value(x, y, z) );
     b->surface.push_back(true);
-    vMask->setMask(true, x, y, z);
-    blobMap.insert(make_pair( linear(x, y, z), b));
+    //vMask->setMask(true, x, y, z);
+//    cout << "inserting new blob at : " << x << "," << y << "," << z << endl;
+    blobMap->insert(x, y, z, b);
     blobs.insert(b);
 //    cout << "Made a new blob. " << blobs.size() << endl;
     extendBlob(x, y, z, b, w);
+//    cout << "and blob extended" << endl;
 }
 
 void BlobMapper::extendBlob(int x, int y, int z, blob* b, int w){
@@ -92,25 +107,35 @@ void BlobMapper::extendBlob(int x, int y, int z, blob* b, int w){
     int ny = y + mdy;
     int nz = z + mdz;
     
-    if(!vMask->mask(nx, ny, nz)){
+    blob* oldBlob = blobMap->value(nx, ny, nz);
+    if(!oldBlob){
+//	cout << "oldBlob is null adding to this one" << endl;
 	b->points.push_back( linear(nx, ny, nz) );
 	b->values.push_back( value(nx, ny, nz) );
 	b->surface.push_back(false);
-	vMask->setMask(true, nx, ny, nz);
-	blobMap.insert(make_pair( linear(nx, ny, nz), b));
+	if(!blobMap->insert(nx, ny, nz, b)){
+	    cerr << "unable to insert into map at : " << nx << "," << ny << "," << nz << endl;
+	    exit(1);
+	}
+//	vMask->setMask(true, nx, ny, nz);
+//	blobMap.insert(make_pair( linear(nx, ny, nz), b));
 	//// and Recurse..
 	extendBlob(nx, ny, nz, b, w);
 	return;
 
     }
+//    cout << "old blob has size " << oldBlob->points.size() << endl;
     // It is possible to come to a circle here. If this is the case we can just return.
-    if(blobMap[linear(nx, ny, nz)] == b)
+    if(oldBlob == b)
 	return;
-    // if we are here we need to joing this blob with another one.
+    // if we are here we need to join this blob with another one.
     // Do this in another function.
+    
+//    cout << "calling mergeBlobs" << endl;
 
-    mergeBlobs(b, blobMap[ linear(nx, ny, nz) ]);
+    mergeBlobs(b, oldBlob);
 
+//    cout << "merge returned" << endl;
 }
 
 bool BlobMapper::isSurface(int x, int y, int z, blob* b, bool tight){
@@ -131,10 +156,9 @@ bool BlobMapper::isSurface(int x, int y, int z, blob* b, bool tight){
 			continue;
 		    if( (!(dx || dy || dz)) || (dx && dy && dz) )
 			continue;
-		    
-		    if(!vMask->mask(x + dx, y + dy, z + dz))
-			return(true);
-		    if(blobMap[linear(x + dx, y + dy, z + dz) ] != b)
+		    blob* nblob = blobMap->value(x + dx, y + dy, z + dz);
+		    //if(!vMask->mask(x + dx, y + dy, z + dz))
+		    if(!nblob || nblob != b)
 			return(true);
 		}
 	    }
@@ -166,16 +190,22 @@ bool BlobMapper::isSurface(int x, int y, int z, blob* b, bool tight){
 
 // oldBlob eats new blob.
 void BlobMapper::mergeBlobs(blob* newBlob, blob* oldBlob){
+    oldBlob->blobs.push_back(newBlob);
     for(uint i=0; i < newBlob->points.size(); ++i){
-	oldBlob->points.push_back(newBlob->points[i]);
-	oldBlob->values.push_back(newBlob->values[i]);
-	oldBlob->surface.push_back(newBlob->surface[i]);
+//	oldBlob->points.push_back(newBlob->points[i]);
+//	oldBlob->values.push_back(newBlob->values[i]);
+//	oldBlob->surface.push_back(newBlob->surface[i]);
 	// and change the map positions..
-	blobMap[ newBlob->points[i] ] = oldBlob;
+	blobMap->insert(newBlob->points[i], oldBlob);
     }
+//    cout << "inserted new blob points into old blob" << endl;
     // and then let's get rid of newBlob.
     blobs.erase(newBlob);
-    delete(newBlob);
+//    cout << "erased new blob from blobs" << endl;
+ 
+//   delete(newBlob);
+
+//    cout << "deleted new blob" << endl;
 }
 
 void BlobMapper::eatContainedBlobs(){
@@ -220,7 +250,7 @@ void BlobMapper::eatContents(blob* b, VolumeMask* vm, int x, int y, int z){
 	return;
     vm->setMask(true, lx, ly, lz);
     
-    if(!vMask->mask(x, y, z)){
+    if(!blobMap->value(x, y, z)){
 	cerr << "eatContents: " << x << "," << y << "," << z << " --> " << lx << "," << ly << "," << lz << endl;
 	cerr << "Undefined voxel. We are not supposed to end up here" << endl;
 	cerr << "blob info " << b->min_x << "-" << b->max_x << " : " << b->min_y << "-" << b->max_y << " : " << b->min_z << "-" << b->max_z << endl;
@@ -234,9 +264,10 @@ void BlobMapper::eatContents(blob* b, VolumeMask* vm, int x, int y, int z){
 	return;
     }
     
-    if(blobMap[linear(x, y, z)] != b){
+    blob* nblob = blobMap->value(x, y, z);
+    if(nblob != b){
 //	cout << "merging blob" << endl;
-	mergeBlobs(blobMap[linear(x, y, z)], b);
+	mergeBlobs(nblob, b);
     }
     
     // check the 6 directions for non-member, non-surface..
@@ -260,7 +291,7 @@ void BlobMapper::eatNeighbors(blob* b){
 	if(b->surface[i]){
 	    vector<off_set> nei = findNeighbors(b, b->points[i]);
 	    for(uint j=0; j < nei.size(); ++j){
-		blob* bb = blobMap[nei[j]];
+		blob* bb = blobMap->value(nei[j]);
 		toVol(nei[j], x, y, z);
 		neighbors[bb].addPoint( value(x, y, z) );
 	    }
@@ -271,7 +302,7 @@ void BlobMapper::eatNeighbors(blob* b){
     // simply.
     if(!neighbors.size())
 	return;
-
+    
     map<blob*, NeighborInfo>::iterator it = neighbors.begin();
     blob* maxBlob = it->first;
     float maxSum = it->second.sum;
@@ -283,6 +314,10 @@ void BlobMapper::eatNeighbors(blob* b){
     }
     // the best neighbor is maxBlob, so just eat maxBlob
     cout << "Eat Neighbours calling mergeBlobs, blob# is " << blobs.size() << endl;
+    if(maxBlob == b){
+	cerr << "Eat neighbours asked to eat itself. This is bad, so will die" << endl;
+	exit(1);
+    }
     mergeBlobs(maxBlob, b);
 		    
 }
@@ -304,15 +339,35 @@ vector<off_set> BlobMapper::findNeighbors(blob* b, off_set p){
 }
 
 
-void BlobMapper::finaliseBlobs(){
+void BlobMapper::finaliseBlobs(bool fake){
+    cout << "Finalising blobs.." << endl;
+    int count = 0;
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
-	finaliseBlob(*it);
+	++count;
+	cout << "about to call finalise blob on : " << count << "'th blob of " << blobs.size()  << endl;
+	cout << "size of blob is " << (*it)->points.size() << endl;
+	if(!fake)
+	    finaliseBlob(*it);
     }
+    cout << "end of finalise blobs?" << endl;
 }
 
 void BlobMapper::finaliseBlob(blob* b){
     if(!b->points.size())
 	return;
+    // To flatten it, first work out the size and then call the flatten function.
+    unsigned int blobSize = 0;
+    cout << "calling size" << endl;
+    b->size(blobSize);
+    cout << "Blob size with contained blobs is now : " << blobSize << endl;
+    b->points.reserve(blobSize);
+    b->values.reserve(blobSize);
+    b->surface.reserve(blobSize);
+    cout << "calling flatten" << endl;
+    b->flatten(b);
+    cout << "flattened went nice " << endl;
+
+    
     int x, y, z;
 //	cout << "finalise size " << b->points.size() << " : " << b->values.size() << " : " << b->surface.size() << endl;
     toVol(b->points[0], x, y, z);
@@ -349,4 +404,6 @@ void BlobMapper::finaliseBlob(blob* b){
 	if(b->max_z < z)
 	    b->max_z = z;
     }
+    cout << "end of finaliseBlob" << endl;
 }
+

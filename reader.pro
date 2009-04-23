@@ -58,6 +58,7 @@ HEADERS		= \
 		image/volumeMap.h \
 		image/blobMapper.h \
 		image/coordConverter.h \
+		image/blob.h \
 		distanceMapper/compareController.h \
 		distanceMapper/distanceMapper.h \
 		distanceMapper/distanceViewer.h \
@@ -120,6 +121,7 @@ SOURCES		= \
 		image/volumeMask.cpp \
 		image/volumeMap.cpp \
 		image/blobMapper.cpp \
+		image/blob.cpp \
 		distanceMapper/compareController.cpp \
 		distanceMapper/distanceMapper.cpp \
 		distanceMapper/distanceViewer.cpp \

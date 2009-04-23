@@ -5,6 +5,7 @@
 #include <vector>
 #include "image/bitMask.h"
 #include "image/volumeMask.h"
+#include <set>
 
 using namespace std;
 
@@ -25,8 +26,23 @@ void print_bits(unsigned char b){
 }
 
 int main(int argc, char** argv){
-    // try some bitwise operations. To see what we can do.
 
+    // try some set deletions to check;
+    set<int> ints;
+    for(int i=0; i < 1000; ++i){
+	ints.insert(i);
+    }
+    for(set<int>::iterator it=ints.begin(); it != ints.end(); ++it){
+	if((*it) == 25){
+	    for(int i=24; i < 999; ++i)
+		ints.erase(i);
+	}
+	
+	cout << (*it) << endl;
+    }
+    exit(0);
+
+    // try some bitwise operations. To see what we can do.
     {
 	int dx = -1;
 	unsigned long ul = 20;

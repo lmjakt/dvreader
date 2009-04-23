@@ -2,6 +2,7 @@
 #define BLOBMAPPER_H
 
 #include "volumeMask.h"
+#include "volumeMap.h"
 #include "imageAnalyser.h"
 #include "blob.h"
 #include <vector>
@@ -32,12 +33,13 @@ class BlobMapper
 	}
     };
 
-    std::map<off_set, blob*> blobMap;
+//    std::map<off_set, blob*> blobMap;
+    VolumeMap* blobMap;
     std::set<blob*> blobs;
     int width, height, depth;
     unsigned int waveIndex;
     ImageAnalyser* image;
-    VolumeMask* vMask; // I may not need it here.. 
+//    VolumeMask* vMask; // I may not need it here.. 
 
     // and some internal functions to facilitate the mapping procedure.d
     void makeBlob(int x, int y, int z, int w);
@@ -51,9 +53,9 @@ class BlobMapper
     void eatNeighbors(blob* b);
     std::vector<off_set> findNeighbors(blob* b, off_set p);
 
-    void finaliseBlobs();
+    void finaliseBlobs(bool fake=false);
     void finaliseBlob(blob* b);
-
+ 
 
     // No error checking. 
     float value(int x, int y, int z){
@@ -72,17 +74,13 @@ class BlobMapper
     }
     // no bounds checking. Do elsewhere.
     bool sameBlob(int x, int y, int z, blob* b){
-	if(!vMask->mask(x, y, z))
-	    return(false);
-	return( blobMap[ linear(x, y, z) ] == b);
+	return(b == blobMap->value(x, y, z));
     }
     bool differentBlob(int x, int y, int z, blob* b){
-	if(x >= 0 && y >=0 & z >= 0 && x < width && y < height && z < depth){
-	    if(!vMask->mask(x, y, z))
-		return(false);
-	    return(blobMap[linear(x, y, z)] != b);
-	}
-	return(false);
+	blob* nblob = blobMap->value(x, y, z);
+	if(!nblob)
+	    return(false);
+	return(nblob != b);
     }
 };
 

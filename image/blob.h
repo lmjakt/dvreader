@@ -1,0 +1,31 @@
+#ifndef BLOB_H
+#define BLOB_H
+
+#include <vector>
+
+typedef unsigned int off_set;
+
+struct blob {
+    blob(){
+	min = max = 0;
+	peakPos = 0;
+    }
+    ~blob(){
+	for(uint i=0; i < blobs.size(); ++i)
+	    delete blobs[i];
+    }
+
+    void flatten(blob* parentBlob);
+    void size(unsigned int& s);
+
+    std::vector<off_set> points;
+    std::vector<float> values;
+    std::vector<bool> surface; 
+    std::vector<blob*> blobs;
+    float min, max;
+    int max_x, min_x, max_y, min_y, max_z, min_z;
+    unsigned long peakPos;
+};
+
+#endif
+

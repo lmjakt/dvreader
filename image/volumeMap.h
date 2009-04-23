@@ -14,6 +14,7 @@ typedef unsigned long ulong;
 
 class VolumeMap {
  public:
+    VolumeMap();
     VolumeMap(int width, int height, int depth);
     ~VolumeMap();
 
@@ -23,6 +24,12 @@ class VolumeMap {
     // these give 0 if not masked or out of bounds.
     ptr* value(off_set pos);
     ptr* value(int x, int y, int y);
+
+    bool masked(int x, int y, int z){
+	return(mask->mask(x, y, z));
+    }
+
+    void clear();
 
  private:
     // use one map for each x-line in the sample.
@@ -36,7 +43,7 @@ class VolumeMap {
     int w, h, d;  
 
     off_set linear(int x, int y, int z){
-	return( z * w * h + y * w + x );
+	return( (off_set)z * (off_set)w * (off_set)h + (off_set)y * (off_set)w + (off_set)x );
     }
     void toVol(off_set p, int& x, int& y, int& z){
 	z = p / (w * h);
