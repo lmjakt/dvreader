@@ -30,6 +30,8 @@
 #include <set>
 #include "../abstract/space.h"
 
+typedef unsigned int uint;
+
 struct PerimeterParameters {
     int length;
     int area;

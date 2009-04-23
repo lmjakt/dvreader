@@ -23,6 +23,7 @@
 //End Copyright Notice
 
 #include "threeDPeakFinder.h"
+#include <stdlib.h>
 
 using namespace std;
 

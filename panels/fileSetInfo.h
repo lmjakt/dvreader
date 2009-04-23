@@ -35,6 +35,8 @@ const int magicNumber = 99;  // first number of the file.. (don't care about byt
 const int maxStackNumber = 100;
 const int maxPixelNo = 5000000;   // allow panels to contain up to 5 megapixels.. 
 
+typedef unsigned int uint;
+
 struct FrameInfo {
     unsigned int waveNo;
     float** projection;

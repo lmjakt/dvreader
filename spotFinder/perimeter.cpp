@@ -24,8 +24,11 @@
 
 #include "perimeter.h"
 #include <iostream>
-//#include "../maskPainter.h"
-//#include <string>
+#include <string.h>
+#include <math.h>
+#include <stdlib.h>
+#include <algorithm>
+
 
 using namespace std;
 

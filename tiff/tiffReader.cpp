@@ -32,15 +32,15 @@
 
 using namespace std;
 
-void i_write(unsigned int& n, ofstream& out){
+void i_write(unsigned int n, ofstream& out){
   out.write((char*)&n, 4);    // should be OK.. 
 }
 
-void s_write(unsigned short& s, ofstream& out){
+void s_write(unsigned short s, ofstream& out){
   out.write((char*)&s, 2);
 }
 
-void c_write(char& c, ofstream& out){
+void c_write(char c, ofstream& out){
   out.write(&c, 1);
 }
 

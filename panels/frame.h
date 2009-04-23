@@ -28,7 +28,7 @@
 #include <fstream>
 #include <vector>
 
-
+typedef unsigned int uint;
 
 class Frame {
     public :

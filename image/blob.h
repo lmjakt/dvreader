@@ -4,6 +4,7 @@
 #include <vector>
 
 typedef unsigned int off_set;
+typedef unsigned int uint;
 
 struct blob {
     blob(){
@@ -16,7 +17,7 @@ struct blob {
     }
 
     void flatten(blob* parentBlob);
-    void size(unsigned int& s);
+    void size(off_set& s);
 
     std::vector<off_set> points;
     std::vector<float> values;

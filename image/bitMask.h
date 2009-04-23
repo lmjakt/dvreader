@@ -5,6 +5,8 @@
 // This is done in order to be able to have very large masks that we can use for
 // A variety of purposes.
 
+typedef unsigned long ulong;
+
 class BitMask {
  public:
     BitMask(unsigned long size);

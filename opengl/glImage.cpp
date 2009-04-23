@@ -387,7 +387,7 @@ void GLImage::wheelEvent(QWheelEvent* e){
 
 void GLImage::keyPressEvent(QKeyEvent* e){
   int key = e->key();
-  //cout << "keyEvent : " << key << endl;
+  cout << "keyEvent : " << key << endl;
 
   // note : arrow keys on my stinkpad as follows 
   // up   : 4115
@@ -407,6 +407,18 @@ void GLImage::keyPressEvent(QKeyEvent* e){
     emit previousImage();
     break;
   case 4114 :
+    emit previousImage();
+    break;
+  case 16777236 :
+    emit nextImage();
+    break;
+  case 16777235 :
+    emit nextImage();
+    break;
+  case 16777234 :
+    emit previousImage();
+    break;
+  case 16777237 :
     emit previousImage();
     break;
   default :

@@ -31,6 +31,7 @@
 #include <time.h>
 #include <values.h>
 #include <stdio.h>
+#include <algorithm>
 
 using namespace std;
 

@@ -23,7 +23,7 @@ class VolumeMap {
 
     // these give 0 if not masked or out of bounds.
     ptr* value(off_set pos);
-    ptr* value(int x, int y, int y);
+    ptr* value(int x, int y, int z);
 
     bool masked(int x, int y, int z){
 	return(mask->mask(x, y, z));

@@ -34,6 +34,8 @@
 #include <vector>
 #include <string>
 
+typedef unsigned int uint;
+
 using namespace std;
 
 class TiffReader {
