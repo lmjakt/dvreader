@@ -53,12 +53,6 @@ set<blob*> BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, bool
 	cout << "finaliseBlobs returned" << endl;
 	cout << "giving us a blob size of " << blobs.size() << endl;
     }
-    int count = 0;
-    for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
-	cout << "blob " << ++count << "  of " << blobs.size() << endl;
-	cout << "blob after finalising with size of : " << (*it)->points.size() << endl;
-    }
-    cout << "and just about to return the blobs to the parent" << endl;
     return(blobs);
 }
 
@@ -191,13 +185,20 @@ bool BlobMapper::isSurface(int x, int y, int z, blob* b, bool tight){
 
 // oldBlob eats new blob.
 void BlobMapper::mergeBlobs(blob* newBlob, blob* oldBlob){
+  if(oldBlob == newBlob){
+    cerr << "mergeBlobs asked to merge identical blobs. This is really bad" << endl;
+    exit(1);
+  }
     oldBlob->blobs.push_back(newBlob);
     for(uint i=0; i < newBlob->points.size(); ++i){
 //	oldBlob->points.push_back(newBlob->points[i]);
 //	oldBlob->values.push_back(newBlob->values[i]);
 //	oldBlob->surface.push_back(newBlob->surface[i]);
 	// and change the map positions..
-	blobMap->insert(newBlob->points[i], oldBlob);
+      if(!blobMap->insert(newBlob->points[i], oldBlob)){
+	cerr << "mergeBlobs failed to insert into blobMap" << endl;
+	exit(1);
+      }
     }
 //    cout << "inserted new blob points into old blob" << endl;
     // and then let's get rid of newBlob.
@@ -258,7 +259,7 @@ void BlobMapper::eatContents(blob* b, VolumeMask* vm, int x, int y, int z){
 	for(uint i=0; i < b->points.size(); ++i){
 	    int tx, ty, tz;
 	    toVol(b->points[i], tx, ty, tz);
-	    cout << i << " : " << tx << "," << ty << "," << tz << "\t:" << b->surface[i] << endl;
+	    //cout << i << " : " << tx << "," << ty << "," << tz << "\t:" << b->surface[i] << endl;
 	}
 	vm->printMask();
 	exit(1);
@@ -314,7 +315,7 @@ void BlobMapper::eatNeighbors(blob* b){
 	}
     }
     // the best neighbor is maxBlob, so just eat maxBlob
-    cout << "Eat Neighbours calling mergeBlobs, blob# is " << blobs.size() << endl;
+    //cout << "Eat Neighbours calling mergeBlobs, blob# is " << blobs.size() << endl;
     if(maxBlob == b){
 	cerr << "Eat neighbours asked to eat itself. This is bad, so will die" << endl;
 	exit(1);
@@ -344,9 +345,9 @@ void BlobMapper::finaliseBlobs(bool fake){
     cout << "Finalising blobs.." << endl;
     int count = 0;
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
-	++count;
-	cout << "about to call finalise blob on : " << count << "'th blob of " << blobs.size()  << endl;
-	cout << "size of blob is " << (*it)->points.size() << endl;
+      //++count;
+      //cout << "about to call finalise blob on : " << count << "'th blob of " << blobs.size()  << endl;
+      //cout << "size of blob is " << (*it)->points.size() << endl;
 	if(!fake)
 	    finaliseBlob(*it);
     }
@@ -358,15 +359,15 @@ void BlobMapper::finaliseBlob(blob* b){
 	return;
     // To flatten it, first work out the size and then call the flatten function.
     unsigned int blobSize = 0;
-    cout << "calling size" << endl;
+    //    cout << "calling size" << endl;
     b->size(blobSize);
-    cout << "Blob size with contained blobs is now : " << blobSize << endl;
+    //cout << "Blob size with contained blobs is now : " << blobSize << endl;
     b->points.reserve(blobSize);
     b->values.reserve(blobSize);
     b->surface.reserve(blobSize);
-    cout << "calling flatten" << endl;
-    b->flatten(b);
-    cout << "flattened went nice " << endl;
+    //cout << "calling flatten" << endl;
+    b->flatten();
+    //cout << "flattened went nice " << endl;
 
     
     int x, y, z;
@@ -405,6 +406,6 @@ void BlobMapper::finaliseBlob(blob* b){
 	if(b->max_z < z)
 	    b->max_z = z;
     }
-    cout << "end of finaliseBlob" << endl;
+    //    cout << "end of finaliseBlob" << endl;
 }
 

@@ -1,6 +1,12 @@
 #include "blob.h"
+#include <iostream>
 
 using namespace std;
+
+void blob::flatten(){
+  flatten(this);
+  deleteChildren();
+}
 
 void blob::flatten(blob* parentBlob){
     for(uint i=0; i < blobs.size(); ++i){
@@ -8,8 +14,9 @@ void blob::flatten(blob* parentBlob){
 	parentBlob->values.insert(parentBlob->values.end(), blobs[i]->values.begin(), blobs[i]->values.end());
 	parentBlob->surface.insert(parentBlob->surface.end(), blobs[i]->surface.begin(), blobs[i]->surface.end());
 	blobs[i]->flatten(parentBlob);
-	delete(blobs[i]);
     }
+    // do not delete within this function as it is recursive.
+    blobs.clear();
     blobs.resize(0);
 }
 

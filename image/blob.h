@@ -11,11 +11,16 @@ struct blob {
 	min = max = 0;
 	peakPos = 0;
     }
-    ~blob(){
-	for(uint i=0; i < blobs.size(); ++i)
-	    delete blobs[i];
-    }
+  ~blob(){
+    for(uint i=0; i < blobs.size(); ++i)
+  	    delete blobs[i];
+  }
 
+  void deleteChildren(){
+    for(uint i=0; i < blobs.size(); ++i)
+      delete blobs[i];
+  }
+  void flatten();
     void flatten(blob* parentBlob);
     void size(off_set& s);
 
