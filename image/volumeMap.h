@@ -2,13 +2,14 @@
 #define VOLUMEMAP_H
 
 #include "volumeMask.h"
+#include "linMap.h"
 #include "blob.h"
 #include <map>
 #include <vector>
 
 // one day I'll learn how to use templates..
 
-typedef blob ptr;
+//typedef blob ptr;  // this is defined in the linMap.h
 typedef unsigned int uint;
 typedef unsigned long ulong;
 
@@ -29,12 +30,17 @@ class VolumeMap {
 	return(mask->mask(x, y, z));
     }
 
+    off_set memSize();
+    off_set mapSize();
+
     void clear();
 
  private:
     // use one map for each x-line in the sample.
     // and a bitwise mask for quick checks.
-    std::vector< std::map<int, ptr*> > lines;
+
+//    std::vector< std::map<int, ptr*> > lines;
+    std::vector< LinMap*> lines;
     VolumeMask* mask;
 
     unsigned long size;

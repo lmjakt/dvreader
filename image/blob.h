@@ -20,9 +20,10 @@ struct blob {
     for(uint i=0; i < blobs.size(); ++i)
       delete blobs[i];
   }
-  void flatten();
+    void flatten();
     void flatten(blob* parentBlob);
-    void size(off_set& s);
+    void size(uint& s);
+    void childNo(uint& c);
 
     std::vector<off_set> points;
     std::vector<float> values;

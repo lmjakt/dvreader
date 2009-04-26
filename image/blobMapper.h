@@ -42,10 +42,11 @@ class BlobMapper
 //    VolumeMask* vMask; // I may not need it here.. 
 
     // and some internal functions to facilitate the mapping procedure.d
-    void makeBlob(int x, int y, int z, int w);
+    blob* initBlob(blob* b, int x, int y, int z, int w);
     void extendBlob(int x, int y, int z, blob* b, int w); // make this recursive maybe.
     bool isSurface(int x, int y, int z, blob* b, bool tight=false);
-    void mergeBlobs(blob* newBlob, blob* oldBlob);        // new blob is deleted, so iterators must point to old blob.
+    void mergeBlobs(blob* newBlob, blob* oldBlob);        // new blob is taken by old blob, and references to old blob removed
+    void addPointsToBlob(blob* tempBlob, blob* permBlob); // points from tempBlob are added to permBlob, tempBlob is cleared();
     void eatContainedBlobs();
     void eatContainedBlobs(blob* b);
     void eatContents(blob* b, VolumeMask* vm, int x, int y, int z);

@@ -56,6 +56,7 @@ HEADERS		= \
 		image/bitMask.h \
 		image/volumeMask.h \
 		image/volumeMap.h \
+		image/linMap.h \
 		image/blobMapper.h \
 		image/coordConverter.h \
 		image/blob.h \
@@ -120,6 +121,7 @@ SOURCES		= \
 		image/bitMask.cpp \
 		image/volumeMask.cpp \
 		image/volumeMap.cpp \
+		image/linMap.cpp \
 		image/blobMapper.cpp \
 		image/blob.cpp \
 		distanceMapper/compareController.cpp \

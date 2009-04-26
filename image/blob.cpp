@@ -20,9 +20,15 @@ void blob::flatten(blob* parentBlob){
     blobs.resize(0);
 }
 
-void blob::size(unsigned int& s){
+void blob::size(uint& s){
     s += points.size();
     for(uint i=0; i < blobs.size(); ++i)
 	blobs[i]->size(s);
     
+}
+
+void blob::childNo(unsigned int& c){
+    c += blobs.size();
+    for(uint i=0; i < blobs.size(); ++i)
+	blobs[i]->childNo(c);
 }

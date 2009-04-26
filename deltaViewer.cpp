@@ -1179,6 +1179,7 @@ void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h,
     r = blue = 1.0;
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
 	blob* b = (*it);
+	blue = blue > 0 ? 0 : 1.0;
 	// check if it overlaps in any of the dimensions..
 	if( !( b->min_x <= xo + w && b->max_x >= xo ) )
 	    continue;

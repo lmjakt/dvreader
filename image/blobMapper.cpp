@@ -8,23 +8,21 @@ BlobMapper::BlobMapper(ImageAnalyser* ia)
 {
     image = ia;
     image->dims(width, height, depth);
-//    vMask = new VolumeMask((unsigned long)width, (unsigned long)height, (unsigned long)depth);
     blobMap = new VolumeMap(width, height, depth);
 }
 
 BlobMapper::~BlobMapper()
 {
-//    delete vMask;
     delete image;
     delete blobMap;
 }
 
 // margin only refers to horizontal stuff.
 set<blob*> BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, bool eatContained, bool eat_neighbors){
-//    vMask->zeroMask();
     blobs.clear();
     blobMap->clear();
     waveIndex = wi;
+    blob* tempBlob = new blob();
     // go through all voxels and make some little paths..
     for(int z=0; z < depth; ++z){
 	cout << "Looking at section " << z << endl;
@@ -34,10 +32,17 @@ set<blob*> BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, bool
 		    continue;
 		if(value(x, y, z) < minEdge)
 		    continue;
-//		cout << "calling makeBlob " << x << "," << y << "," << z  << endl;
-		makeBlob(x, y, z, window);
+		tempBlob = initBlob(tempBlob, x, y, z, window);
 	    }
 	}
+	cout << "\tblob#\t" << blobs.size() << endl;
+	cout << "\tmapSize\t" << blobMap->mapSize() << endl;
+	cout << "\tmemSize\t" << blobMap->memSize() << endl;
+	cout << "\n\tblobSize\t" << sizeof(blob) << endl;
+	uint blobNo = 0;
+	for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
+	    (*it)->childNo(blobNo);
+	cout << "Total number of blobs defined : " << blobNo << endl;
     }
     finaliseBlobs();
     // if eatContained then we eat contained and refinalise..
@@ -53,23 +58,33 @@ set<blob*> BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, bool
 	cout << "finaliseBlobs returned" << endl;
 	cout << "giving us a blob size of " << blobs.size() << endl;
     }
+    delete(tempBlob);
     return(blobs);
 }
 
-void BlobMapper::makeBlob(int x, int y, int z, int w){
-    // make a new blob.
-    blob* b = new blob();
+blob* BlobMapper::initBlob(blob* b, int x, int y, int z, int w){
+    // don't make a new blob. Use the one provided.
+    //blob* b = new blob();
     
     b->points.push_back( linear(x, y, z) );
     b->values.push_back( value(x, y, z) );
     b->surface.push_back(true);
-    //vMask->setMask(true, x, y, z);
-//    cout << "inserting new blob at : " << x << "," << y << "," << z << endl;
-    blobMap->insert(x, y, z, b);
-    blobs.insert(b);
-//    cout << "Made a new blob. " << blobs.size() << endl;
+
+//    blobMap->insert(x, y, z, b);
+//    blobs.insert(b);
     extendBlob(x, y, z, b, w);
-//    cout << "and blob extended" << endl;
+    // if b is merged , it will have a size of 0, and we can just return it for reuse.
+    // otherwise we'll need to add it's points into the relevant maps and make a new
+    // temporary blob
+
+    if(!b->points.size())
+	return(b);
+    blobs.insert(b);
+    for(uint i=0; i < b->points.size(); ++i)
+	blobMap->insert(b->points[i], b);
+    blob* tempBlob = new blob();
+    return(tempBlob);
+
 }
 
 void BlobMapper::extendBlob(int x, int y, int z, blob* b, int w){
@@ -104,7 +119,6 @@ void BlobMapper::extendBlob(int x, int y, int z, blob* b, int w){
     
     blob* oldBlob = blobMap->value(nx, ny, nz);
     if(!oldBlob){
-//	cout << "oldBlob is null adding to this one" << endl;
 	b->points.push_back( linear(nx, ny, nz) );
 	b->values.push_back( value(nx, ny, nz) );
 	b->surface.push_back(false);
@@ -112,25 +126,17 @@ void BlobMapper::extendBlob(int x, int y, int z, blob* b, int w){
 	    cerr << "unable to insert into map at : " << nx << "," << ny << "," << nz << endl;
 	    exit(1);
 	}
-//	vMask->setMask(true, nx, ny, nz);
-//	blobMap.insert(make_pair( linear(nx, ny, nz), b));
 	//// and Recurse..
 	extendBlob(nx, ny, nz, b, w);
 	return;
 
     }
-//    cout << "old blob has size " << oldBlob->points.size() << endl;
     // It is possible to come to a circle here. If this is the case we can just return.
     if(oldBlob == b)
 	return;
-    // if we are here we need to join this blob with another one.
-    // Do this in another function.
-    
-//    cout << "calling mergeBlobs" << endl;
-
-    mergeBlobs(b, oldBlob);
-
-//    cout << "merge returned" << endl;
+//    mergeBlobs(b, oldBlob);
+    addPointsToBlob(b, oldBlob);
+    return;
 }
 
 bool BlobMapper::isSurface(int x, int y, int z, blob* b, bool tight){
@@ -152,13 +158,16 @@ bool BlobMapper::isSurface(int x, int y, int z, blob* b, bool tight){
 		    if( (!(dx || dy || dz)) || (dx && dy && dz) )
 			continue;
 		    blob* nblob = blobMap->value(x + dx, y + dy, z + dz);
-		    //if(!vMask->mask(x + dx, y + dy, z + dz))
 		    if(!nblob || nblob != b)
 			return(true);
 		}
 	    }
 	}
 	return(false);
+    }
+    if(blobMap->value(x, y, z) != b){
+	cerr << "BlobMapper::isSurface blobMap giving wrong blob " << blobMap->value(x, y, z) << "  instead of " << b << endl;
+	exit(1);
     }
     for(int d=-1; d <= 1; d += 2){
 	if( (d + x) >= 0 && (d + x) < width){
@@ -191,28 +200,34 @@ void BlobMapper::mergeBlobs(blob* newBlob, blob* oldBlob){
   }
     oldBlob->blobs.push_back(newBlob);
     for(uint i=0; i < newBlob->points.size(); ++i){
-//	oldBlob->points.push_back(newBlob->points[i]);
-//	oldBlob->values.push_back(newBlob->values[i]);
-//	oldBlob->surface.push_back(newBlob->surface[i]);
-	// and change the map positions..
-      if(!blobMap->insert(newBlob->points[i], oldBlob)){
-	cerr << "mergeBlobs failed to insert into blobMap" << endl;
-	exit(1);
-      }
+	if(!blobMap->insert(newBlob->points[i], oldBlob)){
+	    cerr << "mergeBlobs failed to insert into blobMap" << endl;
+	    exit(1);
+	}
     }
-//    cout << "inserted new blob points into old blob" << endl;
     // and then let's get rid of newBlob.
     blobs.erase(newBlob);
-//    cout << "erased new blob from blobs" << endl;
- 
-//   delete(newBlob);
+}
 
-//    cout << "deleted new blob" << endl;
+void BlobMapper::addPointsToBlob(blob* tempBlob, blob* permBlob){
+    permBlob->points.reserve(permBlob->points.size() + tempBlob->points.size());
+    permBlob->values.reserve(permBlob->points.size() + tempBlob->points.size());
+    permBlob->surface.reserve(permBlob->points.size() + tempBlob->points.size());
+
+    for(uint i=0; i < tempBlob->points.size(); ++i){
+	blobMap->insert(tempBlob->points[i], permBlob);
+	permBlob->points.push_back( tempBlob->points[i]);
+	permBlob->values.push_back( tempBlob->values[i]);
+	permBlob->surface.push_back( tempBlob->surface[i]);  // Though this is rather stupid..
+    }
+    tempBlob->points.resize(0);
+    tempBlob->values.resize(0);
+    tempBlob->surface.resize(0);
+    // Don't delete as we want to reuse tempBlob;
 }
 
 void BlobMapper::eatContainedBlobs(){
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
-//	cout << "Eating contained blobs" << endl;
 	eatContainedBlobs(*it);
     }
 }
@@ -226,7 +241,6 @@ void BlobMapper::eatContainedBlobs(blob* b){
 	if(b->surface[i]){
 	    toVol(b->points[i], x, y, z);
 	    vm->setMask(true, x - b->min_x, y - b->min_y, z - b->min_z);
-//	    cout << "Set local mask at: " << x << "," << y << "," << z << endl;
 	}
     }
 	
@@ -234,7 +248,6 @@ void BlobMapper::eatContainedBlobs(blob* b){
     for(uint i=0; i < b->points.size(); ++i){
 	if(!(b->surface[i])){
 	    toVol(b->points[i], x, y, z);
-	    //cout << "calling eatContents at : " << x << "," << y << "," << z << " blob size is : " << b->points.size() << endl;
 	    eatContents(b, vm, x, y, z);
 	    break;
 	}
@@ -268,7 +281,6 @@ void BlobMapper::eatContents(blob* b, VolumeMask* vm, int x, int y, int z){
     
     blob* nblob = blobMap->value(x, y, z);
     if(nblob != b){
-//	cout << "merging blob" << endl;
 	mergeBlobs(nblob, b);
     }
     
@@ -315,7 +327,6 @@ void BlobMapper::eatNeighbors(blob* b){
 	}
     }
     // the best neighbor is maxBlob, so just eat maxBlob
-    //cout << "Eat Neighbours calling mergeBlobs, blob# is " << blobs.size() << endl;
     if(maxBlob == b){
 	cerr << "Eat neighbours asked to eat itself. This is bad, so will die" << endl;
 	exit(1);
@@ -343,11 +354,7 @@ vector<off_set> BlobMapper::findNeighbors(blob* b, off_set p){
 
 void BlobMapper::finaliseBlobs(bool fake){
     cout << "Finalising blobs.." << endl;
-    int count = 0;
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
-      //++count;
-      //cout << "about to call finalise blob on : " << count << "'th blob of " << blobs.size()  << endl;
-      //cout << "size of blob is " << (*it)->points.size() << endl;
 	if(!fake)
 	    finaliseBlob(*it);
     }
@@ -371,9 +378,10 @@ void BlobMapper::finaliseBlob(blob* b){
 
     
     int x, y, z;
-//	cout << "finalise size " << b->points.size() << " : " << b->values.size() << " : " << b->surface.size() << endl;
-    toVol(b->points[0], x, y, z);
-//	cout << "\t\t" << b->points[0] << " maps to " << x << "," << y << "," << z << endl;
+
+//     cout << "finalise size " << b->points.size() << " : " << b->values.size() << " : " << b->surface.size() << endl;
+//     toVol(b->points[0], x, y, z);
+//     cout << "\t\t" << b->points[0] << " maps to " << x << "," << y << "," << z << endl;
     
     b->max = b->values[0];
     b->min = b->values[0];
