@@ -333,7 +333,12 @@ void BlobMapper::eatNeighbors(blob* b){
 	cerr << "Eat neighbours asked to eat itself. This is bad, so will die" << endl;
 	exit(1);
     }
-    mergeBlobs(maxBlob, b);
+
+    addPointsToBlob(maxBlob, b);
+    blobs.erase(maxBlob);
+    delete(maxBlob);
+
+//    mergeBlobs(maxBlob, b);
 		    
 }
 
