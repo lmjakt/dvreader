@@ -55,6 +55,8 @@ set<blob*> BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, bool
 	cout << "Eating neighbours" << endl;
 	eatNeighbors();
 	finaliseBlobs();
+	eatNeighbors();
+	finaliseBlobs();
 	cout << "finaliseBlobs returned" << endl;
 	cout << "giving us a blob size of " << blobs.size() << endl;
     }
