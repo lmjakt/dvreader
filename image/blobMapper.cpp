@@ -39,10 +39,10 @@ set<blob*> BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, bool
 	cout << "\tmapSize\t" << blobMap->mapSize() << endl;
 	cout << "\tmemSize\t" << blobMap->memSize() << endl;
 	cout << "\n\tblobSize\t" << sizeof(blob) << endl;
-	uint blobNo = 0;
-	for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
-	    (*it)->childNo(blobNo);
-	cout << "Total number of blobs defined : " << blobNo << endl;
+	//	uint blobNo = 0;
+	//for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
+	//    (*it)->childNo(blobNo);
+	//cout << "Total number of blobs defined : " << blobNo << endl;
     }
     finaliseBlobs();
     // if eatContained then we eat contained and refinalise..
@@ -51,15 +51,15 @@ set<blob*> BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, bool
 	eatContainedBlobs();
 	finaliseBlobs();
     }
-    if(eat_neighbors){
-	cout << "Eating neighbours" << endl;
-	eatNeighbors();
-	finaliseBlobs();
-	eatNeighbors();
-	finaliseBlobs();
-	cout << "finaliseBlobs returned" << endl;
-	cout << "giving us a blob size of " << blobs.size() << endl;
-    }
+     if(eat_neighbors){
+ 	cout << "Eating neighbours" << endl;
+ 	eatNeighbors();
+ 	finaliseBlobs();
+// 	eatNeighbors();
+// 	finaliseBlobs();
+ 	cout << "finaliseBlobs returned" << endl;
+ 	cout << "giving us a blob size of " << blobs.size() << endl;
+     }
     delete(tempBlob);
     return(blobs);
 }
@@ -69,7 +69,7 @@ blob* BlobMapper::initBlob(blob* b, int x, int y, int z, int w){
     //blob* b = new blob();
     
     b->points.push_back( linear(x, y, z) );
-    b->values.push_back( value(x, y, z) );
+    //b->values.push_back( value(x, y, z) );
     b->surface.push_back(true);
 
 //    blobMap->insert(x, y, z, b);
@@ -122,7 +122,7 @@ void BlobMapper::extendBlob(int x, int y, int z, blob* b, int w){
     blob* oldBlob = blobMap->value(nx, ny, nz);
     if(!oldBlob){
 	b->points.push_back( linear(nx, ny, nz) );
-	b->values.push_back( value(nx, ny, nz) );
+	//b->values.push_back( value(nx, ny, nz) );
 	b->surface.push_back(false);
 	if(!blobMap->insert(nx, ny, nz, b)){
 	    cerr << "unable to insert into map at : " << nx << "," << ny << "," << nz << endl;
@@ -200,30 +200,34 @@ void BlobMapper::mergeBlobs(blob* newBlob, blob* oldBlob){
     cerr << "mergeBlobs asked to merge identical blobs. This is really bad" << endl;
     exit(1);
   }
-    oldBlob->blobs.push_back(newBlob);
-    for(uint i=0; i < newBlob->points.size(); ++i){
-	if(!blobMap->insert(newBlob->points[i], oldBlob)){
-	    cerr << "mergeBlobs failed to insert into blobMap" << endl;
-	    exit(1);
-	}
-    }
-    // and then let's get rid of newBlob.
-    blobs.erase(newBlob);
+  addPointsToBlob(newBlob, oldBlob);
+  blobs.erase(newBlob);
+  delete(newBlob);
+
+//     oldBlob->blobs.push_back(newBlob);
+//     for(uint i=0; i < newBlob->points.size(); ++i){
+// 	if(!blobMap->insert(newBlob->points[i], oldBlob)){
+// 	    cerr << "mergeBlobs failed to insert into blobMap" << endl;
+// 	    exit(1);
+// 	}
+//     }
+//     // and then let's get rid of newBlob.
+//     blobs.erase(newBlob);
 }
 
 void BlobMapper::addPointsToBlob(blob* tempBlob, blob* permBlob){
     permBlob->points.reserve(permBlob->points.size() + tempBlob->points.size());
-    permBlob->values.reserve(permBlob->points.size() + tempBlob->points.size());
+    //permBlob->values.reserve(permBlob->points.size() + tempBlob->points.size());
     permBlob->surface.reserve(permBlob->points.size() + tempBlob->points.size());
 
     for(uint i=0; i < tempBlob->points.size(); ++i){
 	blobMap->insert(tempBlob->points[i], permBlob);
 	permBlob->points.push_back( tempBlob->points[i]);
-	permBlob->values.push_back( tempBlob->values[i]);
+	//permBlob->values.push_back( tempBlob->values[i]);
 	permBlob->surface.push_back( tempBlob->surface[i]);  // Though this is rather stupid..
     }
     tempBlob->points.resize(0);
-    tempBlob->values.resize(0);
+    //tempBlob->values.resize(0);
     tempBlob->surface.resize(0);
     // Don't delete as we want to reuse tempBlob;
 }
@@ -333,13 +337,10 @@ void BlobMapper::eatNeighbors(blob* b){
 	cerr << "Eat neighbours asked to eat itself. This is bad, so will die" << endl;
 	exit(1);
     }
-
-    addPointsToBlob(maxBlob, b);
-    blobs.erase(maxBlob);
-    delete(maxBlob);
-
-//    mergeBlobs(maxBlob, b);
-		    
+    mergeBlobs(maxBlob, b);
+    //addPointsToBlob(maxBlob, b);
+    //blobs.erase(maxBlob);
+    //delete(maxBlob);
 }
 
 vector<off_set> BlobMapper::findNeighbors(blob* b, off_set p){
@@ -371,17 +372,17 @@ void BlobMapper::finaliseBlobs(bool fake){
 void BlobMapper::finaliseBlob(blob* b){
     if(!b->points.size())
 	return;
-    // To flatten it, first work out the size and then call the flatten function.
-    unsigned int blobSize = 0;
-    //    cout << "calling size" << endl;
-    b->size(blobSize);
-    //cout << "Blob size with contained blobs is now : " << blobSize << endl;
-    b->points.reserve(blobSize);
-    b->values.reserve(blobSize);
-    b->surface.reserve(blobSize);
-    //cout << "calling flatten" << endl;
-    b->flatten();
-    //cout << "flattened went nice " << endl;
+//     // To flatten it, first work out the size and then call the flatten function.
+//     unsigned int blobSize = 0;
+//     //    cout << "calling size" << endl;
+//     b->size(blobSize);
+//     //cout << "Blob size with contained blobs is now : " << blobSize << endl;
+//     b->points.reserve(blobSize);
+//     b->values.reserve(blobSize);
+//     b->surface.reserve(blobSize);
+//     //cout << "calling flatten" << endl;
+//     b->flatten();
+//     //cout << "flattened went nice " << endl;
 
     
     int x, y, z;
@@ -390,23 +391,28 @@ void BlobMapper::finaliseBlob(blob* b){
 //     toVol(b->points[0], x, y, z);
 //     cout << "\t\t" << b->points[0] << " maps to " << x << "," << y << "," << z << endl;
     
-    b->max = b->values[0];
-    b->min = b->values[0];
-    
+//    b->max = b->min = b->values[0];
+    b->max = b->min = value(b->points[0]);
+
     b->peakPos = b->points[0];
     b->min_x = b->max_x = x;
     b->min_y = b->max_y = y;
     b->min_z = b->max_z = z;
     // and then go through and check everything..
+    float v;
     for(uint i=0; i < b->points.size(); ++i){
-	toVol(b->points[i], x, y, z);
-	b->surface[i] = isSurface(x, y, z, b);
-	if(b->max < b->values[i]){
-	    b->max = b->values[i];
-	    b->peakPos = b->points[i];
+      toVol(b->points[i], x, y, z);
+      v = value(b->points[i]);
+      b->surface[i] = isSurface(x, y, z, b);
+      if(b->max < v){
+	//      if(b->max < b->values[i]){
+	  b->max = v;
+	    //	    b->max = b->values[i];
+	  b->peakPos = b->points[i];
 	}
-	if(b->min > b->values[i])
-	    b->min = b->values[i];
+	if(b->min > v)
+	  b->min = v;
+	//	if(b->min > b->values[i])
 	
 	if(b->min_x > x)
 	    b->min_x = x;
