@@ -64,6 +64,11 @@ class BlobMapper
 	image->point(v, x, y, z, waveIndex);
 	return(v);
     }
+    float value(off_set p){
+      int x, y, z;
+      toVol(p, x, y, z);
+      return(value(x, y, z));
+    }
     off_set linear(int x, int y, int z){
 	return((off_set)z * ((off_set)width * (off_set)height) + 
 	       ((off_set)y * (off_set)width) + (off_set)x);
