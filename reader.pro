@@ -52,6 +52,8 @@ HEADERS		= \
 		panels/fileSetInfo.h \
 		image/imageFunc.h \
 		image/imageAnalyser.h \
+		image/imageData.h \
+		image/volumeCache.h \
 		image/threeDPeakFinder.h \
 		image/bitMask.h \
 		image/volumeMask.h \
@@ -117,6 +119,8 @@ SOURCES		= \
 		panels/fileSetInfo.cpp \
 		image/imageFunc.cpp \
 		image/imageAnalyser.cpp \
+		image/volumeCache.cpp \
+		image/imageData.cpp \
 		image/threeDPeakFinder.cpp \
 		image/bitMask.cpp \
 		image/volumeMask.cpp \

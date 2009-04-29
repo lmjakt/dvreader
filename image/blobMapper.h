@@ -2,8 +2,8 @@
 #define BLOBMAPPER_H
 
 #include "volumeMask.h"
+#include "imageData.h"
 #include "volumeMap.h"
-#include "imageAnalyser.h"
 #include "blob.h"
 #include <vector>
 #include <map>
@@ -13,7 +13,7 @@
 class BlobMapper
 {
  public:
-    BlobMapper(ImageAnalyser* ia);
+    BlobMapper(ImageData* ia);
     ~BlobMapper();
 
     std::set<blob*> mapBlobs(float minEdge, unsigned int wi, int window, bool eatContained, bool eat_neighbors);
@@ -38,7 +38,7 @@ class BlobMapper
     std::set<blob*> blobs;
     int width, height, depth;
     unsigned int waveIndex;
-    ImageAnalyser* image;
+    ImageData* image;
 //    VolumeMask* vMask; // I may not need it here.. 
 
     // and some internal functions to facilitate the mapping procedure.d
@@ -56,7 +56,7 @@ class BlobMapper
 
     void finaliseBlobs(bool fake=false);
     void finaliseBlob(blob* b);
- 
+    void uninterpolate(blob* b);
 
     // No error checking. 
     float value(int x, int y, int z){
@@ -87,6 +87,12 @@ class BlobMapper
 	if(!nblob)
 	    return(false);
 	return(nblob != b);
+    }
+    int min(int v1, int v2){
+	return( (v1 < v2 ? v1 : v2) );
+    }
+    int max(int v1, int v2){
+	return( (v1 > v2 ? v1 : v2) );
     }
 };
 

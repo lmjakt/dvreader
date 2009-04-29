@@ -30,7 +30,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include "imageData.h"
+//#include "imageData.h"
 #include "dataStructs.h"
 #include "kcluster/kClusterProcess.h"
 #include "panels/fileSet.h"

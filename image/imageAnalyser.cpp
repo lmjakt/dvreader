@@ -35,60 +35,6 @@
 
 using namespace std;
 
-bool VolumeCache::simpleLine(float* line, int xb, int yb, int zb, int l, Dimension dim, unsigned int wi){
-    // first check if the starting point is within the area covered by the cache..
-    bool ok = false;
-    if(wi != waveIndex){
-	return(ok);
-    }
-    if(!(xb >= x && xb < x + w && yb >= y && yb < y + h && zb >= z && zb < z + d)){
-//	cout << "VolumeCache doesn't contain line with point " << xb << ", " << yb << ", " << zb << endl;
-	return(ok);
-    }
-    if(l <= 0){
-	cerr << "VolumeCache::simpleLine negative or 0 length line requested : " << endl;
-	return(ok);
-    }
-    switch(dim){
-	case XDIM :
-	    if(xb + l <= x + w){
-		memcpy((void*)line, cache + (zb-z) * h * w +  (yb - y) * w + (xb - x), sizeof(float) * l);
-		ok = true;
-	    }
-	    break;
-	case YDIM :
-	    if(yb + l <= y + h){
-		for(int i=0; i < l; ++i){
-		    *line = cache[ (zb - z) * w * h + (yb + i - y) * w + (xb - x) ];
-		    ++line;
-		}
-		ok = true;
-	    }
-	    break;
-	case ZDIM :
-	    if(zb + l <= z + d){
-		for(int i=0; i < l; ++i){
-		    *line = cache[ (zb + i - z) * w * h + (yb - y) * w + (xb - x) ];
-		    ++line;
-		}
-		ok = true;
-	    }
-    }
-    return(ok);
-}
-
-/// MAKE point()  FUNCTION INLINE TO SPEED THINGS UP .. 
- 
-// bool VolumeCache::point(float& p, int xp, int yp, int zp){  
-//     if(!(xp >= x && xp < x + w && yp >= y && yp < y + h && zp >= z && zp < z + d)){
-// 	cout < "VolumeCache::point point not in cache : " << xp << ", " << yp << ", " << zp << endl;
-// 	return(false);
-//     }
-//     p = cache[(zp - z) * w * h + (yp - y) * w + (xp - x)];
-//     return(true);
-// }
-
-
 ImageAnalyser::ImageAnalyser(FileSet* fs){
     data = fs;
     area_cache = new VolumeCache();
@@ -301,7 +247,7 @@ bool ImageAnalyser::simpleLine(float* line, int xb, int yb, int zb, int l, Dimen
 	    break;
 	case YDIM :   // first check if we can read it from the cache, if not delete area cache and make a new one
 //	    cout << "simpleLine YDIM " << endl;
-	    if(!( ok = area_cache->simpleLine(line, xb, yb, zb, l, YDIM, wi))){   // this should set the resulting value of ok .. 
+	    if(!( ok = area_cache->line(line, xb, yb, zb, l, YDIM, wi))){   // this should set the resulting value of ok .. 
 //		cout << "\t\tneed to make a new cache " << endl;
 		float* newCache = new float[area_cache_width * data->pheight()];
 		memset((void*)newCache, 0, sizeof(float) * area_cache_width * data->pheight());
@@ -311,14 +257,14 @@ bool ImageAnalyser::simpleLine(float* line, int xb, int yb, int zb, int l, Dimen
 		    area_cache = new VolumeCache(newCache, x, 0, zb, area_cache_width, data->pheight(), 1, wi);
 		    // and then if we can do this.. 
 //		    cout << "\t\t\tnew area cache made and trying to read from it.. " << endl;
-		    ok = area_cache->simpleLine(line, xb, yb, zb, l, YDIM, wi);
+		    ok = area_cache->line(line, xb, yb, zb, l, YDIM, wi);
 		}else{
 		    delete newCache;
 		}
 	    }    
 	    break;
 	case ZDIM :
-	    if(!(ok = x_z_slice_cache->simpleLine(line, xb, yb, zb, l, ZDIM, wi)) ){
+	    if(!(ok = x_z_slice_cache->line(line, xb, yb, zb, l, ZDIM, wi)) ){
 		float* newCache = new float[data->sectionNo() * x_z_slice_cache_width * x_z_slice_cache_height];
 		memset((void*)newCache, 0, sizeof(float) * data->sectionNo() * x_z_slice_cache_width * x_z_slice_cache_height);
 		int x = (xb + x_z_slice_cache_width) > data->pwidth() ? data->pwidth() - x_z_slice_cache_width : xb;
@@ -327,7 +273,7 @@ bool ImageAnalyser::simpleLine(float* line, int xb, int yb, int zb, int l, Dimen
 		if(data->readToFloat(newCache, x, y, 0, x_z_slice_cache_width, x_z_slice_cache_height, data->sectionNo(), wi)){
 		    delete x_z_slice_cache;
 		    x_z_slice_cache = new VolumeCache(newCache, x, y, 0, x_z_slice_cache_width, x_z_slice_cache_height, data->sectionNo(), wi);
-		    ok = x_z_slice_cache->simpleLine(line, xb, yb, zb, l, ZDIM, wi);
+		    ok = x_z_slice_cache->line(line, xb, yb, zb, l, ZDIM, wi);
 		}else{
 		    delete newCache;
 //		    cerr << "Unable to obtain z_line for coordinates : " << xb << ", " << yb << ", " << zb << "  length : " << l 

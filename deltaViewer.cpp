@@ -51,7 +51,9 @@
 #include "dataStructs.h"
 #include "stat/stat.h"
 #include "image/blobMapper.h"   // probably move this to somewhere else.. 
+#include "image/imageData.h"
 #include "image/coordConverter.h"
+
 
 //#include "pointViewer/pointViewWidget.h"
 
@@ -1176,11 +1178,14 @@ void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h,
     // is.
     CoordConverter cc(fileSet->pwidth(),fileSet->pheight(), fileSet->sectionNo());
     float r, g, blue;
-    r = blue = 1.0;
+    //r = blue = 1.0;
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
 	blob* b = (*it);
 	blue = blue > 0 ? 0 : 1.0;
 	// check if it overlaps in any of the dimensions..
+	r = (float)b->r / 255.0;
+	g = (float)b->g / 255.0;
+	blue = (float)b->b / 255.0;
 	if( !( b->min_x <= xo + w && b->max_x >= xo ) )
 	    continue;
 	if( !( b->min_y <= yo + h && b->max_y >= yo) )
@@ -1189,6 +1194,8 @@ void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h,
 	    continue;
 	// Then simply go through the  points and see whether or not
 	for(uint i=0; i < b->points.size(); ++i){
+	    if(!b->surface[i])
+		continue;
 	    int b_x, b_y, b_z;  // the point coordinates
 	    cc.vol(b->points[i], b_x, b_y, b_z);
 	    if(b_z != z)
@@ -1197,9 +1204,9 @@ void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h,
 		continue;
 	    if( !(b_x >= xo && b_x <= xo + h) )
 		continue;
-	    g = 0.0;
-	    if(b->surface[i])
-		g = 1.0;
+//	    g = 0.0;
+//	    if(b->surface[i])
+//		g = 1.0;
 	    int area_offset = 3 * ((b_y - yo) * w + b_x - xo);
 	    area[ area_offset ] = r;
 	    area[ area_offset + 1] = g;
@@ -2055,7 +2062,7 @@ void DeltaViewer::mapBlobs(int wi, float minValue){
     }
     cout << "deleted old blobs" << endl;
     // and let's make a thingy blobmapper
-    BlobMapper bm(new ImageAnalyser(fileSet));
+    BlobMapper bm(new ImageData(fileSet, 1) );
     blobs = bm.mapBlobs(minValue, (unsigned int)wi, 1, false, true);
     cout << "mapBlobs Made a total of " << blobs.size() << endl;    
     
