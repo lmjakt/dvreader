@@ -61,7 +61,8 @@
 #include "panels/fileSet.h"
 #include "panels/overlapWindow.h"
 #include "image/imageAnalyser.h"
-#include "image/blobMapper.h"
+//#include "image/blobMapper.h"
+#include "image/blobMapperWidget.h"
 
 using namespace std;
 
@@ -117,7 +118,7 @@ class DeltaViewer : public QWidget
   void paintPeaks(float* area, int px, int py, int w, int h);   // this checks if there are peaks to be painted from the spotsWidgets .. 
   //void paintBlobs(float* area, int xo, int yo, int z, int w, int h);
   void paintBlobs(float* area, int xo, int yo, int z, int w, int h, 
-		  set<blob*> blobs);
+		  BlobMapperWidget* blb);
   void exportPeaks();  // write the peaks to a file in a reasonable manner.. 
   void paintNuclei(float* area, int px, int py, int w, int h);  // and this checks if there are any nuclei to be painted.. (but a bit more tricky)
   void paintParameterData(float* area, int px, int py, int w, int h);
@@ -196,7 +197,7 @@ class DeltaViewer : public QWidget
 
   private :
       /// Move this later, bull
-      set<blob*> blobs;
+      set<BlobMapperWidget*> blobs;
 
       QString fName;
     DVReader* reader;

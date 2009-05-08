@@ -12,26 +12,12 @@ struct blob {
 	peakPos = 0;
 	r = g = b = 200;
     }
-  ~blob(){
-  }
-/*     for(uint i=0; i < blobs.size(); ++i) */
-/*   	    delete blobs[i]; */
-/*   } */
-
-/*   void deleteChildren(){ */
-/*     for(uint i=0; i < blobs.size(); ++i) */
-/*       delete blobs[i]; */
-/*   } */
-/*     void flatten(); */
-/*     void flatten(blob* parentBlob); */
+    ~blob(){
+    }
     void size(uint& s);
-    //    void childNo(uint& c);
-
     std::vector<off_set> points;
-    //std::vector<float> values;
     std::vector<bool> surface; 
-    //std::vector<blob*> blobs;
-    float min, max;
+    float min, max, sum;
     int max_x, min_x, max_y, min_y, max_z, min_z;
     unsigned long peakPos;
     int r, g, b;

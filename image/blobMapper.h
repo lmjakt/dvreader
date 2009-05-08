@@ -8,7 +8,7 @@
 #include <vector>
 #include <map>
 #include <set>
-
+#include <string>
 
 class BlobMapper
 {
@@ -16,8 +16,15 @@ class BlobMapper
     BlobMapper(ImageData* ia);
     ~BlobMapper();
 
-    std::set<blob*> mapBlobs(float minEdge, unsigned int wi, int window, bool eatContained, bool eat_neighbors);
+    void mapBlobs(float minEdge, unsigned int wi, int window);
+    bool exportBlobs(std::string fname);
+    std::set<blob*>& gBlobs();
+    void eatNeighbors();
+    float minimum(){
+	return(minimumEdge);
+    }
     
+
  private:
     struct NeighborInfo {
 	std::vector<float> values;
@@ -36,8 +43,11 @@ class BlobMapper
 //    std::map<off_set, blob*> blobMap;
     VolumeMap* blobMap;
     std::set<blob*> blobs;
+    std::set<blob*> uninterpol_blobs;  // only make if we use interpolation.. 
+    bool uninterpol_up_to_date;        // are they up do date...
     int width, height, depth;
     unsigned int waveIndex;
+    float minimumEdge;
     ImageData* image;
 //    VolumeMask* vMask; // I may not need it here.. 
 
@@ -50,13 +60,14 @@ class BlobMapper
     void eatContainedBlobs();
     void eatContainedBlobs(blob* b);
     void eatContents(blob* b, VolumeMask* vm, int x, int y, int z);
-    void eatNeighbors();
     void eatNeighbors(blob* b);
     std::vector<off_set> findNeighbors(blob* b, off_set p);
 
     void finaliseBlobs(bool fake=false);
     void finaliseBlob(blob* b);
-    void uninterpolate(blob* b);
+    void uninterpolateBlobs();
+    void uninterpolate(blob* a, blob* b);
+    void deleteBlobs(std::set<blob*> b);
 
     // No error checking. 
     float value(int x, int y, int z){

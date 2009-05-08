@@ -42,6 +42,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <set>
 #include <q3buttongroup.h>
 #include <qradiobutton.h>
 #include <q3filedialog.h>
@@ -759,7 +760,8 @@ void DeltaViewer::setImage(int slice){
 	    cout << "calling fileset reatToRGB with " << xb << "," << yb << " : " << tw << "x" << th << endl;
 	    if(fileSet->readToRGB(data, xb, yb, tw, th, currentSliceNo, maxLevel, biases, scales, cv, raw)){
 		textureCounter++;
-		paintBlobs(data, xb, yb, currentSliceNo, tw, th, blobs);
+		for(set<BlobMapperWidget*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
+		    paintBlobs(data, xb, yb, currentSliceNo, tw, th, (*it));
 		glViewer->setImage(data, tw, th, colCounter, rowCounter);
 	    }
 	    colCounter++;
@@ -1171,21 +1173,26 @@ void DeltaViewer::paintPeaks(float* area, int px, int py, int w, int h){
 }
 
 void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h, 
-			     set<blob*> blobs){
+			     BlobMapperWidget* blb){
     // There is no indication here as to what is the waveIndex represented by the blobs.
     // This is because we'll modify this function to use a reference to some kind of widget that
     // we can use to select colours and the like a bit later on. For now, I just want to leave as
     // is.
+    if(blb->blobRep() == RepIcon::NO_REP)
+	return;
+    RepIcon::BlobRepresentation br = blb->blobRep();
+
+
+    set<blob*>& blobs = blb->blobs();
+
+
     CoordConverter cc(fileSet->pwidth(),fileSet->pheight(), fileSet->sectionNo());
     float r, g, blue;
+    blb->color(r, g, blue);
     //r = blue = 1.0;
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
 	blob* b = (*it);
-	blue = blue > 0 ? 0 : 1.0;
 	// check if it overlaps in any of the dimensions..
-	r = (float)b->r / 255.0;
-	g = (float)b->g / 255.0;
-	blue = (float)b->b / 255.0;
 	if( !( b->min_x <= xo + w && b->max_x >= xo ) )
 	    continue;
 	if( !( b->min_y <= yo + h && b->max_y >= yo) )
@@ -1193,8 +1200,15 @@ void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h,
 	if( !(b->min_z <= z && b->max_z >= z) )
 	    continue;
 	// Then simply go through the  points and see whether or not
+	
+	
+	// uncomment below to use alternating colors (set as default by the BlobMapper::finalise() function)
+	//r = (float)b->r / 255.0;
+	//g = (float)b->g / 255.0;
+	//blue = (float)b->b / 255.0;
+
 	for(uint i=0; i < b->points.size(); ++i){
-	    if(!b->surface[i])
+	    if(!b->surface[i] && br != RepIcon::FILLED)
 		continue;
 	    int b_x, b_y, b_z;  // the point coordinates
 	    cc.vol(b->points[i], b_x, b_y, b_z);
@@ -1204,13 +1218,10 @@ void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h,
 		continue;
 	    if( !(b_x >= xo && b_x <= xo + h) )
 		continue;
-//	    g = 0.0;
-//	    if(b->surface[i])
-//		g = 1.0;
 	    int area_offset = 3 * ((b_y - yo) * w + b_x - xo);
-	    area[ area_offset ] = r;
-	    area[ area_offset + 1] = g;
-	    area[ area_offset + 2] = blue;
+	    area[ area_offset ] += r;
+	    area[ area_offset + 1] += g;
+	    area[ area_offset + 2] += blue;
 	}
     }
 }
@@ -2055,16 +2066,23 @@ void DeltaViewer::findContrasts(int wi, float minValue){
 void DeltaViewer::mapBlobs(int wi, float minValue){
     cout << "Deltaviewer map blobs.. " << endl;
 
-    // first delete any known blobs..
-    while(blobs.size()){
-	delete *(blobs.begin());
-	blobs.erase(blobs.begin());
-    }
-    cout << "deleted old blobs" << endl;
+//     // first delete any known blobs..
+//     while(blobs.size()){
+// 	delete *(blobs.begin());
+// 	blobs.erase(blobs.begin());
+//     }
+//     cout << "deleted old blobs" << endl;
     // and let's make a thingy blobmapper
-    BlobMapper bm(new ImageData(fileSet, 1) );
-    blobs = bm.mapBlobs(minValue, (unsigned int)wi, 1, false, true);
-    cout << "mapBlobs Made a total of " << blobs.size() << endl;    
+    BlobMapper* bm = new BlobMapper(new ImageData(fileSet, 1) );
+    bm->mapBlobs(minValue, (unsigned int)wi, 1);
+    fluorInfo fInfo = fileSet->channelInfo((unsigned int)wi);
+    BlobMapperWidget* bmw = new BlobMapperWidget(bm, fInfo, fName.latin1(), this);
+    blobs.insert(bmw);
+    
+    colorBox->addWidget(bmw);
+    bmw->show();
+    
+    cout << "mapBlobs Made a total of " << bmw->blobs().size() << endl;    
     
 //     while(blobs.size()){
 // 	delete *blobs.begin();

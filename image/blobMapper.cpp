@@ -10,19 +10,24 @@ BlobMapper::BlobMapper(ImageData* ia)
     image->dims(width, height, depth);
     cout << "Made a new BlobMapper and an image thingy with dims : " << width << "x" << height << "x" << depth << endl;
     blobMap = new VolumeMap(width, height, depth);
+    uninterpol_up_to_date = false;
 }
 
 BlobMapper::~BlobMapper()
 {
     delete image;
     delete blobMap;
+    // we own the blobs so we should delete them.. 
+    deleteBlobs(blobs);
+    deleteBlobs(uninterpol_blobs);
 }
 
 // margin only refers to horizontal stuff.
-set<blob*> BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, bool eatContained, bool eat_neighbors){
-    blobs.clear();
+void BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window){
+    deleteBlobs(blobs);
     blobMap->clear();
     waveIndex = wi;
+    minimumEdge = minEdge;
     blob* tempBlob = new blob();
     // go through all voxels and make some little paths..
     for(int z=0; z < depth; ++z){
@@ -40,61 +45,53 @@ set<blob*> BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, bool
 	cout << "\tmapSize\t" << blobMap->mapSize() << endl;
 	cout << "\tmemSize\t" << blobMap->memSize() << endl;
 	cout << "\n\tblobSize\t" << sizeof(blob) << endl;
-	//	uint blobNo = 0;
-	//for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
-	//    (*it)->childNo(blobNo);
-	//cout << "Total number of blobs defined : " << blobNo << endl;
     }
     finaliseBlobs();
-    // if eatContained then we eat contained and refinalise..
-
+    uninterpol_up_to_date = false;
     cout << "Got a total of : " << blobs.size() << endl;
-    eatContainedBlobs();
-    finaliseBlobs();
-    cout << "Blobs after eating contained : " << blobs.size() << endl;
-    eatNeighbors();
-    finaliseBlobs();
-    cout << "Blobs after eating neighbours 1: " << blobs.size() << endl;
-    eatNeighbors();
-    finaliseBlobs();
-    cout << "Blobs after eating neighbours 2 : " << blobs.size() << endl;
-    eatNeighbors();
-    finaliseBlobs();
-    cout << "Blobs after eating neighbours 3 : " << blobs.size() << endl;
-    eatNeighbors();
-    finaliseBlobs();
-    cout << "Blobs after eating neighbours 4 : " << blobs.size() << endl;
-
-    eatContainedBlobs();
-    finaliseBlobs();
-    cout << "Blobs after final eating of contained : " << blobs.size() << endl;
-
-    eatNeighbors();
-    finaliseBlobs();
-    cout << "Blobs after eating neighbours 5 : " << blobs.size() << endl;
-
- //    if(eatContained){
-// 	cout << "Eating contained blobs" << endl;
-// 	eatContainedBlobs();
-// 	finaliseBlobs();
-//     }
-//      if(eat_neighbors){
-//  	cout << "Eating neighbours" << endl;
-//  	eatNeighbors();
-//  	finaliseBlobs();
-// // 	eatNeighbors();
-// // 	finaliseBlobs();
-//  	cout << "finaliseBlobs returned" << endl;
-//  	cout << "giving us a blob size of " << blobs.size() << endl;
-//      }
-     
     delete(tempBlob);
+}
 
-    if(image->interp_no() > 1){
-	for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
-	    uninterpolate((*it));
+bool BlobMapper::exportBlobs(string fname){
+    // uninterpolate if necessary.. 
+    set<blob*>& bl = blobs;
+    if(!uninterpol_up_to_date && image->interp_no() != 1){
+	uninterpolateBlobs();
+	bl = uninterpol_blobs;
     }
-    return(blobs);
+    ofstream out(fname.c_str());
+    if(!out){
+	cerr << "BlobMapper::exportBlobs Unable to open " << fname << " for blob export" << endl;
+	return(false);
+    }
+    out << "#Total blobs : " << bl.size() << endl;
+    int x, y, z;
+    for(set<blob*>::iterator it=bl.begin(); it != bl.end(); ++it){
+	toVol((*it)->peakPos, x, y, z);
+	out << x << "\t" << y << "\t" << z << "\t" << (*it)->max << "\t" << (*it)->sum << "\t" 
+	    << (*it)->min_x << "\t" << (*it)->max_x << "\t"
+	    << (*it)->min_y << "\t" << (*it)->max_y << "\t"
+	    << (*it)->min_z << "\t" << (*it)->max_z << "\t"
+	    << (*it)->max_x - (*it)->min_x << "\t" << (*it)->max_y - (*it)->min_y << "\t" << (*it)->max_z - (*it)->min_z << endl;
+    }
+    // and that should be ok.
+    return(true);
+}
+
+set<blob*>& BlobMapper::gBlobs(){
+    if(image->interp_no() == 1)
+	return(blobs);
+
+    ///// BlobMapper needs to keep the old blobs. This means that we would have to make copies
+    ////  of the blobs. The question then is who should delete these.
+    ////  The simplest solution is for blobMapper to keep a copy of both, and update these
+    ///   as necessary..
+    if(!uninterpol_up_to_date){
+	uninterpolateBlobs();
+    }
+    
+    return(uninterpol_blobs);
+    
 }
 
 blob* BlobMapper::initBlob(blob* b, int x, int y, int z, int w){
@@ -284,6 +281,8 @@ void BlobMapper::eatContainedBlobs(){
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
 	eatContainedBlobs(*it);
     }
+    finaliseBlobs();
+    uninterpol_up_to_date = false;
 }
 
 void BlobMapper::eatContainedBlobs(blob* b){
@@ -349,6 +348,8 @@ void BlobMapper::eatContents(blob* b, VolumeMask* vm, int x, int y, int z){
 void BlobMapper::eatNeighbors(){
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
 	eatNeighbors(*it);
+    finaliseBlobs();
+    uninterpol_up_to_date = false;
 }
 
 void BlobMapper::eatNeighbors(blob* b){
@@ -424,6 +425,7 @@ void BlobMapper::finaliseBlobs(bool fake){
 }
 
 void BlobMapper::finaliseBlob(blob* b){
+    b->sum = 0;
     if(!b->points.size())
 	return;
     
@@ -433,32 +435,63 @@ void BlobMapper::finaliseBlob(blob* b){
     for(uint i=0; i < b->points.size(); ++i){
 	toVol(b->points[i], x, y, z);
 	b->surface[i] = isSurface(x, y, z, b);
+	b->sum += value(x, y, z);
     }
 }
 
-void BlobMapper::uninterpolate(blob* b){
+// There are more efficient ways of syncing the two blobmaps..
+// i.e. only insert new ones where we need to. But this is easier to
+// write and I expect the penalty will not be too great.
+void BlobMapper::uninterpolateBlobs(){
+    if(uninterpol_blobs.size() != blobs.size()){
+	deleteBlobs(uninterpol_blobs);
+	for(set<blob*>::iterator it = blobs.begin(); it != blobs.end(); ++it)
+	    uninterpol_blobs.insert(new blob());
+    }
+    // and somewhat ugly..
+    set<blob*>::iterator a = blobs.begin();
+    set<blob*>::iterator b = uninterpol_blobs.begin();
+    while(a != blobs.end() && b != uninterpol_blobs.end()){
+	uninterpolate(*a, *b);
+	++a; ++b;
+    }
+    
+    uninterpol_up_to_date = true;
+}
+
+void BlobMapper::uninterpolate(blob* a, blob* b){
     uint ip = image->interp_no();
     if(ip == 1)
 	return;
     int x, y, z;
-    b->min_x *= ip;
-    b->min_y *= ip;
-    b->min_z *= ip;
-    b->max_x *= ip;
-    b->max_y *= ip;
-    b->max_z *= ip;
-    b->peakPos *= ip;    
-//    cout << "\tmax and mins : " << b->min_x << "->" << b->max_x << "  :  " << b->min_y << "->" << b->max_y << "  :  " << b->min_z << "->" << b->max_z << endl;
+    b->min_x = a->min_x * ip;
+    b->min_y = a->min_y * ip;
+    b->min_z = a->min_z * ip;
+    b->max_x = a->max_x * ip;
+    b->max_y = a->max_y * ip;
+    b->max_z = a->max_z * ip;
+    
+    toVol(a->peakPos, x, y, z);
+    b->peakPos = (z * ip) * (width * height * ip * ip) + (y * ip) * (width * ip) + x * ip;
 
-    for(uint i=0; i < b->points.size(); ++i){
-	toVol(b->points[i], x, y, z);
+    b->surface = a->surface;
+    b->points.resize(a->points.size());
+    for(uint i=0; i < a->points.size(); ++i){
+	toVol(a->points[i], x, y, z);
 	//cout << "mapping : " << b->points[i] << "  " << x << "," << y << "," << z ;
-	off_set np = (z * ip) * (width * height * ip * ip) + (y * ip) * (width * ip) + x * ip;
+	b->points[i] = (z * ip) * (width * height * ip * ip) + (y * ip) * (width * ip) + x * ip;
 	//cout << " --> " << np << "  : " << np % (width * ip) << ","
 	//   << (np % (width * height * ip * ip)) / (width * ip) << ","
 	//    << np / (width * height * ip * ip) << endl;
-	b->points[i] = np;
-	
-	
+	// b->points[i] = np;
     }
+    b->r = a->r;
+    b->g = a->g;
+    b->b = a->g;
+}
+
+void BlobMapper::deleteBlobs(set<blob*> b){
+    for(set<blob*>::iterator it=b.begin(); it != b.end(); ++it)
+	delete (*it);
+    b.clear();
 }
