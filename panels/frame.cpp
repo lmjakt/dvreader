@@ -188,7 +188,7 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
 //    cout << "Frame::readToRGB_s source_x : " << source_x << "  source_y " << source_y << "  width " << width << "  height " << height
 //	 << "  dest_x " << dest_x << "  dest_y " << dest_y << "  dest_w " << dest_w << "  maxLevel " << maxLevel << "  bias " << bias << "  scale  " << scale << endl;
     
-    short* buffer = new short[pWidth * height];   // which has to be 
+    unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
     ssize_t startPos = frameOffset + (pWidth * 2 * source_y);
     in->seekg(startPos);
     in->read((char*)buffer, pWidth * height * 2);
@@ -202,7 +202,7 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
 	swapBytes((char*)buffer, pWidth * height, 2);
     }
 
-    short* source;
+    unsigned short* source;
     float* dst;
     if(raw){
 	for(unsigned int yp = 0; yp < height; yp++){
@@ -259,7 +259,7 @@ bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int sourc
 //    cout << "\tFrame::readToFloat_s source_x : " << source_x << "  source_y " << source_y << "  width " << width << "  height " << height
 //	 << "  dest_x " << dest_x << "  dest_y " << dest_y << "  dest_w " << dest_w << "  maxLevel " << maxLevel << endl;
     
-    short* buffer = new short[pWidth * height];   // which has to be 
+    unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
     ssize_t startPos = frameOffset + (pWidth * 2 * source_y);
     in->seekg(startPos);
     in->read((char*)buffer, pWidth * height * 2);
@@ -273,7 +273,7 @@ bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int sourc
 	swapBytes((char*)buffer, pWidth * height, 2);
     }
 
-    short* source;
+    unsigned short* source;
     float* dst;
     
     for(unsigned int yp = 0; yp < height; yp++){

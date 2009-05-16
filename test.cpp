@@ -6,6 +6,7 @@
 #include "image/bitMask.h"
 #include "image/volumeMask.h"
 #include <set>
+#include <limits.h>
 
 using namespace std;
 
@@ -26,6 +27,35 @@ void print_bits(unsigned char b){
 }
 
 int main(int argc, char** argv){
+    vector<uint> names;
+    names.push_back(1);
+    uint i = 2;
+    while(i <= UINT_MAX/2){
+	names.push_back(i);
+	cout << names.size() << " : " << i << endl;
+	i *= 2;
+	//if(i > 1024)
+	//   exit(1);
+    }
+    {
+	int a;
+	a = 0;
+	for(uint i=0; i < names.size(); ++i){
+	    cout << i << " : " << a << " |= " << names[i] << "  --> ";
+	    a |= names[i];
+	    cout << a << endl;
+	}
+    }
+
+    exit(0);
+    vector<int> testVector;
+    testVector.resize(100);
+    testVector.assign(100, 5);
+    cout << "testVector size " << testVector.size() << endl;
+    for(uint i=0; i < testVector.size(); ++i){
+	cout << i << "\t" << testVector[i] << endl;
+    }
+
 
     // try some set deletions to check;
     set<int> ints;

@@ -36,8 +36,10 @@ class BlobMapperWidget : public QWidget
     ~BlobMapperWidget();
 
     std::set<blob*>& blobs();
+    BlobMapper* blobMapper();
     RepIcon::BlobRepresentation blobRep();
     void color(float& r, float& g, float& b);
+    QColor color();
 
     public slots:
 	void exportBlobs();

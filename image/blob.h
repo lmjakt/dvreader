@@ -23,5 +23,22 @@ struct blob {
     int r, g, b;
 };
 
+// The below is just a way of keeping a reference to a blob along
+// with some sort of an identifier. (How that is used is up to the
+// user, but I'm planning to use it with up to 31 mapper ids using
+// binary OR's to allow easy classification of multiple membership.
+struct id_blob {
+    id_blob(){
+	mapper_id = 0;
+	b = 0;
+    }
+    id_blob(unsigned int id, blob* bl){
+	b = bl;
+	mapper_id = id;
+    }
+    unsigned int mapper_id;
+    blob* b;
+};
+
 #endif
 

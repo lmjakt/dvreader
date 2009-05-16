@@ -16,6 +16,8 @@ HEADERS		= \
 		colorMapper.h \
 		linGraph/slider.h \
 		linGraph/plotWidget.h \
+		linGraph/linePlotter.h \
+		linGraph/distPlotter.h \
 		spotFinder/spotWindow.h \
 		spotFinder/channelWidget.h \
 		spotFinder/modelWidget.h \
@@ -61,6 +63,7 @@ HEADERS		= \
 		image/linMap.h \
 		image/blobMapper.h \
 		image/blobMapperWidget.h \
+		image/blobMapperWidgetManager.h \
 		image/coordConverter.h \
 		image/blob.h \
 		distanceMapper/compareController.h \
@@ -84,6 +87,8 @@ SOURCES		= \
 		colorMapper.cpp \
 		linGraph/slider.cpp \
 		linGraph/plotWidget.cpp \
+		linGraph/linePlotter.cpp \
+		linGraph/distPlotter.cpp \
 		spotFinder/spotWindow.cpp \
 		spotFinder/channelWidget.cpp \
 		spotFinder/modelWidget.cpp \
@@ -129,6 +134,7 @@ SOURCES		= \
 		image/linMap.cpp \
 		image/blobMapper.cpp \
 		image/blobMapperWidget.cpp \
+		image/blobMapperWidgetManager.cpp \
 		image/blob.cpp \
 		distanceMapper/compareController.cpp \
 		distanceMapper/distanceMapper.cpp \

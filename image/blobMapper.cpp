@@ -352,6 +352,103 @@ void BlobMapper::eatNeighbors(){
     uninterpol_up_to_date = false;
 }
 
+// mappers should not include this
+vector<SuperBlob*> BlobMapper::overlapBlobs(vector<BlobMapper*> mappers){
+    // we can only handle something like 30 blobMappers (total number should be 32)
+    // but somehow I seem to get 30 in the assignment. So let's say max 0f 29 for now
+    vector<SuperBlob*> superBlobs;
+    if(mappers.size() > 30){
+	cerr << "BlobMapper::overlapBlobs : unable to overlap more than 30 mappers" << endl;
+	return(superBlobs);
+    }
+
+    vector<unsigned int> mapperIds;
+    map<unsigned int, BlobMapper*> mapperMap;
+    mapperIds.reserve(mappers.size());
+    unsigned int thisId = 0;
+    mapperMap.insert(make_pair(thisId, this));
+    {
+	unsigned int m = 1;
+	for(uint i=0; i < mappers.size(); ++i){
+	    mapperIds.push_back(m);
+	    mapperMap.insert(make_pair(m, mappers[i]));
+	    m *= 2;
+	}
+    }
+    // A superBlob membership of 0 is also valid. 
+    superBlobs.reserve(blobs.size());
+    for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
+	superBlobs.push_back(new SuperBlob( id_blob(thisId, (*it)) ) );
+    }
+    cout << "inited superBlobs from seed size : " << superBlobs.size() << endl;
+    // And then..go through all the mappers (unless a mapper should happen to be equal to this)
+    // and check for blobs that overlap with the remaining blobs..
+    for(uint i=0; i < mappers.size(); ++i){
+	if(mappers[i] == this)
+	    continue;
+	set<blob*> remainingBlobs = mappers[i]->blobs; // don't call the function as this will uninterpolate
+	for(uint j=0; j < superBlobs.size(); ++j){
+	    for(uint k=0; k < superBlobs[j]->blobs.size(); ++k){
+		// we need to have a way of defining the appropriate blobMapper.
+		map<unsigned int, BlobMapper*>::iterator it = mapperMap.find(superBlobs[j]->blobs[k].mapper_id);
+		if(it == mapperMap.end()){
+		    cerr << "BlobMapper::overlapBlobs Unable to find blobMapper for id " << superBlobs[j]->blobs[k].mapper_id << endl;
+		    cerr << "i, j, k : " << i << ", " << j << ", " << k << endl;
+		    exit(1);
+		}
+		blob* ob = mappers[i]->peaksWithinBlob(superBlobs[j]->blobs[k].b, (*it).second);
+		if(ob && ob != superBlobs[j]->blobs[k].b){
+		    remainingBlobs.erase(ob);
+		    superBlobs[j]->addBlob( id_blob(mapperIds[i], ob) );
+		    //cout << "added id_blob to superBlobs id : " << mapperIds[i] << "  i, j, k : " << i << ", " << j << ", " << k << endl;
+		}
+	    }
+	}
+	// And then make sure to make new superBlobs for the remaining super Blobs
+	cout << "And after mergin from " << i << "  size is now : " << superBlobs.size() << "  with " << remainingBlobs.size() << "  remaining " << endl;
+	superBlobs.reserve(superBlobs.size() + remainingBlobs.size());
+	for(set<blob*>::iterator it=remainingBlobs.begin(); it != remainingBlobs.end(); ++it)
+	    superBlobs.push_back(new SuperBlob( id_blob(mapperIds[i], (*it) )));
+	remainingBlobs.clear();
+	cout << "And size is now : " << superBlobs.size() << endl;
+    }
+    return(superBlobs);
+}
+
+
+blob* BlobMapper::overlappingBlob(blob* b, BlobMapper* mapper){
+    // Blob from somewhere else..
+    blob* ob = blobMap->value(b->peakPos);
+    if(ob)
+	return(ob);
+    // else find the highest value in b that overlaps with something..
+    float max = 0;
+    blob* temp;
+    for(uint i=0; i < b->points.size(); ++i){
+	temp = blobMap->value(b->points[i]);
+	if(temp && mapper->value(b->points[i]) > max){
+	    max = mapper->value(b->points[i]);
+	    ob = temp;
+	}
+    }
+    return(ob);
+}
+
+blob* BlobMapper::peaksWithinBlob(blob* b, BlobMapper* mapper){
+    // First check if the peak of b overlaps with a blob in this
+    blob* ob = blobMap->value(b->peakPos);
+    if(ob)
+	return(ob);
+    // then we have to check if any peaks within this overlap with blob
+    // do in a reverse way by looking up the points of b first
+    for(uint i=0; i < b->points.size(); ++i){
+	ob = blobMap->value(b->points[i]);
+	if(ob && mapper->blobMap->value(ob->peakPos) == b)
+	    return(ob);
+    }
+    return(ob);
+}
+
 void BlobMapper::eatNeighbors(blob* b){
     map<blob*, NeighborInfo> neighbors;
     int x, y, z;

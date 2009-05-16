@@ -318,6 +318,9 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   objectSums = new DistChooser("Object Intensities", 100);
   objectSums->resize(300, 200);
 
+  blobSums = new DistPlotter();
+  blobSums->resize(300, 200);
+
   vector<QColor> colors;   // for assigning colors..
   colors.push_back(QColor(0, 0, 255));
   colors.push_back(QColor(0, 255, 0));
@@ -459,6 +462,8 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 //  connect(dropClusterWindow, SIGNAL(drawClusters(vector<Cluster>&)), flatView, SLOT(setClusterDrops(vector<Cluster>&)) );
   // and lets see what happens.. 
 
+  ///////////  Initialise blobManager to 0, then if we need it make it and 
+  blobManager=0;
 
   QVBoxLayout* box = new QVBoxLayout(this, 3, 3);
   box->addWidget(label);
@@ -760,8 +765,9 @@ void DeltaViewer::setImage(int slice){
 	    cout << "calling fileset reatToRGB with " << xb << "," << yb << " : " << tw << "x" << th << endl;
 	    if(fileSet->readToRGB(data, xb, yb, tw, th, currentSliceNo, maxLevel, biases, scales, cv, raw)){
 		textureCounter++;
-		for(set<BlobMapperWidget*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
-		    paintBlobs(data, xb, yb, currentSliceNo, tw, th, (*it));
+		paintBlobs(data, xb, yb, currentSliceNo, tw, th);
+//		for(set<BlobMapperWidget*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
+//		    paintBlobs(data, xb, yb, currentSliceNo, tw, th, (*it));
 		glViewer->setImage(data, tw, th, colCounter, rowCounter);
 	    }
 	    colCounter++;
@@ -1170,6 +1176,14 @@ void DeltaViewer::paintPeaks(float* area, int px, int py, int w, int h){
 	}
     }
 
+}
+
+void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h){
+    if(!blobManager)
+	return;
+    set<BlobMapperWidget*> blobs = blobManager->blobMapperWidgets();
+    for(set<BlobMapperWidget*>::iterator it = blobs.begin(); it != blobs.end(); ++it)
+	paintBlobs(area, xo, yo, z, w, h, (*it));
 }
 
 void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h, 
@@ -2066,30 +2080,51 @@ void DeltaViewer::findContrasts(int wi, float minValue){
 void DeltaViewer::mapBlobs(int wi, float minValue){
     cout << "Deltaviewer map blobs.. " << endl;
 
-//     // first delete any known blobs..
-//     while(blobs.size()){
-// 	delete *(blobs.begin());
-// 	blobs.erase(blobs.begin());
-//     }
-//     cout << "deleted old blobs" << endl;
     // and let's make a thingy blobmapper
     BlobMapper* bm = new BlobMapper(new ImageData(fileSet, 1) );
     bm->mapBlobs(minValue, (unsigned int)wi, 1);
     fluorInfo fInfo = fileSet->channelInfo((unsigned int)wi);
-    BlobMapperWidget* bmw = new BlobMapperWidget(bm, fInfo, fName.latin1(), this);
-    blobs.insert(bmw);
     
-    colorBox->addWidget(bmw);
-    bmw->show();
-    
-    cout << "mapBlobs Made a total of " << bmw->blobs().size() << endl;    
-    
-//     while(blobs.size()){
-// 	delete *blobs.begin();
-// 	blobs.erase(blobs.begin());
-//     }
-    cout << "blobs assigned what's going to happen now.. " << endl;
+    if(!blobManager){
+	blobManager = new BlobMapperWidgetManager(this);
+	colorBox->addWidget(blobManager);
+	blobManager->show();
+    }
+    blobManager->addBlobMapper(bm, fInfo, fName.latin1());
 
+//     BlobMapperWidget* bmw = new BlobMapperWidget(bm, fInfo, fName.latin1(), this);
+//     blobs.insert(bmw);
+    
+//     colorBox->addWidget(bmw);
+//     bmw->show();
+    
+//     cout << "mapBlobs Made a total of " << bmw->blobs().size() << endl;    
+//     cout << "blobs assigned what's going to happen now.. " << endl;
+
+//     // temporary code : lets assign values to objectSums (a distChooser).
+//     float min, max;
+//     min = max = 0;
+//     vector<float> sums;
+//     set<blob*>& b = bmw->blobs();
+//     sums.reserve(b.size());
+//     for(set<blob*>::iterator it = b.begin(); it != b.end(); it++){
+// 	max = max < (*it)->sum ? (*it)->sum : max;
+// 	sums.push_back((*it)->sum);
+//     }
+    
+//     vector<QColor> colors;
+//     colors.push_back(bmw->color());
+//     vector<vector<float> > values;
+//     values.push_back(sums);
+
+//     blobSums->setData(values, colors);
+//     blobSums->show();
+//     blobSums->raise();
+
+//     objectSums->setData(sums, min, max);
+//     objectSums->show();
+//     objectSums->raise();
+    ////////////// END of temporary code.. ////////////////
 }
 
 

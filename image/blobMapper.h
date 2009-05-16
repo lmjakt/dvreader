@@ -5,6 +5,7 @@
 #include "imageData.h"
 #include "volumeMap.h"
 #include "blob.h"
+#include "superBlob.h"
 #include <vector>
 #include <map>
 #include <set>
@@ -20,6 +21,11 @@ class BlobMapper
     bool exportBlobs(std::string fname);
     std::set<blob*>& gBlobs();
     void eatNeighbors();
+
+    std::vector<SuperBlob*> overlapBlobs(std::vector<BlobMapper*> mappers);
+    blob* overlappingBlob(blob* b, BlobMapper* mapper);
+    // peakWithinPeak is a recipocral function that looks for the presence of the peak within each other.
+    blob* peaksWithinBlob(blob* b, BlobMapper* mapper);
     float minimum(){
 	return(minimumEdge);
     }

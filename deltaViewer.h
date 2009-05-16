@@ -50,6 +50,7 @@
 #include "pointViewer/pointViewWidget.h"
 #include "flatViewer/flatView.h"
 //#include "linGraph/plotWidget.h"
+#include "linGraph/distPlotter.h"
 #include "colorChooser.h"
 #include "parameterChooser.h"
 #include "dataStructs.h"
@@ -63,6 +64,7 @@
 #include "image/imageAnalyser.h"
 //#include "image/blobMapper.h"
 #include "image/blobMapperWidget.h"
+#include "image/blobMapperWidgetManager.h"
 
 using namespace std;
 
@@ -117,6 +119,7 @@ class DeltaViewer : public QWidget
   void exportProjection();
   void paintPeaks(float* area, int px, int py, int w, int h);   // this checks if there are peaks to be painted from the spotsWidgets .. 
   //void paintBlobs(float* area, int xo, int yo, int z, int w, int h);
+  void paintBlobs(float* area, int xo, int yo, int z, int w, int h);
   void paintBlobs(float* area, int xo, int yo, int z, int w, int h, 
 		  BlobMapperWidget* blb);
   void exportPeaks();  // write the peaks to a file in a reasonable manner.. 
@@ -197,10 +200,11 @@ class DeltaViewer : public QWidget
 
   private :
       /// Move this later, bull
-      set<BlobMapperWidget*> blobs;
-
-      QString fName;
-    DVReader* reader;
+      BlobMapperWidgetManager* blobManager;
+//      set<BlobMapperWidget*> blobs;
+  
+  QString fName;
+  DVReader* reader;
   FileSet* fileSet;
   ImageAnalyser* imageAnalyser;
   std::vector<raw_data*> projection_data;   // data for a projection ..   we need one projection for each panel..
@@ -246,6 +250,7 @@ class DeltaViewer : public QWidget
   std::vector<DistChooser*> choosers;  // one for each wavelength..
   std::vector<ChannelOffset> waveOffsets;
   DistChooser* objectSums;
+  DistPlotter* blobSums;
   std::vector<ColorChooser*> colorChoosers;  // although maybe a map would be appropriate for these two.. oh well. think
                                              // about it later.. 
 

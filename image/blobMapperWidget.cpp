@@ -80,7 +80,11 @@ BlobMapperWidget::~BlobMapperWidget(){
 set<blob*>& BlobMapperWidget::blobs(){
     return(mapper->gBlobs());
 }
-    
+
+BlobMapper* BlobMapperWidget::blobMapper(){
+    return(mapper);
+}
+
 RepIcon::BlobRepresentation BlobMapperWidget::blobRep(){
     return( icons[currentRep].rep);
 }
@@ -89,6 +93,10 @@ void BlobMapperWidget::color(float& r, float& g, float& b){
     r = (float)currentColor.red() / 255.0;
     g = (float)currentColor.green() / 255.0;
     b = (float)currentColor.blue() / 255.0;
+}
+
+QColor BlobMapperWidget::color(){
+    return(currentColor);
 }
 
 void BlobMapperWidget::exportBlobs(){
