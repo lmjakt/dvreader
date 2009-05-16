@@ -66,6 +66,7 @@ HEADERS		= \
 		image/blobMapperWidgetManager.h \
 		image/coordConverter.h \
 		image/blob.h \
+		image/superBlob.h \
 		distanceMapper/compareController.h \
 		distanceMapper/distanceMapper.h \
 		distanceMapper/distanceViewer.h \
