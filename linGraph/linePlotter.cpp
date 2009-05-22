@@ -71,47 +71,6 @@ void LinePlotter::setData(vector< vector<float> >& v, vector<QColor>& c){
     update();
 }
 
-// void LinePlotter::paintEvent(QPaintEvent* e){
-//     e = e;  // to avoid annoying warning
-//     int w = width() - hMargin * 2;
-//     int h = height() - hMargin * 2;
-//     int hb = height() - hMargin;
-//     float range = max - min;
-
-//     QPainter p(this);
-//     p.drawLine(hMargin, height()-vMargin, width()-hMargin, height()-vMargin);
-//     p.drawLine(hMargin, height()-vMargin, hMargin, vMargin);
-//     p.scale(xScale, yScale);
-//     // vertical ticks
-//     for(int yp = height()-vMargin; yp >= vMargin; yp -= tick_spacing)
-// 	p.drawLine(hMargin-tick_length, yp, hMargin, yp);
-//     for(int xp = hMargin; xp <= width()-hMargin; xp += tick_spacing)
-// 	p.drawLine(xp, hb + tick_length, xp, hb);
-    
-//     // Draw the values.
-//     if(!range){
-// 	cerr << "LinePlotter::paintEvent range is 0" << endl;
-// 	return;
-//     }
-//     cout << "LinePloter::paintEvent values.size : " << values.size() << endl;
-//     for(uint i=0; i < values.size(); ++i){
-// 	p.setPen(QPen(colors[i], 1));
-// 	int x, y;
-// 	int px = hMargin;
-// 	int py = (int)( hb - ((values[i][0] - min) * (float)h) / range ); 
-// 	for(uint j=1; j < values[i].size(); ++j){
-// 	    x = hMargin + (w * j) / maxLength;
-// 	    y = (int)( hb - ((values[i][j] - min) * (float)h) / range ); 
-// 	    p.drawLine(px, py, x, y);
-// 	    px = x;
-// 	    py = y;
-// 	    //    if(i > 0)
-// 	    //cout << "\t" << j << "\t" << values[i-1][j] << " : " << values[i][j] << endl;
-// 	}
-//     }
-
-// }
-
 void LinePlotter::paintEvent(QPaintEvent* e){
     e = e;  // to avoid annoying warning
     float w = (float)width() - hMargin * 2;
@@ -153,11 +112,8 @@ void LinePlotter::paintEvent(QPaintEvent* e){
 	  y = yScale * (values[i][j] - min) * h / range ; 
 	  QLine fline(px, py, x, y);
 	  p.drawLine(fline);
-	  //	    p.drawLine(px, py, x, y);
 	  px = x;
 	  py = y;
-	  //    if(i > 0)
-	  //cout << "\t" << j << "\t" << values[i-1][j] << " : " << values[i][j] << endl;
 	}
     }
 
@@ -170,14 +126,7 @@ void LinePlotter::mouseDoubleClickEvent(QMouseEvent* e){
 }
 
 void LinePlotter::mouseMoveEvent(QMouseEvent* e){
-//    int x = e->x();
-//    int y = e->y();
     emitMousePos(e->x(), e->y());
-//     if(x < hMargin || x > width() - hMargin || y < vMargin || y > height() - vMargin)
-// 	return;
-//     int xp = ((x - hMargin) * maxLength) / (width() - 2 * hMargin);
-//     float yp =  min + (max - min) *  (float)((height() - vMargin) - y) / (float)(height() - vMargin*2);
-//     emit mousePos(xp, yp);
 }
 
 void LinePlotter::mousePressEvent(QMouseEvent* e){
@@ -185,7 +134,6 @@ void LinePlotter::mousePressEvent(QMouseEvent* e){
 }
 
 void LinePlotter::keyPressEvent(QKeyEvent* e){
-  cout << "keyPressEvent .." << endl;
   switch(e->key()){
   case Qt::Key_Up :
     yScale *= 1.5;
@@ -199,7 +147,6 @@ void LinePlotter::keyPressEvent(QKeyEvent* e){
   default:
     e->ignore();
   }
-  cout << "LinePlotter keyPressEvent yScale is now : " << yScale << endl;
   update();
 }
 

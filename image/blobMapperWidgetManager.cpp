@@ -39,6 +39,8 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
     QPalette plotPalette;
     plotPalette.setColor(QPalette::Window, QColor(10, 10, 10));
     plotPalette.setColor(QPalette::WindowText, QColor(250, 0, 250));
+    plotPalette.setColor(QPalette::Text, QColor(250, 0, 250));
+    plotPalette.setColor(QPalette::Base, QColor(10, 10, 30));
     distPlotter->setPalette(plotPalette);
     superDistPlotter->setPalette(plotPalette);
 
