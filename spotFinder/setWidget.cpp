@@ -74,7 +74,7 @@ void SetWidget::findNuclei(){
 	cerr << "SetWidget minSize is >= to MaxSize makes no sense : " << minSize << " >= " << maxSize << endl;
 	return;
     }
-    int selectedId = channels->selectedId();
+    int selectedId = channels->checkedId();
     if(selectedId == -1){
 	cerr << "NucleusWidget : no wavelengt selected" << endl;
 	return;

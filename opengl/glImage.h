@@ -111,6 +111,8 @@ private:
     signals :
 	void nextImage();
     void previousImage();
+    void firstImage();
+    void lastImage();
     void incrementImage(int);   // change image pos by int.. 
     void offSetsSet(int, int);  // tell owners I've set the offset.
     void magnificationSet(float);  // tell owner that the magnification has increased.. 

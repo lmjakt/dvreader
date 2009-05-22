@@ -8,6 +8,7 @@
 #include <QColorDialog>
 #include <QPixmap>
 #include <QPainter>
+#include <QPainterPath>
 #include <sstream>
 
 using namespace std;
@@ -23,11 +24,16 @@ BlobMapperWidget::BlobMapperWidget(BlobMapper* bmapper, fluorInfo& fInfo, string
     eatNeighborButton = new QToolButton(this);
     eatNeighborButton->setToolTip("Eat Neighbours");
     connect(eatNeighborButton, SIGNAL(clicked()), this, SLOT(eatNeighbors()));
+
+    drawDisButton = new QToolButton(this);
+    drawDisButton->setToolTip("Plot distribution");
+    drawDisButton->setCheckable(true);
+    drawDisButton->setChecked(true);
     
-    QToolButton* exportButton = new QToolButton(this);
-    exportButton->setText("E");
-    exportButton->setToolTip("Export Blobs");
-    connect(exportButton, SIGNAL(clicked()), this, SLOT(exportBlobs()) );
+    //    QToolButton* exportButton = new QToolButton(this);
+    //exportButton->setText("E");
+    //exportButton->setToolTip("Export Blobs");
+    //connect(exportButton, SIGNAL(clicked()), this, SLOT(exportBlobs()) );
 
     makeIcons();  // this will set the icon for the eatNeighbor button
 
@@ -62,7 +68,7 @@ BlobMapperWidget::BlobMapperWidget(BlobMapper* bmapper, fluorInfo& fInfo, string
     hbox->setSpacing(1);
     hbox->addWidget(delButton);
     hbox->addWidget(eatNeighborButton);
-    hbox->addWidget(exportButton);
+    //hbox->addWidget(exportButton);
     hbox->addStretch();
     hbox->addWidget(exciteLabel);
     hbox->addSpacing(3);
@@ -71,6 +77,7 @@ BlobMapperWidget::BlobMapperWidget(BlobMapper* bmapper, fluorInfo& fInfo, string
     hbox->addStretch();
     hbox->addWidget(colorButton);
     hbox->addWidget(drawTypeButton);
+    hbox->addWidget(drawDisButton);
 }
 
 BlobMapperWidget::~BlobMapperWidget(){
@@ -97,6 +104,10 @@ void BlobMapperWidget::color(float& r, float& g, float& b){
 
 QColor BlobMapperWidget::color(){
     return(currentColor);
+}
+
+bool BlobMapperWidget::plotDistribution(){
+  return(drawDisButton->isChecked());
 }
 
 void BlobMapperWidget::exportBlobs(){
@@ -154,5 +165,19 @@ void BlobMapperWidget::makeIcons(){
     p.drawPie(m-1, m-1, w-2*m, w-2*m, 45*16, 270*16);
     p.drawPie(m, m-1, w-2*m, w-2*m, 15*16, -30*16);
     eatNeighborButton->setIcon(QIcon(pix));
+
+    pix.fill(bg);
+    QIcon disIcon;
+    p.setBrush(Qt::NoBrush);
+    QPainterPath path;
+    path.moveTo(0, h);
+    path.cubicTo(w/5, -h, w/2, h/0.9, w, h);
+    p.drawPath(path);
+    disIcon.addPixmap(pix);
+    p.setBrush(fg);
+    p.drawPath(path);
+    disIcon.addPixmap(pix, QIcon::Normal, QIcon::On);
+    drawDisButton->setIcon(disIcon);
+    
 }
    

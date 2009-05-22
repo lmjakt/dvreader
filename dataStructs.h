@@ -406,9 +406,9 @@ struct simple_drop {
 //	std::cout << std::endl;
     }
     bool overlaps(simple_drop& dr){
-	return(xb < dr.xe != xe < dr.xb &&
-	       yb < dr.ye != ye < dr.yb &&
-	       zb < dr.ze != ze < dr.zb);
+      return( (xb < dr.xe) != (xe < dr.xb) &&
+	      (yb < dr.ye) != (ye < dr.yb) &&
+	      (zb < dr.ze) != (ze < dr.zb));
     }
     float peak_distance(simple_drop& dr){
 	return(sqrt( float( (x - dr.x)*(x - dr.x) + (y - dr.y)*(y - dr.y) + (z - dr.z)*(z - dr.z) )));

@@ -106,6 +106,15 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   lastMaximumValue = -1;
   animate = false;
 
+  // before anything else, let's try to have a look at the font and see if we can get something
+  // reasonable
+  setContentsMargins(1, 1, 1, 1);
+  QFont widgetFont = font();
+  cout << "font is set to " << widgetFont.family().latin1() << " points : " << widgetFont.pointSize() << "  pixel : "
+       << widgetFont.pixelSize() << endl;
+  widgetFont.setPointSize( widgetFont.pointSize() - 2);
+  setFont(widgetFont);
+
   if(!ifName){
       cout << "using a file dialog to get a file name" << endl;
       fName = Q3FileDialog::getOpenFileName();
@@ -148,6 +157,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 
   spotMapperWindow = new SpotMapperWindow(this, fileSet->pwidth(), fileSet->pheight(), fileSet->sectionNo(), textureSize);
   spotMapperWindow->resize(1100, 1100);
+  spotMapperWindow->setFont(widgetFont);
   cout << "file set is reproting a pixel size of " << fileSet->pwidth() << ", " << fileSet->pheight() << "  giving " << 1 + fileSet->pwidth() / textureSize << "  columns" << endl;
   cout << "And .. the number of sections is " << fileSet->sectionNo() << endl;
   connect(perimeterWindow, SIGNAL(perimetersFinalised(std::vector<PerimeterSet>, float, int)), spotMapperWindow, SLOT(setPerimeters(std::vector<PerimeterSet>, float, int)) );
@@ -158,6 +168,8 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   glViewer->setCaption(ifName);
   connect(glViewer, SIGNAL(nextImage()), this, SLOT(nextImage()) );
   connect(glViewer, SIGNAL(previousImage()), this, SLOT(previousImage()) );
+  connect(glViewer, SIGNAL(firstImage()), this, SLOT(firstImage()) );
+  connect(glViewer, SIGNAL(lastImage()), this, SLOT(lastImage()) );
   connect(glViewer, SIGNAL(newLine(int, int, int, int)), this, SLOT(newLine(int, int, int, int)) );
   glViewer->show();   // which is very simple interface, nothing in particular there.. 
 
@@ -170,6 +182,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 
   // a thingy for plotting stuff...
   spotWindow = new SpotWindow(fileSet->pwidth(), fileSet->pheight(), fileSet->sectionNo());
+  spotWindow->setFont(font());
   spotsUseProjection = false;
 
   connect(spotWindow, SIGNAL(findLocalMaxima(int, int, float, float)), this, SLOT(findLocalMaxima(int, int, float, float)) );
@@ -402,6 +415,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 //    QString labelString;
 //    labelString.setNum(fileSet->channel(i));
     colorChoosers.push_back(new ColorChooser(ls.str().c_str(), i, fileSet->channel(i), colormap[fileSet->channel(i)].qcolor(), this));
+    colorChoosers[i]->setContentsMargins(1, 1, 1, 1);
     connect(colorChoosers[i], SIGNAL(colorChanged(int, float, float, float)), this, SLOT(setWaveColors(int, float, float, float)) );
     connect(colorChoosers[i], SIGNAL(checkSubtractions(bool)), this, SLOT(setAdditive(bool)) );
 
@@ -414,17 +428,19 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 //  connect(clearButton, SIGNAL(clicked()), this, SLOT(clearObjects()) );
   //chooser->show();
 
-  QPushButton* mergeChannelButton = new QPushButton("Export Projection", this, "mergeChannelButton");
+
+  QLabel* exportLabel = new QLabel("Export", this);
+  QPushButton* mergeChannelButton = new QPushButton("Projection", this, "mergeChannelButton");
 //  QPushButton* mergeChannelButton = new QPushButton("Merge Channels", this, "mergeChannelButton");
   connect(mergeChannelButton, SIGNAL(clicked()), this, SLOT(exportProjection()) );
 //  connect(mergeChannelButton, SIGNAL(clicked()), this, SLOT(addMergedChannel()) );
 
-  QPushButton* exportSpotsButton = new QPushButton("Export Spots", this);
+  QPushButton* exportSpotsButton = new QPushButton("Spots", this);
   connect(exportSpotsButton, SIGNAL(clicked()), this, SLOT(exportPeaks()) );
 
 
-  QPushButton* spotMapperButton = new QPushButton("Map Spots", this);
-  connect(spotMapperButton, SIGNAL(clicked()), this, SLOT(setSpotsToSpotMapper()) );
+  //  QPushButton* spotMapperButton = new QPushButton("Map Spots", this);
+  //connect(spotMapperButton, SIGNAL(clicked()), this, SLOT(setSpotsToSpotMapper()) );
 
   // input individual offsets... 
   
@@ -465,7 +481,9 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   ///////////  Initialise blobManager to 0, then if we need it make it and 
   blobManager=0;
 
-  QVBoxLayout* box = new QVBoxLayout(this, 3, 3);
+  QVBoxLayout* box = new QVBoxLayout(this);
+  box->setSpacing(1);
+  box->setMargin(1);
   box->addWidget(label);
   box->addWidget(fileLabel);
   box->addWidget(pathLabel);
@@ -474,11 +492,12 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 
   playButtonBox->addWidget(previousButton);
   playButtonBox->addWidget(stopAnimation);
-
-  QHBoxLayout* play2 = new QHBoxLayout();
-  box->addLayout(play2);
-  play2->addWidget(startAnimation);
-  play2->addWidget(nextButton);
+  playButtonBox->addWidget(nextButton);
+  playButtonBox->addWidget(startAnimation);
+  //  QHBoxLayout* play2 = new QHBoxLayout();
+  //  box->addLayout(play2);
+  //  play2->addWidget(startAnimation);
+  //  play2->addWidget(nextButton);
 //  playButtonBox->addWidget(startAnimation);
 //  playButtonBox->addWidget(nextButton);
 
@@ -528,12 +547,19 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   // might want to set stretch factors and stuff, but migth work fine.. 
 
   colorBox = new QVBoxLayout(box);
+  colorBox->setSpacing(1);
+  colorBox->setContentsMargins(1, 1, 1, 1);
   for(uint i=0; i < colorChoosers.size(); i++){
     colorBox->addWidget(colorChoosers[i]);
   }
-  box->addWidget(mergeChannelButton);
-  box->addWidget(spotMapperButton);
-  box->addWidget(exportSpotsButton);
+  QHBoxLayout* exportBox = new QHBoxLayout();
+  exportBox->setSpacing(0);
+  exportBox->setMargin(0);
+  box->addLayout(exportBox);
+  exportBox->addWidget(exportLabel);
+  exportBox->addWidget(mergeChannelButton);
+  //box->addWidget(spotMapperButton);
+  exportBox->addWidget(exportSpotsButton);
   //box->addWidget(clearButton);
   QGridLayout* offSetGrid = new QGridLayout(4, 5);
   QHBoxLayout* offSetBox = new QHBoxLayout();
@@ -719,6 +745,14 @@ void DeltaViewer::nextImage(){
 
 void DeltaViewer::previousImage(){
     setImage(--currentSliceNo);
+}
+
+void DeltaViewer::firstImage(){
+  setImage(0);
+}
+
+void DeltaViewer::lastImage(){
+  setImage(fileSet->sectionNo() - 1);
 }
 
 void DeltaViewer::setImage(int slice){
@@ -2161,11 +2195,11 @@ void DeltaViewer::findSets(int wi, int minSize, int maxSize, float minValue){
     
 }
 
-void DeltaViewer::setSpotsToSpotMapper(){
-    // if we have some spots set these to the spotmapper window. (also call show on the spot mapper window)
+// void DeltaViewer::setSpotsToSpotMapper(){
+//     // if we have some spots set these to the spotmapper window. (also call show on the spot mapper window)
 
-    spotMapperWindow->show();
-}
+//     spotMapperWindow->show();
+// }
 
 void DeltaViewer::makeModel(int xBegin, int Width, int yBegin, int Height, int zBegin, int Depth, set<int> channels){
     cout << "DeltaViewer::MakeModel currently out of order come back later or fix it yoursefl" << endl;

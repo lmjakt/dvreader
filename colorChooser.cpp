@@ -23,9 +23,9 @@
 //End Copyright Notice
 
 #include "colorChooser.h"
-#include <qlabel.h>
-#include <qlayout.h>
-#include <qcolordialog.h>
+#include <QLabel>
+//#include <qlayout.h>
+#include <QColorDialog>
 //#include <qpushbutton.h>
 //Added by qt3to4:
 #include <QVBoxLayout>
@@ -74,10 +74,13 @@ ColorChooser::ColorChooser(QString label, int windex, int wlength, QColor c, QWi
   subtractBox->setChecked(false);
   connect(subtractBox, SIGNAL(toggled(bool)), this, SIGNAL(checkSubtractions(bool)) );  // which actually ignores the thingy
 
-  vbox = new QVBoxLayout(this);
+  //  vbox = new QVBoxLayout(this);
 
-  QHBoxLayout* box = new QHBoxLayout();
-  vbox->addLayout(box);
+  QHBoxLayout* box = new QHBoxLayout(this);
+  box->setSpacing(0);
+  box->setMargin(0);
+  box->setContentsMargins(0, 0, 0, 0);
+  //vbox->addLayout(box);
   box->addWidget(wLabel);
   box->addStretch();
 //  box->addWidget(objectButton);

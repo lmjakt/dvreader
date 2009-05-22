@@ -387,39 +387,25 @@ void GLImage::wheelEvent(QWheelEvent* e){
 
 void GLImage::keyPressEvent(QKeyEvent* e){
   int key = e->key();
-  cout << "keyEvent : " << key << endl;
 
-  // note : arrow keys on my stinkpad as follows 
-  // up   : 4115
-  // down : 4117
-  // left : 4114
-  // right: 4116
-  // 
-  // lets use these in order to step through the image...
   switch(key){
-  case 4115 :
+  case Qt::Key_Right :
     emit nextImage();
     break;
-  case 4116 :
+  case Qt::Key_Up :
     emit nextImage();
     break;
-  case 4117 :
+  case Qt::Key_Left :
     emit previousImage();
     break;
-  case 4114 :
+  case Qt::Key_Down :
     emit previousImage();
     break;
-  case 16777236 :
-    emit nextImage();
+  case Qt::Key_Home :
+    emit firstImage();
     break;
-  case 16777235 :
-    emit nextImage();
-    break;
-  case 16777234 :
-    emit previousImage();
-    break;
-  case 16777237 :
-    emit previousImage();
+  case Qt::Key_End :
+    emit lastImage();
     break;
   default :
     e->ignore();

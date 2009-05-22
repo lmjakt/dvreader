@@ -357,7 +357,7 @@ vector<SuperBlob*> BlobMapper::overlapBlobs(vector<BlobMapper*> mappers){
     // we can only handle something like 30 blobMappers (total number should be 32)
     // but somehow I seem to get 30 in the assignment. So let's say max 0f 29 for now
     vector<SuperBlob*> superBlobs;
-    if(mappers.size() > 30){
+    if(mappers.size() > 29){
 	cerr << "BlobMapper::overlapBlobs : unable to overlap more than 30 mappers" << endl;
 	return(superBlobs);
     }
@@ -365,10 +365,10 @@ vector<SuperBlob*> BlobMapper::overlapBlobs(vector<BlobMapper*> mappers){
     vector<unsigned int> mapperIds;
     map<unsigned int, BlobMapper*> mapperMap;
     mapperIds.reserve(mappers.size());
-    unsigned int thisId = 0;
+    unsigned int thisId = 1;
     mapperMap.insert(make_pair(thisId, this));
     {
-	unsigned int m = 1;
+	unsigned int m = 2;
 	for(uint i=0; i < mappers.size(); ++i){
 	    mapperIds.push_back(m);
 	    mapperMap.insert(make_pair(m, mappers[i]));

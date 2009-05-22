@@ -72,6 +72,7 @@ int main(int argc, char** argv){
 	ifName = non_options[0];
     }
     DeltaViewer viewer(opt_commands, ifName);
+    viewer.setContentsMargins(0, 0, 0, 0);
     app.setMainWidget(&viewer);
     viewer.show();
     return app.exec();

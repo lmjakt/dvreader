@@ -112,6 +112,8 @@ class DeltaViewer : public QWidget
   private slots :
     void nextImage();
   void previousImage();
+  void firstImage();
+  void lastImage();
   void setImage(int slice);
   void setProjection();
   bool readProjection(ifstream& in);  // read from a file.. 
@@ -180,7 +182,7 @@ class DeltaViewer : public QWidget
   void mapBlobs(int wi, float minEdge);
   void findSets(int wi, int minSize, int maxSize, float minValue);
 
-  void setSpotsToSpotMapper();
+  //  void setSpotsToSpotMapper();
 
   void newLine(int x1, int xy1, int x2, int y2);
 

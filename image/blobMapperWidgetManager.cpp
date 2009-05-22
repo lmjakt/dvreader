@@ -2,6 +2,8 @@
 #include <QComboBox>
 #include <QPushButton>
 #include <QHBoxLayout>
+#include <QString>
+#include <QTextStream>
 
 using namespace std;
 
@@ -15,6 +17,9 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
     paramChooser->insertItem(MEAN, "Mean");
     paramChooser->insertItem(MAX, "Max");
     paramChooser->insertItem(MIN, "Min");
+
+    //blobTypeSelector = new QComboBox(false, this);
+    //blobTypeSelector->insertItem(-1, "All");
     
     connect(paramChooser, SIGNAL(activated(int)), this, SLOT(setParamType(int)) );
     plotType = VOLUME;
@@ -23,9 +28,22 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
     connect(superButton, SIGNAL(clicked()), this, SLOT(makeSuperBlobs()) );
 
     distPlotter = new DistPlotter();
+    superDistPlotter = new DistPlotter();
+
+    distPlotter->setCaption("Blob distributions");
+    superDistPlotter->setCaption("SuperBlob distributions");
+
+    distPlotter->setFont(font());
+    superDistPlotter->setFont(font());
+
+    QPalette plotPalette;
+    plotPalette.setColor(QPalette::Window, QColor(10, 10, 10));
+    plotPalette.setColor(QPalette::WindowText, QColor(250, 0, 250));
+    distPlotter->setPalette(plotPalette);
+    superDistPlotter->setPalette(plotPalette);
 
     QVBoxLayout* mainBox = new QVBoxLayout(this);
-    mainBox->setSpacing(3);
+    mainBox->setSpacing(1);
     mainBox->setMargin(1);
     
     vbox = new QVBoxLayout();
@@ -35,6 +53,7 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
     mainBox->addLayout(hbox);
     hbox->addStretch();
     hbox->addWidget(superButton);
+    //hbox->addWidget(blobTypeSelector);
     hbox->addWidget(paramChooser);
 }
 
@@ -52,8 +71,14 @@ void BlobMapperWidgetManager::addBlobMapper(BlobMapper* bm, fluorInfo& fInfo, st
     vbox->addWidget(bmw);
     bmw->show();
 
+    QString label;
+    QTextStream ls(&label);
+    ls << fInfo.excitation << " -> " << fInfo.emission << " : " << bm->minimum();
+    //    blobTypeSelector->insertItem(label);
+
     distPlotter->setCaption(fName.c_str());
     plotDistributions();
+    plotSuperDistributions();
 }
 
 set<BlobMapperWidget*> BlobMapperWidgetManager::blobMapperWidgets(){
@@ -82,6 +107,7 @@ void BlobMapperWidgetManager::setParamType(int p){
 	    plotType = SUM;
     }
     plotDistributions();
+    plotSuperDistributions();
 }
 
 void BlobMapperWidgetManager::deleteBlobWidget(){
@@ -154,6 +180,74 @@ void BlobMapperWidgetManager::plotDistributions(){
     }
     distPlotter->setData(values, colors);
     distPlotter->show();
+}
+
+
+void BlobMapperWidgetManager::plotSuperDistributions(){
+  cout << "plot super distributions superblobs.size() " << superBlobs.size() << endl;
+  if(!superBlobs.size())
+    return;
+  vector<QColor> widgetColors;
+  map<unsigned int, bool> includeMap;
+  unsigned int map_id = 1;
+  for(set<BlobMapperWidget*>::iterator it=blobWidgets.begin(); it != blobWidgets.end(); ++it){
+    widgetColors.push_back((*it)->color());
+    includeMap[map_id] = (*it)->plotDistribution();
+    map_id *= 2;
+  }
+  
+  map<unsigned int, vector<float> > values;
+  for(uint i=0; i < superBlobs.size(); ++i){
+    float v;
+    for(uint j=0; j < superBlobs[i]->blobs.size(); ++j){
+      if(!( includeMap[ superBlobs[i]->blobs[j].mapper_id ] ))
+	continue;
+      blob* b = superBlobs[i]->blobs[j].b;
+      switch(plotType){
+      case VOLUME:
+	v = b->points.size();
+	break;
+      case SUM:
+	v = b->sum;
+	break;
+      case MEAN:
+	v = b->sum / (float)b->points.size();
+	break;
+      case MAX:
+	v = b->max;
+	break;
+      case MIN:
+	v = b->min;
+	break;
+      default:
+	v = b->sum;
+      }
+      values[superBlobs[i]->membership].push_back(v);
+    }
+  }
+  // then work out the colors that we'll need using  
+  vector<QColor> plotColors;
+  vector< vector<float> > plotValues;
+  for(map<unsigned int, vector<float> >::iterator it=values.begin(); it != values.end(); ++it){
+    int r, g, b;
+    r = g = b = 0;
+    unsigned int component = 1;
+    for(uint i=0; i < widgetColors.size(); ++i){
+      if((*it).first & component){
+	r += widgetColors[i].red();
+	g += widgetColors[i].green();
+	b += widgetColors[i].blue();
+      }
+      component *= 2;
+    }
+    r = r > 255 ? 255 : r;
+    g = g > 255 ? 255 : g;
+    b = b > 255 ? 255 : b;
+    plotColors.push_back(QColor(r, g, b));
+    plotValues.push_back((*it).second);
+  }
+  superDistPlotter->setData(plotValues, plotColors);
+  superDistPlotter->show();
 }
 
 void BlobMapperWidgetManager::deleteSuperBlobs(){

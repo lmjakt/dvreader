@@ -26,7 +26,7 @@
 #include "spotDensityWidget.h"
 #include "blurWidget.h"
 #include <iostream>
-#include <qlayout.h>
+//#include <qlayout.h>
 #include <qcheckbox.h>
 //Added by qt3to4:
 #include <QVBoxLayout>
@@ -41,6 +41,7 @@ using namespace std;
 SpotWindow::SpotWindow(int Width, int Height, int Depth, QWidget* parent, const char* name)
     : QWidget(parent, name)
 {
+  setContentsMargins(1, 1, 1, 1);
     imageWidth = Width;
     imageHeight = Height;
     imageDepth = Depth;
@@ -87,9 +88,13 @@ SpotWindow::SpotWindow(int Width, int Height, int Depth, QWidget* parent, const 
     connect(loadParamButton, SIGNAL(clicked()), this, SLOT(readSpotParameters()) );
 
     QVBoxLayout* vbox = new QVBoxLayout(this);
+    vbox->setSpacing(1);
+    vbox->setContentsMargins(1, 1, 1, 1);
     vbox->addWidget(xPlot);
     vbox->addWidget(yPlot);
     channelBox = new QVBoxLayout();
+    channelBox->setContentsMargins(0, 0, 0, 0);
+    channelBox->setSpacing(1);
     vbox->addLayout(channelBox);
     QHBoxLayout* checkBox = new QHBoxLayout();
     checkBox->addStretch();

@@ -40,6 +40,7 @@ class BlobMapperWidget : public QWidget
     RepIcon::BlobRepresentation blobRep();
     void color(float& r, float& g, float& b);
     QColor color();
+    bool plotDistribution();
 
     public slots:
 	void exportBlobs();
@@ -60,6 +61,7 @@ class BlobMapperWidget : public QWidget
     unsigned int currentRep;
     std::vector<RepIcon> icons;
     QToolButton* eatNeighborButton;
+    QToolButton* drawDisButton;
     
     QToolButton* colorButton;
     QColor currentColor;

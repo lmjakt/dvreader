@@ -6,6 +6,8 @@
 #include "linePlotter.h"
 #include <vector>
 #include <QLabel>
+#include <QDoubleSpinBox>
+#include <QSpinBox>
 
 class DistPlotter : public QWidget
 {
@@ -21,10 +23,21 @@ class DistPlotter : public QWidget
 	void toggleLog();
     void displayPos(int xp, float yp);
     
+    private slots:
+    void setCellNo(int dno);
+    void setMinCell(double v);
+    void setMaxCell(double v);
+
  private:
+    void countItems();
+
     LinePlotter* linePlotter;
     QLabel* xPos;
     QLabel* yPos;
+
+    QDoubleSpinBox* minValueBox;
+    QDoubleSpinBox* maxValueBox;
+    QSpinBox* cellNoBox;
 
     std::vector<std::vector<float> > values;
     std::vector<std::vector<float> > counts;  // float rather than int for linePlotter's sake

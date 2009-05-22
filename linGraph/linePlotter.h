@@ -26,11 +26,14 @@ class LinePlotter : public QWidget
     void mouseDoubleClickEvent(QMouseEvent* e);
     void mousePressEvent(QMouseEvent* e);
     void mouseMoveEvent(QMouseEvent* e);
+    void keyPressEvent(QKeyEvent* e);
     void emitMousePos(int x, int y);
 
     std::vector< std::vector<float> > values;
     std::vector<QColor> colors;
     float min, max;
+    float xScale;
+    float yScale;
     unsigned int maxLength;
 
     int vMargin;

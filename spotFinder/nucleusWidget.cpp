@@ -27,7 +27,7 @@
 #include <qvalidator.h>
 #include <qpushbutton.h>
 #include <qlabel.h>
-#include <qlayout.h>
+//#include <qlayout.h>
 #include <qsizepolicy.h>
 //Added by qt3to4:
 #include <QVBoxLayout>
@@ -39,9 +39,11 @@ NucleusWidget::NucleusWidget(QString buttonLabel, QWidget* parent, const char* n
     : QWidget(parent, name)
 {
 
-    channels = new Q3ButtonGroup(1, Qt::Vertical, "channel", this);
+  QLabel* channelLabel = new QLabel("channel", this);
+    channels = new QButtonGroup(this);
+    //    channels = new Q3ButtonGroup(1, Qt::Vertical, "channel", this);
 //    channels = new Q3ButtonGroup(1, Q3GroupBox::Vertical, "channel", this);
-    channels->setSizePolicy(QSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum));
+    //  channels->setSizePolicy(QSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum));
 
     QLabel* minLineLabel = new QLabel("Minimum Intensity", this, "minLineLabel");
     minLine = new QLineEdit(this, "minLine");
@@ -52,15 +54,21 @@ NucleusWidget::NucleusWidget(QString buttonLabel, QWidget* parent, const char* n
 //    QPushButton* findButton = new QPushButton("Find Nuclei", this, "findButton");
     connect(findButton, SIGNAL(clicked()), this, SLOT(findNuclei()) );
     
-    vbox = new QVBoxLayout(this, 1, 1);
+    //vbox = new QVBoxLayout(this);
+    //vbox->setSpacing(1);
+    //vbox->setMargin(1);
+    QHBoxLayout* mainBox = new QHBoxLayout(this);
+    mainBox->setSpacing(1);
     hbox = new QHBoxLayout();
-    vbox->addLayout(hbox);
+    mainBox->addLayout(hbox);
+    hbox->addWidget(channelLabel);
+    //    vbox->addLayout(hbox);
 //    QHBoxLayout* hbox = new QHBoxLayout(this, 1, 1, "hbox");
-    hbox->addWidget(channels);
-    hbox->addWidget(minLineLabel);
-    hbox->addWidget(minLine);
-    hbox->addStretch();
-    hbox->addWidget(findButton);
+//    mainBox->addWidget(channels);
+    mainBox->addWidget(minLineLabel);
+    mainBox->addWidget(minLine);
+    mainBox->addStretch();
+    mainBox->addWidget(findButton);
 }
 
 void NucleusWidget::setChannels(vector<QString> Channels){
@@ -73,7 +81,9 @@ void NucleusWidget::setChannels(vector<QString> Channels){
     channelButtons.resize(0);
     // and then let's make some new buttons..
     for(uint i=0; i < Channels.size(); i++){
-	QRadioButton* button = new QRadioButton(Channels[i], channels);
+      QRadioButton* button = new QRadioButton(Channels[i]);
+      channels->addButton(button, i);
+	hbox->addWidget(button);
 	channelButtons.push_back(button);
 	button->show();
     }
@@ -86,7 +96,7 @@ void NucleusWidget::findNuclei(){
 	cerr << "NucleusWidget unable to parse float from minLine" << endl;
 	return;
     }
-    int selectedId = channels->selectedId();
+    int selectedId = channels->checkedId();
     if(selectedId == -1){
 	cerr << "NucleusWidget : no wavelengt selected" << endl;
 	return;

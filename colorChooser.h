@@ -25,12 +25,12 @@
 #ifndef COLORCHOOSER_H
 #define COLORCHOOSER_H
 
-#include <qwidget.h>
-#include <qcolor.h>
+#include <QWidget>
+#include <QColor>
 //#include <qpushbutton.h>
-#include <qcheckbox.h>
-#include <qstring.h>
-#include <qlayout.h>
+#include <QCheckBox>
+#include <QString>
+//#include <qlayout.h>
 //Added by qt3to4:
 #include <QPalette>
 #include <QPushButton>

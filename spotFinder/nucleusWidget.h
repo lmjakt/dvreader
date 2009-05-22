@@ -26,8 +26,10 @@
 #define NUCLEUSWIDGET_H
 
 #include <vector>
-#include <qwidget.h>
-#include <q3buttongroup.h>
+#include <QWidget>
+//#include <qwidget.h>
+//#include <q3buttongroup.h>
+#include <QButtonGroup>
 #include <qradiobutton.h>
 #include <qlineedit.h>
 #include <qstring.h>
@@ -49,10 +51,11 @@ class NucleusWidget : public QWidget
 	void findNuclearPerimeters(int, float);          // float -> minimum nuclear signal.. 
 
     protected :
-	QVBoxLayout* vbox;
+	//QVBoxLayout* vbox;
     QHBoxLayout* hbox;    // so I can do something reasonable .. 
     QLineEdit* minLine;       // input the minium line ..
-    Q3ButtonGroup* channels;   // we use this to handle stuff.. but ..
+    QButtonGroup* channels;
+    //    Q3ButtonGroup* channels;   // we use this to handle stuff.. but ..
 
     private :
 	std::vector<QRadioButton*> channelButtons;

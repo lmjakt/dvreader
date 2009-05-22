@@ -6,6 +6,7 @@
 #include "../linGraph/distPlotter.h"
 #include <QWidget>
 #include <QVBoxLayout>
+#include <QComboBox>
 #include <set>
 #include <vector>
 #include <string>
@@ -37,11 +38,14 @@ class BlobMapperWidgetManager : public QWidget
  private:
     std::set<BlobMapperWidget*> blobWidgets;
     std::vector<SuperBlob*> superBlobs;
+    //  QComboBox* blobTypeSelector;
     DistPlotter* distPlotter;
+    DistPlotter* superDistPlotter;
     Param plotType;
     QVBoxLayout* vbox;
 
     void plotDistributions();
+    void plotSuperDistributions();
     void deleteSuperBlobs();
 };
 
