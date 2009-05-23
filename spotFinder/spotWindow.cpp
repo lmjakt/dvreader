@@ -48,7 +48,7 @@ SpotWindow::SpotWindow(int Width, int Height, int Depth, QWidget* parent, const 
     xPlot = new PlotWidget(this, "xPlot");
     yPlot = new PlotWidget(this, "yPlot");
 
-    int plotMinH = 200;
+    int plotMinH = 150;
     xPlot->setMinimumHeight(plotMinH);
     yPlot->setMinimumHeight(plotMinH);
 
@@ -110,6 +110,8 @@ SpotWindow::SpotWindow(int Width, int Height, int Depth, QWidget* parent, const 
     vbox->addWidget(setWidget);
     vbox->addWidget(spotDensityWidget);
     vbox->addWidget(blurWidget);
+
+    setMinimumWidth(500);
 }
 
 //void SpotWindow::resizeEvent(QResizeEvent* e){

@@ -14,12 +14,7 @@
 class BlobMapperWidgetManager : public QWidget
 {
     Q_OBJECT
-
-	enum Param {
-	    VOLUME, SUM, MEAN, MAX, MIN
-	};
-
-	public:
+      public:
     BlobMapperWidgetManager(QWidget* parent=0);
     ~BlobMapperWidgetManager();
 
@@ -34,6 +29,7 @@ class BlobMapperWidgetManager : public QWidget
 	void setParamType(int p);
     void deleteBlobWidget();
     void makeSuperBlobs();
+    void replot();
 
  private:
     std::set<BlobMapperWidget*> blobWidgets;
@@ -41,7 +37,7 @@ class BlobMapperWidgetManager : public QWidget
     //  QComboBox* blobTypeSelector;
     DistPlotter* distPlotter;
     DistPlotter* superDistPlotter;
-    Param plotType;
+    BlobMapperWidget::Param plotType;
     QVBoxLayout* vbox;
 
     void plotDistributions();

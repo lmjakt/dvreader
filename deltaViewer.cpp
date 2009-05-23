@@ -202,7 +202,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   connect(spotWindow, SIGNAL(setUseProjection(bool)), this, SLOT(setSpotsUseProjection(bool)) );
   connect(spotWindow, SIGNAL(findSpotDensity(int, double, double)), this, SLOT(determineSpotDensities(int, double, double)) );
   connect(spotWindow, SIGNAL(blur(std::set<uint>, int, double, double)), this, SLOT(blur(std::set<uint>, int, double, double)) );
-  spotWindow->resize(1000, 800);
+  //spotWindow->resize(1000, 800);
 
   // and let's have a window for flat views and stuff..
 //  flatView = new FlatView(reader->width(), reader->height());

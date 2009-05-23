@@ -83,20 +83,20 @@ ChannelWidget::ChannelWidget(int ID, QString Ident, QColor c, QWidget* parent, c
     connect(maxEdgeValue, SIGNAL(valueChanged(int)), this, SLOT(meChanged(int)) );
 
     // min Correlation.. although we may not use this ..
-    QLabel* minCorLabel = new QLabel("min cor", this, "minCorLabel");
-    minCorrelation = new QSpinBox(0, 100, 1, this, "minCorrelation");
-    minCorrelation->setSuffix("%");
+    //QLabel* minCorLabel = new QLabel("min cor", this, "minCorLabel");
+    //minCorrelation = new QSpinBox(0, 100, 1, this, "minCorrelation");
+    //minCorrelation->setSuffix("%");
     // but this does not need to be connected to anything..
 
-    QLabel* bgmLabel = new QLabel("BGM", this, "bgmLabel");
-    backgroundMultiplier = new QSpinBox(1, 20, 1, this, "backgroundMultiplier");
+    // QLabel* bgmLabel = new QLabel("BGM", this, "bgmLabel");
+    //backgroundMultiplier = new QSpinBox(1, 20, 1, this, "backgroundMultiplier");
 
     QLabel* clusterLabel = new QLabel("K clusterNo", this, "clusterLabel");
     clusterNumber = new QSpinBox(0, 40, 1, this, "clusterNumber");
 
     // and then finally a button to start the whole procedure...
-    QPushButton* findButton = new QPushButton("Find", this, "findButton");
-    connect(findButton, SIGNAL(clicked()), this, SLOT(findSpots()) );
+    //QPushButton* findButton = new QPushButton("Find", this, "findButton");
+    //connect(findButton, SIGNAL(clicked()), this, SLOT(findSpots()) );
 
     // and a button for finding spots in all frames..
     QPushButton* findAllButton = new QPushButton("Find (all)", this, "findAllButton");
@@ -125,13 +125,13 @@ ChannelWidget::ChannelWidget(int ID, QString Ident, QColor c, QWidget* parent, c
     hbox->addWidget(minPeakValue);
     hbox->addWidget(meLabel);
     hbox->addWidget(maxEdgeValue);
-    hbox->addWidget(minCorLabel);
-    hbox->addWidget(minCorrelation);
-    hbox->addWidget(bgmLabel);
-    hbox->addWidget(backgroundMultiplier);
+    // hbox->addWidget(minCorLabel);
+    //hbox->addWidget(minCorrelation);
+    //hbox->addWidget(bgmLabel);
+    //hbox->addWidget(backgroundMultiplier);
     hbox->addWidget(clusterLabel);
     hbox->addWidget(clusterNumber);
-    hbox->addWidget(findButton);
+    //hbox->addWidget(findButton);
     hbox->addWidget(findAllButton);
     hbox->addWidget(findAll3DButton);
 }
@@ -142,10 +142,12 @@ void ChannelWidget::currentState(QString& ident, int& Id, int& ws, float& mpv, i
     ws = windowSize->value();
     mpv = minPeakValue->text().toFloat();
     mev =  maxEdgeValue->value();
-    minCorr = minCorrelation->value();
+    minCorr = 0;
+    //    minCorr = minCorrelation->value();
     r = g = b = 255;  // ?
     k = clusterNumber->value();
-    bgm = backgroundMultiplier->value();
+    bgm = 0;
+    //    bgm = backgroundMultiplier->value();
     expFile = fileCheckBox->isChecked();
 }
 
@@ -162,9 +164,9 @@ bool ChannelWidget::setState(QString ident, int Id, int ws, float mpv, int mev, 
     mpvString.setNum(mpv);
     minPeakValue->setText(mpvString);
     maxEdgeValue->setValue(mev);
-    minCorrelation->setValue(minCorr);
+    //minCorrelation->setValue(minCorr);
     clusterNumber->setValue(k);
-    backgroundMultiplier->setValue(bgm);
+    //backgroundMultiplier->setValue(bgm);
     fileCheckBox->setChecked(expFile);
 }
 

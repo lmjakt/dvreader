@@ -32,8 +32,12 @@ class BlobMapperWidget : public QWidget
 {
     Q_OBJECT
 	public:
-    BlobMapperWidget(BlobMapper* bmapper, fluorInfo& fInfo, std::string fname, QWidget* parent=0);
-    ~BlobMapperWidget();
+  enum Param {
+    VOLUME, SUM, MEAN, MAX, MIN
+  };
+  
+  BlobMapperWidget(BlobMapper* bmapper, fluorInfo& fInfo, std::string fname, QWidget* parent=0);
+  ~BlobMapperWidget();
 
     std::set<blob*>& blobs();
     BlobMapper* blobMapper();
@@ -53,6 +57,7 @@ class BlobMapperWidget : public QWidget
     void newColor();
     void newRep();
     void deleteMe();
+    void includeDistChanged();
 
  private:
     BlobMapper* mapper;

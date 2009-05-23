@@ -60,15 +60,18 @@ DistPlotter::~DistPlotter(){
 
 void DistPlotter::setData(vector<vector<float> >& v, vector<QColor>& c, bool lg){
 
-    cout << "DistPlotter::setData " << endl;
     values = v;
     colors = c;
     isLog = lg;
 
     initCount();
     float range = max - min;
-    if(!range)
-	return;
+    if(!range){
+      counts.resize(0);
+      colors.resize(0);
+      linePlotter->setData(counts, colors);
+      return;
+    }
 
     countItems();
 
@@ -84,7 +87,6 @@ void DistPlotter::countItems(){
     return;
 
   for(uint i=0; i < values.size(); ++i){
-    cout << i << " values size: " << values[i].size() << endl;
     for(uint j=0; j < values[i].size(); ++j){
       if(values[i][j] <= maxCell && values[i][j] >= minCell)
 	counts[i][ (uint) roundf(  ((float)counts[i].size()-1) *  ((values[i][j] - minCell) / range ) ) ]++;
@@ -155,7 +157,6 @@ void DistPlotter::displayPos(int xp, float yp){
     float x = minCell + ((float)xp / (float)divNo) * (maxCell - minCell);
     if(isLog)
 	x = exp(x);
-//    cout << "Position " << xp << " --> " << x << "  max:min:divno " << max << " : " << min << " : " << divNo << endl;
     xl.setNum(x);
     xPos->setText(xl);
     yPos->setText(yl);

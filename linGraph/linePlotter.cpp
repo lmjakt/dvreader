@@ -49,6 +49,8 @@ void LinePlotter::setData(vector< vector<float> >& v, vector<QColor>& c){
     
     if(!values.size() || !values[0].size() || !colors.size()){
 	cerr << "LinePlotter::setData No values in first array. Giving up. Undefined behaviour perhaps" << endl;
+	min = 0; max = 1; maxLength = 1;
+	update();
 	return;
     }
     min = max = values[0][0];
@@ -101,7 +103,6 @@ void LinePlotter::paintEvent(QPaintEvent* e){
 	cerr << "LinePlotter::paintEvent range is 0" << endl;
 	return;
     }
-    cout << "LinePloter::paintEvent values.size : " << values.size() << endl;
     for(uint i=0; i < values.size(); ++i){
 	p.setPen(QPen(colors[i], 0));
 	qreal x, y;
@@ -131,6 +132,24 @@ void LinePlotter::mouseMoveEvent(QMouseEvent* e){
 
 void LinePlotter::mousePressEvent(QMouseEvent* e){
     emitMousePos(e->x(), e->y());
+    int x;
+    float y;
+    translateMousePos(e, x, y);
+    if(e->state() == Qt::ControlButton){
+      switch(e->state()){
+      case Qt::ControlButton :
+	emit ctl_left(x, y);
+	break;
+      case Qt::MidButton :
+	emit ctl_mid(x, y);
+	break;
+      case Qt::RightButton :
+	emit ctl_right(x, y);
+	break;
+      default:
+	emit ctl_unknown(x, y);
+      }
+    }
 }
 
 void LinePlotter::keyPressEvent(QKeyEvent* e){
@@ -156,4 +175,9 @@ void LinePlotter::emitMousePos(int x, int y){
     int xp = ((x - hMargin) * maxLength) / (width() - 2 * hMargin);
     float yp =  min + (max - min) * ( (float)((height() - vMargin) - y) / (float)(height() - vMargin*2) ) / yScale;
     emit mousePos(xp, yp);
+}
+
+void LinePlotter::translateMousePos(QMouseEvent* e, int& x, float& y){
+  x = ((e->x() - hMargin) * maxLength) / (width() - 2 * hMargin);
+  y = min + (max - min) * ( (float)((height() - vMargin) - e->y()) / (float)(height() - vMargin*2) ) / yScale;
 }

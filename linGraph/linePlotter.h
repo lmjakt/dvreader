@@ -20,6 +20,10 @@ class LinePlotter : public QWidget
  signals:
     void doubleClicked();
     void mousePos(int, float);
+    void ctl_left(int, float);
+    void ctl_mid(int, float);
+    void ctl_right(int, float);
+    void ctl_unknown(int, float);
     
     private:
     void paintEvent(QPaintEvent* e);
@@ -28,6 +32,7 @@ class LinePlotter : public QWidget
     void mouseMoveEvent(QMouseEvent* e);
     void keyPressEvent(QKeyEvent* e);
     void emitMousePos(int x, int y);
+    void translateMousePos(QMouseEvent* e, int& x, float& y);
 
     std::vector< std::vector<float> > values;
     std::vector<QColor> colors;

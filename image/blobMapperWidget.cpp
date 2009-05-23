@@ -29,6 +29,7 @@ BlobMapperWidget::BlobMapperWidget(BlobMapper* bmapper, fluorInfo& fInfo, string
     drawDisButton->setToolTip("Plot distribution");
     drawDisButton->setCheckable(true);
     drawDisButton->setChecked(true);
+    connect(drawDisButton, SIGNAL(clicked()), this, SIGNAL(includeDistChanged()) );
     
     //    QToolButton* exportButton = new QToolButton(this);
     //exportButton->setText("E");

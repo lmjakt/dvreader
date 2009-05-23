@@ -12,17 +12,17 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
 {
 
     QComboBox* paramChooser = new QComboBox(false, this);
-    paramChooser->insertItem(VOLUME, "Volume");
-    paramChooser->insertItem(SUM, "Sum");
-    paramChooser->insertItem(MEAN, "Mean");
-    paramChooser->insertItem(MAX, "Max");
-    paramChooser->insertItem(MIN, "Min");
+    paramChooser->insertItem(BlobMapperWidget::VOLUME, "Volume");
+    paramChooser->insertItem(BlobMapperWidget::SUM, "Sum");
+    paramChooser->insertItem(BlobMapperWidget::MEAN, "Mean");
+    paramChooser->insertItem(BlobMapperWidget::MAX, "Max");
+    paramChooser->insertItem(BlobMapperWidget::MIN, "Min");
 
     //blobTypeSelector = new QComboBox(false, this);
     //blobTypeSelector->insertItem(-1, "All");
     
     connect(paramChooser, SIGNAL(activated(int)), this, SLOT(setParamType(int)) );
-    plotType = VOLUME;
+    plotType = BlobMapperWidget::VOLUME;
 
     QPushButton* superButton = new QPushButton("Super", this);
     connect(superButton, SIGNAL(clicked()), this, SLOT(makeSuperBlobs()) );
@@ -65,9 +65,13 @@ BlobMapperWidgetManager::~BlobMapperWidgetManager(){
 
 void BlobMapperWidgetManager::addBlobMapper(BlobMapper* bm, fluorInfo& fInfo, string fName){
     BlobMapperWidget* bmw = new BlobMapperWidget(bm, fInfo, fName, this);
+    connect(bmw, SIGNAL(newColor()), this, SLOT(replot()) );
+    connect(bmw, SIGNAL(includeDistChanged()), this, SLOT(replot()) );
+
     connect(bmw, SIGNAL(newColor()), this, SIGNAL(newColor()) );
     connect(bmw, SIGNAL(newRep()), this, SIGNAL(newRep()) );
     connect(bmw, SIGNAL(deleteMe()), this, SLOT(deleteBlobWidget()) );
+    
 
     blobWidgets.insert(bmw);
     vbox->addWidget(bmw);
@@ -90,23 +94,23 @@ set<BlobMapperWidget*> BlobMapperWidgetManager::blobMapperWidgets(){
 void BlobMapperWidgetManager::setParamType(int p){
     // This is kind of ugly, but I don't know a better way
     switch(p){
-	case VOLUME:
-	    plotType = VOLUME;
+	case BlobMapperWidget::VOLUME:
+	    plotType = BlobMapperWidget::VOLUME;
 	    break;
-	case SUM:
-	    plotType = SUM;
+	case BlobMapperWidget::SUM:
+	    plotType = BlobMapperWidget::SUM;
 	    break;
-	case MEAN:
-	    plotType = MEAN;
+	case BlobMapperWidget::MEAN:
+	    plotType = BlobMapperWidget::MEAN;
 	    break;
-	case MAX:
-	    plotType = MAX;
+	case BlobMapperWidget::MAX:
+	    plotType = BlobMapperWidget::MAX;
 	    break;
-	case MIN:
-	    plotType = MIN;
+	case BlobMapperWidget::MIN:
+	    plotType = BlobMapperWidget::MIN;
 	    break;
 	default:
-	    plotType = SUM;
+	    plotType = BlobMapperWidget::SUM;
     }
     plotDistributions();
     plotSuperDistributions();
@@ -146,6 +150,12 @@ void BlobMapperWidgetManager::makeSuperBlobs(){
     
     superBlobs = seedMapper->overlapBlobs(mappers);
     cout << "MakeSuperBlobs made a total of " << superBlobs.size() << "  superBlobs" << endl;
+    plotSuperDistributions();
+}
+
+void BlobMapperWidgetManager::replot(){
+  plotDistributions();
+  plotSuperDistributions();
 }
 
 void BlobMapperWidgetManager::plotDistributions(){
@@ -159,19 +169,19 @@ void BlobMapperWidgetManager::plotDistributions(){
 	cout << "BlobMapperWidget reserving size for " << i << "  : " << blobs.size() << endl;
 	for(set<blob*>::iterator bit=blobs.begin(); bit != blobs.end(); ++bit){
 	    switch(plotType){
-		case VOLUME:
+		case BlobMapperWidget::VOLUME:
 		    values[i].push_back( (*bit)->points.size() );
 		    break;
-		case SUM:
+		case BlobMapperWidget::SUM:
 		    values[i].push_back( (*bit)->sum );
 		    break;
-		case MEAN:
+		case BlobMapperWidget::MEAN:
 		    values[i].push_back( (*bit)->sum / (*bit)->points.size() );
 		    break;
-		case MAX:
+		case BlobMapperWidget::MAX:
 		    values[i].push_back( (*bit)->max );
 		    break;
-		case MIN:
+		case BlobMapperWidget::MIN:
 		    values[i].push_back( (*bit)->min );
 		    break;
 		default:
@@ -187,10 +197,10 @@ void BlobMapperWidgetManager::plotDistributions(){
 
 void BlobMapperWidgetManager::plotSuperDistributions(){
   cout << "plot super distributions superblobs.size() " << superBlobs.size() << endl;
-  if(!superBlobs.size())
-    return;
   vector<QColor> widgetColors;
   map<unsigned int, bool> includeMap;
+  if(!superBlobs.size() && !superDistPlotter->isVisible())
+    return;
   unsigned int map_id = 1;
   for(set<BlobMapperWidget*>::iterator it=blobWidgets.begin(); it != blobWidgets.end(); ++it){
     widgetColors.push_back((*it)->color());
@@ -206,19 +216,19 @@ void BlobMapperWidgetManager::plotSuperDistributions(){
 	continue;
       blob* b = superBlobs[i]->blobs[j].b;
       switch(plotType){
-      case VOLUME:
+      case BlobMapperWidget::VOLUME:
 	v = b->points.size();
 	break;
-      case SUM:
+      case BlobMapperWidget::SUM:
 	v = b->sum;
 	break;
-      case MEAN:
+      case BlobMapperWidget::MEAN:
 	v = b->sum / (float)b->points.size();
 	break;
-      case MAX:
+      case BlobMapperWidget::MAX:
 	v = b->max;
 	break;
-      case MIN:
+      case BlobMapperWidget::MIN:
 	v = b->min;
 	break;
       default:
