@@ -27,11 +27,18 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
     QPushButton* superButton = new QPushButton("Super", this);
     connect(superButton, SIGNAL(clicked()), this, SLOT(makeSuperBlobs()) );
 
-    distPlotter = new DistPlotter();
-    superDistPlotter = new DistPlotter();
+    QPushButton* clearLimitsButton = new QPushButton("C.L.", this);
+    clearLimitsButton->setToolTip("Clear Plot Limits");
+    connect(clearLimitsButton, SIGNAL(clicked()), this, SLOT(clearPlotLimits()) );
+
+    distPlotter = new DistPlotter(false);
+    superDistPlotter = new DistPlotter(true);  // use this one only for setting limits
 
     distPlotter->setCaption("Blob distributions");
     superDistPlotter->setCaption("SuperBlob distributions");
+    connect(superDistPlotter, SIGNAL(setLimits(float, float)), this, SLOT(setLimits(float, float)) );
+    distPlotter->resize(500, 400);
+    superDistPlotter->resize(500, 400);
 
     distPlotter->setFont(font());
     superDistPlotter->setFont(font());
@@ -53,6 +60,7 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
 
     QHBoxLayout* hbox = new QHBoxLayout();
     mainBox->addLayout(hbox);
+    hbox->addWidget(clearLimitsButton);
     hbox->addStretch();
     hbox->addWidget(superButton);
     //hbox->addWidget(blobTypeSelector);
@@ -63,15 +71,15 @@ BlobMapperWidgetManager::~BlobMapperWidgetManager(){
     // we should delete the blobMappers .. 
 }
 
-void BlobMapperWidgetManager::addBlobMapper(BlobMapper* bm, fluorInfo& fInfo, string fName){
-    BlobMapperWidget* bmw = new BlobMapperWidget(bm, fInfo, fName, this);
+void BlobMapperWidgetManager::addBlobMapper(BlobMapper* bm, fluorInfo& fInfo, string fName, QColor c){
+    BlobMapperWidget* bmw = new BlobMapperWidget(bm, fInfo, fName, c, this);
     connect(bmw, SIGNAL(newColor()), this, SLOT(replot()) );
     connect(bmw, SIGNAL(includeDistChanged()), this, SLOT(replot()) );
-
+  
     connect(bmw, SIGNAL(newColor()), this, SIGNAL(newColor()) );
     connect(bmw, SIGNAL(newRep()), this, SIGNAL(newRep()) );
     connect(bmw, SIGNAL(deleteMe()), this, SLOT(deleteBlobWidget()) );
-    
+  
 
     blobWidgets.insert(bmw);
     vbox->addWidget(bmw);
@@ -82,7 +90,7 @@ void BlobMapperWidgetManager::addBlobMapper(BlobMapper* bm, fluorInfo& fInfo, st
     ls << fInfo.excitation << " -> " << fInfo.emission << " : " << bm->minimum();
     //    blobTypeSelector->insertItem(label);
 
-    distPlotter->setCaption(fName.c_str());
+    //distPlotter->setCaption(fName.c_str());
     plotDistributions();
     plotSuperDistributions();
 }
@@ -158,6 +166,21 @@ void BlobMapperWidgetManager::replot(){
   plotSuperDistributions();
 }
 
+void BlobMapperWidgetManager::clearPlotLimits(){
+  for(set<BlobMapperWidget*>::iterator it = blobWidgets.begin(); it != blobWidgets.end(); ++it){
+    if((*it)->plotDistribution())
+      (*it)->clearPlotLimits();
+  }
+}
+
+void BlobMapperWidgetManager::setLimits(float l, float r){
+  for(set<BlobMapperWidget*>::iterator it = blobWidgets.begin(); it != blobWidgets.end(); ++it){
+    if((*it)->plotDistribution())
+      (*it)->setPlotLimits(plotType, l, r);
+  }
+  emit newLimits();
+}
+
 void BlobMapperWidgetManager::plotDistributions(){
     vector<vector<float> > values(blobWidgets.size());
     vector<QColor> colors(blobWidgets.size());
@@ -190,7 +213,7 @@ void BlobMapperWidgetManager::plotDistributions(){
 	}
 	++i;
     }
-    distPlotter->setData(values, colors);
+    distPlotter->setData(values, colors, true);
     distPlotter->show();
 }
 
@@ -201,11 +224,19 @@ void BlobMapperWidgetManager::plotSuperDistributions(){
   map<unsigned int, bool> includeMap;
   if(!superBlobs.size() && !superDistPlotter->isVisible())
     return;
+
+  ///////// STUPID HACK ///////////
+  // since we have no way of showing more than one set of limits, we'll arbitrarily
+  // show the last set of limits set.. 
+  pl_limits plotLimits;
+
   unsigned int map_id = 1;
   for(set<BlobMapperWidget*>::iterator it=blobWidgets.begin(); it != blobWidgets.end(); ++it){
     widgetColors.push_back((*it)->color());
     includeMap[map_id] = (*it)->plotDistribution();
     map_id *= 2;
+    if((*it)->plotDistribution() && (*it)->pLimits().count(plotType))
+      plotLimits = (*it)->pLimits()[plotType];
   }
   
   map<unsigned int, vector<float> > values;
@@ -258,7 +289,14 @@ void BlobMapperWidgetManager::plotSuperDistributions(){
     plotColors.push_back(QColor(r, g, b));
     plotValues.push_back((*it).second);
   }
-  superDistPlotter->setData(plotValues, plotColors);
+
+  if(plotLimits.left < plotLimits.right){
+    cout << "Found a previous set of limits " << plotLimits.left << "  " << plotLimits.right << endl;
+    superDistPlotter->setPlotLimits(plotLimits.left, plotLimits.right, false);
+    superDistPlotter->setData(plotValues, plotColors, false);
+  }else{
+    superDistPlotter->setData(plotValues, plotColors, true);
+  }
   superDistPlotter->show();
 }
 

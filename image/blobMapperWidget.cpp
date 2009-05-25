@@ -13,7 +13,7 @@
 
 using namespace std;
 
-BlobMapperWidget::BlobMapperWidget(BlobMapper* bmapper, fluorInfo& fInfo, string fname, QWidget* parent)
+BlobMapperWidget::BlobMapperWidget(BlobMapper* bmapper, fluorInfo& fInfo, string fname, QColor c, QWidget* parent)
     : QWidget(parent)
 {
     mapper = bmapper;
@@ -30,17 +30,12 @@ BlobMapperWidget::BlobMapperWidget(BlobMapper* bmapper, fluorInfo& fInfo, string
     drawDisButton->setCheckable(true);
     drawDisButton->setChecked(true);
     connect(drawDisButton, SIGNAL(clicked()), this, SIGNAL(includeDistChanged()) );
-    
-    //    QToolButton* exportButton = new QToolButton(this);
-    //exportButton->setText("E");
-    //exportButton->setToolTip("Export Blobs");
-    //connect(exportButton, SIGNAL(clicked()), this, SLOT(exportBlobs()) );
 
     makeIcons();  // this will set the icon for the eatNeighbor button
 
     
-
-    currentColor = QColor(255, 0, 255);
+    currentColor = c;
+    //    currentColor = QColor(255, 0, 255);
     QPalette palette(currentColor);
     colorButton = new QToolButton(this);
     colorButton->setPalette(palette);
@@ -111,6 +106,57 @@ bool BlobMapperWidget::plotDistribution(){
   return(drawDisButton->isChecked());
 }
 
+map<BlobMapperWidget::Param, pl_limits> BlobMapperWidget::pLimits(){
+  cout << "BlobMapperWidget returning pLimits (size of) : " << plotLimits.size() << endl;
+  return(plotLimits);
+}
+
+void BlobMapperWidget::setPlotLimits(Param p, float l, float r){
+  cout << "BlobMapper Widget setting plot limits " << p << "  : " << l << " : " << r << endl;
+  plotLimits[p] = pl_limits(l, r);
+}
+
+void BlobMapperWidget::clearPlotLimits(){
+  plotLimits.clear();
+}
+
+void BlobMapperWidget::clearPlotLimits(Param p){
+  plotLimits.erase(p);
+}
+
+bool BlobMapperWidget::filterBlob(blob* b){
+  for(map<Param, pl_limits>::iterator it=plotLimits.begin(); it != plotLimits.end(); ++it){
+    float v = -1;
+    switch((*it).first){
+    case VOLUME:
+      v = (float)b->points.size();
+      break;
+    case SUM:
+      v = b->sum;
+      break;
+    case MEAN:
+      v = b->sum / (float)b->points.size();
+      break;
+    case MAX:
+      v = b->max;
+      break;
+    case MIN:
+      v = b->min;
+      break;
+    default :
+      v = -1;
+    }
+    if(v == -1){
+      cerr << "BlobMapperWidget::filterBlob unknown Parameter : " << (*it).first << endl;
+      return(true);
+    }
+    if(v < (*it).second.left || v > (*it).second.right)
+      return(false);
+  }
+  return(true);
+}
+
+
 void BlobMapperWidget::exportBlobs(){
     ostringstream fname;
     fname << fileName << "_" << fluor.excitation << "-" << fluor.emission << "_" << mapper->minimum() << ".blobs";
@@ -157,7 +203,11 @@ void BlobMapperWidget::makeIcons(){
     p.drawEllipse(m-1, m-1, w-2*m, h-2*m);
     icons.push_back(RepIcon( QIcon(pix), RepIcon::OUTLINE) );
 
+    pix.fill(bg);
     p.setBrush(fg);
+    p.drawEllipse( (w/2)-2, (h/2)-2, 4, 4);
+    icons.push_back(RepIcon( QIcon(pix), RepIcon::PEAK) );
+    
     p.drawEllipse(m-1, m-1, w-2*m, h-2*m);
     icons.push_back(RepIcon( QIcon(pix), RepIcon::FILLED) );
 

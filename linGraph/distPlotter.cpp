@@ -7,7 +7,7 @@
 
 using namespace std;
 
-DistPlotter::DistPlotter(QWidget* parent)
+DistPlotter::DistPlotter(bool useLimits, QWidget* parent)
     : QWidget(parent)
 { 
     min=max = 0;
@@ -15,8 +15,13 @@ DistPlotter::DistPlotter(QWidget* parent)
     divNo = 100;
  
     linePlotter = new LinePlotter(this);
+    linePlotter->enableLimits(useLimits);
     connect(linePlotter, SIGNAL(doubleClicked()), this, SLOT(toggleLog()) );
     connect(linePlotter, SIGNAL(mousePos(int, float)), this, SLOT(displayPos(int, float)) );
+    if(useLimits){
+      connect(linePlotter, SIGNAL(ctl_left(int, float)), this, SLOT(setLeftLimit(int, float)) );
+      connect(linePlotter, SIGNAL(ctl_right(int, float)), this, SLOT(setRightLimit(int, float)) );
+    }
 
     xPos = new QLabel("NA", this);
     yPos = new QLabel("NA", this);
@@ -58,13 +63,14 @@ DistPlotter::DistPlotter(QWidget* parent)
 DistPlotter::~DistPlotter(){
 }
 
-void DistPlotter::setData(vector<vector<float> >& v, vector<QColor>& c, bool lg){
+void DistPlotter::setData(vector<vector<float> >& v, vector<QColor>& c, bool resetLimits){
 
     values = v;
     colors = c;
-    isLog = lg;
+    //    isLog = lg;
+    setLogValues();
 
-    initCount();
+    initCount(resetLimits);
     float range = max - min;
     if(!range){
       counts.resize(0);
@@ -72,61 +78,70 @@ void DistPlotter::setData(vector<vector<float> >& v, vector<QColor>& c, bool lg)
       linePlotter->setData(counts, colors);
       return;
     }
-
     countItems();
+}
 
 
+void DistPlotter::initCount(bool resetLimits){
+    min = max = 0;
+    //    vector<vector<float> >& v = isLog ? logValues : values;
+    vector<vector<float> >& v = values;
+    if(!v.size() || !v[0].size()){
+      cerr << "DistPlotter::initCount empty v" << endl;
+      return;
+    }
+    min = max = v[0][0];
+    counts.resize(v.size());
+    for(uint i=0; i < v.size(); ++i){
+      counts[i].resize(divNo);
+      //      counts[i].assign(divNo, 0);
+      for(uint j=0; j < v[i].size(); ++j){
+	min = min > v[i][j] ? v[i][j] : min;
+	max = max < v[i][j] ? v[i][j] : max;
+      }
+    }
+    minValueBox->blockSignals(true);
+    maxValueBox->blockSignals(true);
+    minValueBox->setRange(min, max);
+    maxValueBox->setRange(min, max);
+    minValueBox->setValue(min);
+    maxValueBox->setValue(max);
+    minValueBox->blockSignals(false);
+    maxValueBox->blockSignals(false);
+    if(resetLimits){
+      leftLimit = min;
+      rightLimit = max;
+    }
 }
 
 void DistPlotter::countItems(){
-  float minCell = minValueBox->value();
-  float maxCell = maxValueBox->value();
+  float minCell = isLog ? log(minValueBox->value()) : minValueBox->value();
+  float maxCell = isLog ? log(maxValueBox->value()) : maxValueBox->value();
   float range = maxCell - minCell;
   
   if(range <= 0)
     return;
 
-  for(uint i=0; i < values.size(); ++i){
-    for(uint j=0; j < values[i].size(); ++j){
-      if(values[i][j] <= maxCell && values[i][j] >= minCell)
-	counts[i][ (uint) roundf(  ((float)counts[i].size()-1) *  ((values[i][j] - minCell) / range ) ) ]++;
+  vector<vector<float> >& v = isLog ? logValues : values;
+  zero_counts();
+  for(uint i=0; i < v.size(); ++i){
+    for(uint j=0; j < v[i].size(); ++j){
+      if(v[i][j] <= maxCell && v[i][j] >= minCell)
+	counts[i][ (uint) roundf(  ((float)counts[i].size()-1) *  ((v[i][j] - minCell) / range ) ) ]++;
     }
   }
-  linePlotter->setData(counts, colors);
+
+  linePlotter->setMasks(cell_pos(leftLimit), 1 + cell_pos(rightLimit) );
+  linePlotter->setData(counts, colors, false);
 }
 
-void DistPlotter::initCount(){
-    min = max = 0;
-    if(!values.size() || !values[0].size()){
-	cerr << "DistPlotter::initCount empty values" << endl;
-	return;
-    }
-    min = max = values[0][0];
-    counts.resize(values.size());
-    for(uint i=0; i < values.size(); ++i){
-	counts[i].resize(divNo);
-	counts[i].assign(divNo, 0);
-	for(uint j=0; j < values[i].size(); ++j){
-	    min = min > values[i][j] ? values[i][j] : min;
-	    max = max < values[i][j] ? values[i][j] : max;
-	}
-    }
-    minValueBox->setRange(min, max);
-    maxValueBox->setRange(min, max);
-    minValueBox->setValue(min);
-    maxValueBox->setValue(max);
-}
 
 void DistPlotter::setLog(bool l){
     if(l == isLog)
 	return;
     isLog = l;
-    if(isLog){
-	setLogValues();
-    }else{
-	setLinValues();
-    }
-    setData(values, colors, isLog);
+    initCount(false);
+    countItems();
 }
 
 void DistPlotter::toggleLog(){
@@ -134,39 +149,38 @@ void DistPlotter::toggleLog(){
 }
 
 void DistPlotter::setLogValues(){
+  logValues.resize(values.size());
     for(uint i=0; i < values.size(); ++i){
+      logValues[i].resize(values[i].size());
 	for(uint j=0; j < values[i].size(); ++j)
-	    values[i][j] = log(values[i][j]);
+	    logValues[i][j] = log(values[i][j]);
     }
 }
 
-void DistPlotter::setLinValues(){
-    for(uint i=0; i < values.size(); ++i){
-	for(uint j=0; j < values[i].size(); ++j)
-	    values[i][j] = exp(values[i][j]);
-    }
-}
 
 void DistPlotter::displayPos(int xp, float yp){
     QString xl,yl;
     yl.setNum(yp);
     
-    float minCell = minValueBox->value();
-    float maxCell = maxValueBox->value();
-
-    float x = minCell + ((float)xp / (float)divNo) * (maxCell - minCell);
-    if(isLog)
-	x = exp(x);
+    float x = translate_xpos(xp);
     xl.setNum(x);
     xPos->setText(xl);
     yPos->setText(yl);
+}
+
+void DistPlotter::setPlotLimits(float l, float r, bool updatePlot){
+  leftLimit = l;
+  rightLimit = r;
+  cout << "DistPlotter::setPlotLimits " << l << " : " << r << "  update? " << updatePlot << endl;
+  if(updatePlot)
+    linePlotter->setMasks(cell_pos(leftLimit), 1 + cell_pos(rightLimit) );
 }
 
 void DistPlotter::setCellNo(int dno){
   divNo = (unsigned int)dno;
   for(uint i=0; i < counts.size(); ++i){
     counts[i].resize(divNo);
-    counts[i].assign(divNo, 0);
+    //    counts[i].assign(divNo, 0);
   }
   countItems();
 }
@@ -181,3 +195,43 @@ void DistPlotter::setMaxCell(double v){
   countItems();
 }
  
+void DistPlotter::setLeftLimit(int x, float y){
+  y = y;
+  leftLimit = translate_xpos(x);
+  linePlotter->setLeftMask(cell_pos(leftLimit));
+  emit setLimits(leftLimit, rightLimit);
+}
+
+void DistPlotter::setRightLimit(int x, float y){
+  y = y;
+  rightLimit = translate_xpos(x);
+  linePlotter->setRightMask(1 + cell_pos(rightLimit));
+  emit setLimits(leftLimit, rightLimit);
+}
+
+float DistPlotter::translate_xpos(int x){
+  float minCell = minValueBox->value();
+  float maxCell = maxValueBox->value();  
+  if(isLog){
+    minCell = log(minCell);
+    maxCell = log(maxCell);
+  }
+  float xp = minCell + ((float)x / (float)divNo) * (maxCell - minCell);
+  if(isLog)
+    xp = exp(xp);
+  return(xp);
+}
+	 
+unsigned int DistPlotter::cell_pos(float v){
+  v = isLog ? log(v) : v;
+  float minCell = isLog ? log(minValueBox->value()) : minValueBox->value();
+  float maxCell = isLog ? log(maxValueBox->value()) : maxValueBox->value();
+  float range = maxCell - minCell;
+
+  return( (uint) roundf(  ((float)divNo - 1) *  ((v - minCell) / range ) ) );
+}
+
+void DistPlotter::zero_counts(){
+  for(uint i=0; i < counts.size(); ++i)
+    counts[i].assign(counts[i].size(), 0);
+}

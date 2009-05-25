@@ -331,9 +331,6 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   objectSums = new DistChooser("Object Intensities", 100);
   objectSums->resize(300, 200);
 
-  blobSums = new DistPlotter();
-  blobSums->resize(300, 200);
-
   vector<QColor> colors;   // for assigning colors..
   colors.push_back(QColor(0, 0, 255));
   colors.push_back(QColor(0, 255, 0));
@@ -1029,6 +1026,7 @@ void DeltaViewer::paintProjection(){
 		}
 	    }
 	    paintPeaks(data, xb, yb, textureSize, textureSize);
+	    paintBlobs(data, xb, yb, 0, textureSize, textureSize, true);
 	    paintParameterData(data, xb, yb, textureSize, textureSize);
 	    paintNuclei(data, xb, yb, textureSize, textureSize);
 	    projection->setImage(data, textureSize, textureSize, colCounter, rowCounter);
@@ -1067,6 +1065,15 @@ void DeltaViewer::exportProjection(){
     tr.writeOut("projection.tif");
     // finally ..
     delete prdata;
+}
+
+QColor DeltaViewer::wiColor(int wi){
+  QColor c(255, 255, 255);
+  for(uint i=0; i < colorChoosers.size(); ++i){
+    if(colorChoosers[i]->wIndex() == wi)
+      return(colorChoosers[i]->color());
+  }
+  return(c);
 }
 
 // WARNING.. see above WARNING for paintProjection()
@@ -1212,16 +1219,16 @@ void DeltaViewer::paintPeaks(float* area, int px, int py, int w, int h){
 
 }
 
-void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h){
+void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h, bool isProjection){
     if(!blobManager)
 	return;
     set<BlobMapperWidget*> blobs = blobManager->blobMapperWidgets();
     for(set<BlobMapperWidget*>::iterator it = blobs.begin(); it != blobs.end(); ++it)
-	paintBlobs(area, xo, yo, z, w, h, (*it));
+      paintBlobs(area, xo, yo, z, w, h, (*it), isProjection);
 }
 
 void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h, 
-			     BlobMapperWidget* blb){
+			     BlobMapperWidget* blb, bool isProjection){
     // There is no indication here as to what is the waveIndex represented by the blobs.
     // This is because we'll modify this function to use a reference to some kind of widget that
     // we can use to select colours and the like a bit later on. For now, I just want to leave as
@@ -1240,12 +1247,14 @@ void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h,
     //r = blue = 1.0;
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
 	blob* b = (*it);
+	if( !(blb->filterBlob(b)) )
+	  continue;
 	// check if it overlaps in any of the dimensions..
 	if( !( b->min_x <= xo + w && b->max_x >= xo ) )
 	    continue;
 	if( !( b->min_y <= yo + h && b->max_y >= yo) )
 	    continue;
-	if( !(b->min_z <= z && b->max_z >= z) )
+	if(!isProjection &&  !(b->min_z <= z && b->max_z >= z) )
 	    continue;
 	// Then simply go through the  points and see whether or not
 	
@@ -1254,17 +1263,31 @@ void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h,
 	//r = (float)b->r / 255.0;
 	//g = (float)b->g / 255.0;
 	//blue = (float)b->b / 255.0;
+	int b_x, b_y, b_z;  // the point coordinates
+	if(br == RepIcon::PEAK){
+	  cc.vol(b->peakPos, b_x, b_y, b_z);
+	  if(isProjection || b_z == z){
+	    if(b_y >= yo && b_y <= yo+h
+	       &&
+	       b_x >= xo && b_x <= xo + w){
+	      int area_offset = 3 * ((b_y - yo) * w + b_x - xo);
+	      area[ area_offset ] += r;
+	      area[ area_offset + 1] += g;
+	      area[ area_offset + 2] += blue;
+	    }
+	  }
+	  continue;
+	}
 
 	for(uint i=0; i < b->points.size(); ++i){
 	    if(!b->surface[i] && br != RepIcon::FILLED)
 		continue;
-	    int b_x, b_y, b_z;  // the point coordinates
 	    cc.vol(b->points[i], b_x, b_y, b_z);
-	    if(b_z != z)
+	    if(!isProjection && b_z != z)
 		continue;
 	    if( !( b_y >= yo && b_y <= yo + h) )
 		continue;
-	    if( !(b_x >= xo && b_x <= xo + h) )
+	    if( !(b_x >= xo && b_x <= xo + w) )
 		continue;
 	    int area_offset = 3 * ((b_y - yo) * w + b_x - xo);
 	    area[ area_offset ] += r;
@@ -2121,11 +2144,14 @@ void DeltaViewer::mapBlobs(int wi, float minValue){
     
     if(!blobManager){
 	blobManager = new BlobMapperWidgetManager(this);
+	connect(blobManager, SIGNAL(newColor()), this, SLOT(paintProjection()) );
+	connect(blobManager, SIGNAL(newRep()), this, SLOT(paintProjection()) );
+	connect(blobManager, SIGNAL(newLimits()), this, SLOT(paintProjection()) );
 	colorBox->addWidget(blobManager);
 	blobManager->show();
     }
-    blobManager->addBlobMapper(bm, fInfo, fName.latin1());
-
+    blobManager->addBlobMapper(bm, fInfo, fName.latin1(), wiColor(wi));
+    
 //     BlobMapperWidget* bmw = new BlobMapperWidget(bm, fInfo, fName.latin1(), this);
 //     blobs.insert(bmw);
     

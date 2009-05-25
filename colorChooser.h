@@ -52,6 +52,9 @@ class ColorChooser : public QWidget
   int wlength(){
     return(waveLength);
   }
+  int wIndex(){
+    return(waveIndex);
+  }
   bool includeInMerger(){
       return(includeMergeBox->isChecked());
   }

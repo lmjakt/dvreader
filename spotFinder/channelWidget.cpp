@@ -185,7 +185,8 @@ void ChannelWidget::findAllSpots(){
     int me = maxEdgeValue->value();
     float mev = float(me) / float(100);
     int wsize = windowSize->value();
-    float bgm = float(backgroundMultiplier->value());
+    float bgm = 0;
+    //    float bgm = float(backgroundMultiplier->value());
     emit findallspots(id, wsize, mpValue, mev, 0.0, 255, 255, 255, clusterNumber->value(), bgm, fileCheckBox->isChecked());
 }    
 
@@ -194,7 +195,8 @@ void ChannelWidget::findAllSpots3D(){
     int me = maxEdgeValue->value();
     float mev = float(me) / float(100);
     int wsize = windowSize->value();
-    float bgm = float(backgroundMultiplier->value());
+    float bgm = 0;
+    //    float bgm = float(backgroundMultiplier->value());
     emit findallspots3D(id, wsize, mpValue, mev, 0.0, 255, 255, 255, clusterNumber->value(), bgm, fileCheckBox->isChecked());
 }   
 

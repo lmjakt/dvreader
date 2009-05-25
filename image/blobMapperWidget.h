@@ -9,12 +9,13 @@
 #include <QColor>
 #include <vector>
 #include <set>
+#include <map>
 #include <string>
 
 
 struct RepIcon {
     enum BlobRepresentation {
-	NO_REP, OUTLINE, FILLED
+      NO_REP, OUTLINE, PEAK, FILLED
     };
     BlobRepresentation rep;
     QIcon icon;
@@ -27,6 +28,16 @@ struct RepIcon {
     }
 };
     
+struct pl_limits {
+  float left;
+  float right;
+  pl_limits(){
+    left = right = 0;
+  }
+  pl_limits(float l, float r){
+    left = l; right = r;
+  }
+};
 
 class BlobMapperWidget : public QWidget
 {
@@ -36,28 +47,33 @@ class BlobMapperWidget : public QWidget
     VOLUME, SUM, MEAN, MAX, MIN
   };
   
-  BlobMapperWidget(BlobMapper* bmapper, fluorInfo& fInfo, std::string fname, QWidget* parent=0);
+  BlobMapperWidget(BlobMapper* bmapper, fluorInfo& fInfo, std::string fname, QColor c, QWidget* parent=0);
   ~BlobMapperWidget();
 
-    std::set<blob*>& blobs();
-    BlobMapper* blobMapper();
-    RepIcon::BlobRepresentation blobRep();
-    void color(float& r, float& g, float& b);
-    QColor color();
-    bool plotDistribution();
+  std::set<blob*>& blobs();
+  BlobMapper* blobMapper();
+  RepIcon::BlobRepresentation blobRep();
+  void color(float& r, float& g, float& b);
+  QColor color();
+  bool plotDistribution();
+  std::map<Param, pl_limits> pLimits();
+  void setPlotLimits(Param p, float l, float r);
+  void clearPlotLimits();
+  void clearPlotLimits(Param p);
+  bool filterBlob(blob* b);  // filters on plotLimits, returns true if it passes
+  
+  public slots:
+  void exportBlobs();
 
-    public slots:
-	void exportBlobs();
-
-    private slots:
-	void setColor();
-    void changeRep();
-    void eatNeighbors();
+  private slots:
+  void setColor();
+  void changeRep();
+  void eatNeighbors();
  signals:
-    void newColor();
-    void newRep();
-    void deleteMe();
-    void includeDistChanged();
+  void newColor();
+  void newRep();
+  void deleteMe();
+  void includeDistChanged();
 
  private:
     BlobMapper* mapper;
@@ -71,7 +87,8 @@ class BlobMapperWidget : public QWidget
     QToolButton* colorButton;
     QColor currentColor;
     QToolButton* drawTypeButton;
-    
+
+    std::map<Param, pl_limits> plotLimits;
     void makeIcons();
 };
 

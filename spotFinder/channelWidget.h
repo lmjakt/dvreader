@@ -53,7 +53,7 @@ class ChannelWidget : public QWidget
 
     QCheckBox* fileCheckBox;  // export spots to a file.. 
 
-    QSpinBox* backgroundMultiplier;
+    //QSpinBox* backgroundMultiplier;
 
     QSpinBox* clusterNumber;   // if we want to do a clustering of the spots .. 
     // we also would like to include a colour chooser to indicate how the identified spots should be displayed..

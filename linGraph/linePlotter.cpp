@@ -34,7 +34,7 @@ LinePlotter::LinePlotter(QWidget* parent)
     tick_length = 5;
     xScale = 1.0;
     yScale = 1.0;
-
+    limitsEnabled = false;
     setFocusPolicy(Qt::StrongFocus);
     
 }
@@ -43,7 +43,7 @@ LinePlotter::~LinePlotter(){
     // do something ?
 }
 
-void LinePlotter::setData(vector< vector<float> >& v, vector<QColor>& c){
+void LinePlotter::setData(vector< vector<float> >& v, vector<QColor>& c, bool resetMask){
     values = v;
     colors = c;
     
@@ -62,6 +62,10 @@ void LinePlotter::setData(vector< vector<float> >& v, vector<QColor>& c){
 	    min = min > values[i][j] ? values[i][j] : min;
 	}
     }
+    if(resetMask){
+      leftMaskPos = min;
+      rightMaskPos = max;
+    }
     // recycle colors if necessary.. 
     if(colors.size() < values.size()){
 	uint i = 0;
@@ -71,6 +75,41 @@ void LinePlotter::setData(vector< vector<float> >& v, vector<QColor>& c){
 	}
     }
     update();
+}
+
+void LinePlotter::setLeftMask(int xp){
+  if(!limitsEnabled)
+    return;
+  if(xp < rightMaskPos){
+    leftMaskPos = xp;
+    update();
+  }
+}
+
+void LinePlotter::setRightMask(int xp){
+  if(!limitsEnabled)
+    return;
+  if(xp > leftMaskPos){
+    rightMaskPos = xp;
+    update();
+  }
+}
+
+void LinePlotter::setMasks(int left, int right){
+  if(!limitsEnabled || !(right > left))
+    return;
+  leftMaskPos = left;
+  rightMaskPos = right;
+  update();
+}
+
+void LinePlotter::enableLimits(bool b){
+  limitsEnabled = b;
+  if(!b){
+    leftMaskPos = min;
+    rightMaskPos = max;
+  }
+  update();
 }
 
 void LinePlotter::paintEvent(QPaintEvent* e){
@@ -117,7 +156,19 @@ void LinePlotter::paintEvent(QPaintEvent* e){
 	  py = y;
 	}
     }
-
+    if(limitsEnabled){
+      p.setPen(Qt::NoPen);
+      p.setBrush(QColor(100, 100, 100, 100));
+      if(leftMaskPos != min){
+	int xp =  (int)(w * leftMaskPos)/maxLength;
+	cout << "leftMaskPos : " << w << " * " << leftMaskPos << " / " << maxLength << " = " << xp << endl;
+	p.drawRect(0, 0, xp, (int)h);
+      }
+      if(rightMaskPos != max){
+	int xp = (int)(w * rightMaskPos)/maxLength;
+	p.drawRect(xp, 0, (int)w - xp, (int)h);
+      }
+    }
 }
 
 
@@ -136,8 +187,8 @@ void LinePlotter::mousePressEvent(QMouseEvent* e){
     float y;
     translateMousePos(e, x, y);
     if(e->state() == Qt::ControlButton){
-      switch(e->state()){
-      case Qt::ControlButton :
+      switch(e->button()){
+      case Qt::LeftButton :
 	emit ctl_left(x, y);
 	break;
       case Qt::MidButton :

@@ -119,11 +119,12 @@ class DeltaViewer : public QWidget
   bool readProjection(ifstream& in);  // read from a file.. 
   void paintProjection();
   void exportProjection();
+  QColor wiColor(int wi);
   void paintPeaks(float* area, int px, int py, int w, int h);   // this checks if there are peaks to be painted from the spotsWidgets .. 
   //void paintBlobs(float* area, int xo, int yo, int z, int w, int h);
-  void paintBlobs(float* area, int xo, int yo, int z, int w, int h);
+  void paintBlobs(float* area, int xo, int yo, int z, int w, int h, bool isProjection=false);
   void paintBlobs(float* area, int xo, int yo, int z, int w, int h, 
-		  BlobMapperWidget* blb);
+		  BlobMapperWidget* blb, bool isProjection);
   void exportPeaks();  // write the peaks to a file in a reasonable manner.. 
   void paintNuclei(float* area, int px, int py, int w, int h);  // and this checks if there are any nuclei to be painted.. (but a bit more tricky)
   void paintParameterData(float* area, int px, int py, int w, int h);
@@ -252,7 +253,6 @@ class DeltaViewer : public QWidget
   std::vector<DistChooser*> choosers;  // one for each wavelength..
   std::vector<ChannelOffset> waveOffsets;
   DistChooser* objectSums;
-  DistPlotter* blobSums;
   std::vector<ColorChooser*> colorChoosers;  // although maybe a map would be appropriate for these two.. oh well. think
                                              // about it later.. 
 

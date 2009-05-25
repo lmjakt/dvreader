@@ -15,8 +15,12 @@ class LinePlotter : public QWidget
     LinePlotter(QWidget* parent=0);
     ~LinePlotter();
     
-    void setData(std::vector< std::vector<float> >& v, std::vector<QColor>& c);
-   
+    void setData(std::vector< std::vector<float> >& v, std::vector<QColor>& c, bool resetMask=true);
+    void setLeftMask(int xp);
+    void setRightMask(int xp);
+    void setMasks(int left, int right);
+    void enableLimits(bool b);
+
  signals:
     void doubleClicked();
     void mousePos(int, float);
@@ -40,6 +44,8 @@ class LinePlotter : public QWidget
     float xScale;
     float yScale;
     unsigned int maxLength;
+    int leftMaskPos, rightMaskPos;
+    bool limitsEnabled;
 
     int vMargin;
     int hMargin;

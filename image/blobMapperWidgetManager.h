@@ -7,6 +7,7 @@
 #include <QWidget>
 #include <QVBoxLayout>
 #include <QComboBox>
+#include <QColor>
 #include <set>
 #include <vector>
 #include <string>
@@ -18,18 +19,21 @@ class BlobMapperWidgetManager : public QWidget
     BlobMapperWidgetManager(QWidget* parent=0);
     ~BlobMapperWidgetManager();
 
-    void addBlobMapper(BlobMapper* bm, fluorInfo& fInfo, std::string fName);
+    void addBlobMapper(BlobMapper* bm, fluorInfo& fInfo, std::string fName, QColor c);
     std::set<BlobMapperWidget*> blobMapperWidgets();
 
  signals:
     void newColor();
     void newRep();
+    void newLimits();
 
     private slots:
 	void setParamType(int p);
     void deleteBlobWidget();
     void makeSuperBlobs();
     void replot();
+    void clearPlotLimits();
+    void setLimits(float l, float r);
 
  private:
     std::set<BlobMapperWidget*> blobWidgets;
