@@ -18,6 +18,7 @@ HEADERS		= \
 		linGraph/plotWidget.h \
 		linGraph/linePlotter.h \
 		linGraph/distPlotter.h \
+		scatterPlot/scatterPlotter.h \
 		spotFinder/spotWindow.h \
 		spotFinder/channelWidget.h \
 		spotFinder/modelWidget.h \
@@ -67,6 +68,7 @@ HEADERS		= \
 		image/coordConverter.h \
 		image/blob.h \
 		image/superBlob.h \
+		image/blobScatterPlot.h\
 		distanceMapper/compareController.h \
 		distanceMapper/distanceMapper.h \
 		distanceMapper/distanceViewer.h \
@@ -90,6 +92,7 @@ SOURCES		= \
 		linGraph/plotWidget.cpp \
 		linGraph/linePlotter.cpp \
 		linGraph/distPlotter.cpp \
+		scatterPlot/scatterPlotter.cpp \
 		spotFinder/spotWindow.cpp \
 		spotFinder/channelWidget.cpp \
 		spotFinder/modelWidget.cpp \
@@ -137,6 +140,7 @@ SOURCES		= \
 		image/blobMapperWidget.cpp \
 		image/blobMapperWidgetManager.cpp \
 		image/blob.cpp \
+		image/blobScatterPlot.cpp \
 		distanceMapper/compareController.cpp \
 		distanceMapper/distanceMapper.cpp \
 		distanceMapper/distanceViewer.cpp \

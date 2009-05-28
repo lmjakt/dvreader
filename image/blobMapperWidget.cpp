@@ -126,26 +126,29 @@ void BlobMapperWidget::clearPlotLimits(Param p){
 
 bool BlobMapperWidget::filterBlob(blob* b){
   for(map<Param, pl_limits>::iterator it=plotLimits.begin(); it != plotLimits.end(); ++it){
-    float v = -1;
-    switch((*it).first){
-    case VOLUME:
-      v = (float)b->points.size();
-      break;
-    case SUM:
-      v = b->sum;
-      break;
-    case MEAN:
-      v = b->sum / (float)b->points.size();
-      break;
-    case MAX:
-      v = b->max;
-      break;
-    case MIN:
-      v = b->min;
-      break;
-    default :
-      v = -1;
-    }
+    float v = getParameter(b, (*it).first);
+//     switch((*it).first){
+//     case VOLUME:
+//       v = (float)b->points.size();
+//       break;
+//     case SUM:
+//       v = b->sum;
+//       break;
+//     case MEAN:
+//       v = b->sum / (float)b->points.size();
+//       break;
+//     case MAX:
+//       v = b->max;
+//       break;
+//     case MIN:
+//       v = b->min;
+//       break;
+//     case EXTENT:
+//       v = (b->max_x - b->min_x) * (b->max_y - b->min_y) * (b->max_z - b->min_z);
+//       break;
+//     default :
+//       v = -1;
+//     }
     if(v == -1){
       cerr << "BlobMapperWidget::filterBlob unknown Parameter : " << (*it).first << endl;
       return(true);
@@ -156,6 +159,33 @@ bool BlobMapperWidget::filterBlob(blob* b){
   return(true);
 }
 
+float BlobMapperWidget::getParameter(blob* b, Param p){
+  float v = -1;
+  switch(p){
+  case VOLUME:
+    v = (float)b->points.size();
+    break;
+  case SUM:
+    v = b->sum;
+    break;
+  case MEAN:
+    v = b->sum / (float)b->points.size();
+    break;
+  case MAX:
+    v = b->max;
+    break;
+  case MIN:
+    v = b->min;
+    break;
+  case EXTENT:
+    v = (1 + b->max_x - b->min_x) * (1 + b->max_y - b->min_y) * (1 + b->max_z - b->min_z);
+    break;
+  default :
+    v = -1;
+    cerr << "BlobMapperWidget::getParameter unknown parameter " << p << "  returning -1 " << endl;
+  }
+  return(v);
+}
 
 void BlobMapperWidget::exportBlobs(){
     ostringstream fname;

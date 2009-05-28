@@ -1258,11 +1258,6 @@ void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h,
 	    continue;
 	// Then simply go through the  points and see whether or not
 	
-	
-	// uncomment below to use alternating colors (set as default by the BlobMapper::finalise() function)
-	//r = (float)b->r / 255.0;
-	//g = (float)b->g / 255.0;
-	//blue = (float)b->b / 255.0;
 	int b_x, b_y, b_z;  // the point coordinates
 	if(br == RepIcon::PEAK){
 	  cc.vol(b->peakPos, b_x, b_y, b_z);

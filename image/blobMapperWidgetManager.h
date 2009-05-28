@@ -4,6 +4,7 @@
 #include "blobMapperWidget.h"
 #include "superBlob.h"
 #include "../linGraph/distPlotter.h"
+#include "blobScatterPlot.h"
 #include <QWidget>
 #include <QVBoxLayout>
 #include <QComboBox>
@@ -34,6 +35,7 @@ class BlobMapperWidgetManager : public QWidget
     void replot();
     void clearPlotLimits();
     void setLimits(float l, float r);
+    void scatterPlot(BlobMapperWidget::Param xpar, BlobMapperWidget::Param ypar);
 
  private:
     std::set<BlobMapperWidget*> blobWidgets;
@@ -42,9 +44,13 @@ class BlobMapperWidgetManager : public QWidget
     DistPlotter* distPlotter;
     DistPlotter* superDistPlotter;
     BlobMapperWidget::Param plotType;
+    BlobScatterPlot* scatterPlotter;
     QVBoxLayout* vbox;
 
     void plotDistributions();
+    void collectSuperBlobValues(std::vector<std::vector<float > >& plotValues, 
+				std::vector<QColor>& plotColors, pl_limits& plotLimits,
+				BlobMapperWidget::Param p_type);
     void plotSuperDistributions();
     void deleteSuperBlobs();
 };
