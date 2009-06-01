@@ -1,16 +1,20 @@
 #include "blobMapperWidgetManager.h"
+#include "coordConverter.h"
 #include <QComboBox>
 #include <QPushButton>
 #include <QHBoxLayout>
 #include <QString>
 #include <QTextStream>
+#include <QFileDialog>
+#include <QSize>
+#include <fstream>
 
 using namespace std;
 
 BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
     : QWidget(parent)
 {
-    QFont plotterFont = QFont(font().family(), font().pointSize()-1);
+    QFont plotterFont = QFont(font().family(), font().pointSize()-0);
 
     QComboBox* paramChooser = new QComboBox(false, this);
     paramChooser->insertItem(BlobMapperWidget::VOLUME, "Volume");
@@ -19,6 +23,7 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
     paramChooser->insertItem(BlobMapperWidget::MAX, "Max");
     paramChooser->insertItem(BlobMapperWidget::MIN, "Min");
     paramChooser->insertItem(BlobMapperWidget::EXTENT, "Extent");
+    paramChooser->insertItem(BlobMapperWidget::SURFACE, "Surface");
 
     //blobTypeSelector = new QComboBox(false, this);
     //blobTypeSelector->insertItem(-1, "All");
@@ -31,7 +36,15 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
 
     QPushButton* clearLimitsButton = new QPushButton("C.L.", this);
     clearLimitsButton->setToolTip("Clear Plot Limits");
+    clearLimitsButton->setMaximumWidth(40);
     connect(clearLimitsButton, SIGNAL(clicked()), this, SLOT(clearPlotLimits()) );
+
+    QPushButton* exportSuperButton = new QPushButton("E", this);
+    exportSuperButton->setToolTip("Export SuperBlobs");
+    QSize size = exportSuperButton->minimumSizeHint();
+    cout << "SIZE THINGHY MINIMUM SIZE HINT FOR EXPORT SUPER BUTTON " << size.width() << "," << size.height() << endl; 
+    exportSuperButton->setMaximumWidth(40);
+    connect(exportSuperButton, SIGNAL(clicked()), this, SLOT(exportSuperBlobs()) );
 
     distPlotter = new DistPlotter(false);
     superDistPlotter = new DistPlotter(true);  // use this one only for setting limits
@@ -58,6 +71,8 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
     scatterPlotter = new BlobScatterPlot();
     connect(scatterPlotter, SIGNAL(plotPars(BlobMapperWidget::Param, BlobMapperWidget::Param)),
 	    this, SLOT(scatterPlot(BlobMapperWidget::Param, BlobMapperWidget::Param)) );
+    connect(scatterPlotter, SIGNAL(blobsSelected(std::vector<std::vector<bool> >)),
+	    this, SLOT(filterBlobs(std::vector<std::vector<bool> >)) );
     scatterPlotter->setPalette(plotPalette);
     scatterPlotter->setFont(plotterFont);
     scatterPlotter->resize(400, 400);
@@ -74,6 +89,7 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
     mainBox->addLayout(hbox);
     hbox->addWidget(clearLimitsButton);
     hbox->addStretch();
+    hbox->addWidget(exportSuperButton);
     hbox->addWidget(superButton);
     //hbox->addWidget(blobTypeSelector);
     hbox->addWidget(paramChooser);
@@ -132,6 +148,9 @@ void BlobMapperWidgetManager::setParamType(int p){
         case BlobMapperWidget::EXTENT:
             plotType = BlobMapperWidget::EXTENT;
             break;
+	case BlobMapperWidget::SURFACE:
+	    plotType = BlobMapperWidget::SURFACE;
+	    break;
 	default:
 	    plotType = BlobMapperWidget::SUM;
     }
@@ -178,6 +197,49 @@ void BlobMapperWidgetManager::makeSuperBlobs(){
     scatterPlot(scatterPlotter->x_param(), scatterPlotter->y_param());
 }
 
+void BlobMapperWidgetManager::exportSuperBlobs(){
+    cout << "Export Superblobs function" << endl;
+    if(!superBlobs.size() || !blobWidgets.size()){
+	cerr << "BlobMapperWidget::exportSuperBlobs : no blobWidgets or no superBlobs" << endl;
+	return;
+    }
+    QString fname = QFileDialog::getSaveFileName();
+    if(fname.isNull())
+	return;
+//    set<BlobMapperWidget*>::iterator it = blobWidgets.begin();
+    int width, height, depth;
+    BlobMapperWidget* bmw = *(blobWidgets.begin());
+    bmw->dimensions(width, height, depth);
+    CoordConverter cc(width, height, depth);
+
+    ofstream of(fname.ascii());
+    if(!of){
+	cerr << "BlobMapperWidgetManager unable to open file : " << fname.ascii() << endl;
+	return;
+    }
+    int bid = 0;
+    of << "id\tsuper_id\tsub_id\tmembership\tmapper_id\tx\ty\tz\tmin_x\tmax_x\tmin_y\tmax_y\tmin_z\tmax_z\tsum\tvolume\tsurface\tmean\textent\tmin\tmax\n";
+    for(uint i=0; i < superBlobs.size(); ++i){
+	uint membership = superBlobs[i]->membership;
+	for(uint j=0; j < superBlobs[i]->blobs.size(); ++j){
+	    int x, y, z;
+	    blob* b = superBlobs[i]->blobs[j].b;
+	    cc.vol(b->peakPos, x, y, z);
+	    of << bid++ << "\t" << i << "\t" << j << "\t" << membership << "\t" << superBlobs[i]->blobs[j].mapper_id  
+	       << "\t" << x << "\t" << y << "\t" << z << "\t" << b->min_x << "\t" << b->max_x
+	       << "\t" << b->min_y << "\t" << b->max_y << "\t" << b->min_z << "\t" << b->max_z
+	       << "\t" << b->sum << "\t" << b->points.size()
+	       << "\t" << bmw->getParameter(b, BlobMapperWidget::SURFACE)
+	       << "\t" << bmw->getParameter(b, BlobMapperWidget::MEAN)
+	       << "\t" << bmw->getParameter(b, BlobMapperWidget::EXTENT)
+	       << "\t" << bmw->getParameter(b, BlobMapperWidget::MIN)
+	       << "\t" << bmw->getParameter(b, BlobMapperWidget::MAX)
+	       << endl;
+	}
+    }
+        
+}
+
 void BlobMapperWidgetManager::replot(){
   plotDistributions();
   plotSuperDistributions();
@@ -200,6 +262,28 @@ void BlobMapperWidgetManager::setLimits(float l, float r){
   }
   emit newLimits();
 }
+
+void BlobMapperWidgetManager::filterBlobs(std::vector<std::vector<bool> > blobSelection){
+    // we need to set these at the blob level, so we'll need to first get an equivalent 
+    // vector of blobs..
+    map<unsigned int, vector<blob*> > blobs = collectSuperBlobBlobs();
+    if(blobs.size() != blobSelection.size()){
+	cerr << "BlobMapperWidgetManager::filterBlobs selection and blobs are of different sizes : " << blobs.size() << " : " << blobSelection.size() << endl;
+	return;
+    }
+    uint i=0;
+    for(map<unsigned int, vector<blob*> >::iterator it=blobs.begin(); it != blobs.end(); ++it){
+	if((*it).second.size() != blobSelection[i].size()){
+	    cerr << "BlobMapperWidgetManager::filterBlobs uneven sizes at " << i << " : " << (*it).second.size() << "  : " << blobSelection[i].size() << endl;
+	    return;
+	}
+	for(uint j=0; j < (*it).second.size(); ++j)
+	    (*it).second[j]->active = blobSelection[i][j];
+	++i;
+    }
+    emit newRep();  // to force a redraw
+}
+
 
 void BlobMapperWidgetManager::scatterPlot(BlobMapperWidget::Param xpar, BlobMapperWidget::Param ypar)
 {  
@@ -233,30 +317,6 @@ void BlobMapperWidgetManager::plotDistributions(){
 	cout << "BlobMapperWidget reserving size for " << i << "  : " << blobs.size() << endl;
 	for(set<blob*>::iterator bit=blobs.begin(); bit != blobs.end(); ++bit){
 	  values[i].push_back( (*it)->getParameter((*bit), plotType) );
-// 	    switch(plotType){
-// 		case BlobMapperWidget::VOLUME:
-// 		    values[i].push_back( (*bit)->points.size() );
-// 		    break;
-// 		case BlobMapperWidget::SUM:
-// 		    values[i].push_back( (*bit)->sum );
-// 		    break;
-// 		case BlobMapperWidget::MEAN:
-// 		    values[i].push_back( (*bit)->sum / (*bit)->points.size() );
-// 		    break;
-// 		case BlobMapperWidget::MAX:
-// 		    values[i].push_back( (*bit)->max );
-// 		    break;
-// 		case BlobMapperWidget::MIN:
-// 		    values[i].push_back( (*bit)->min );
-// 		    break;
-// 	        case BlobMapperWidget::EXTENT:
-// 		    values[i].push_back( (1 + (*bit)->max_x - (*bit)->min_x) * 
-// 					 (1 + (*bit)->max_y - (*bit)->min_y) * 
-// 					 (1 + (*bit)->max_z - (*bit)->min_z));
-// 		    break;
-// 		default:
-// 		    values[i].push_back( (*bit)->sum );
-// 	    }
 	}
 	++i;
     }
@@ -284,28 +344,21 @@ void BlobMapperWidgetManager::plotSuperDistributions(){
   superDistPlotter->show();
 }
   
-//void BlobMapperWidgetManager::plotSuperDistributions(){
 void BlobMapperWidgetManager::collectSuperBlobValues(vector<vector<float> >& plotValues, vector<QColor>& plotColors,
 						     pl_limits& plotLimits, BlobMapperWidget::Param p_type){
-  cout << "collect superBlobs values:  superblobs.size() " << superBlobs.size() << "  param : " << p_type << endl;
-  //  cout << "plot super distributions superblobs.size() " << superBlobs.size() << endl;
-  vector<QColor> widgetColors;
-  map<unsigned int, bool> includeMap;
+  vector<QColor> widgetColors = widgetPlotColors();
+  map<unsigned int, bool> includeMap = distIncludeMap();
+  plotLimits = get_plotLimits(p_type);
+  
+//   unsigned int map_id = 1;
+//   for(set<BlobMapperWidget*>::iterator it=blobWidgets.begin(); it != blobWidgets.end(); ++it){
+//     widgetColors.push_back((*it)->color());
+//     includeMap[map_id] = (*it)->plotDistribution();
+//     map_id *= 2;
+//     if((*it)->plotDistribution() && (*it)->pLimits().count(p_type))
+//       plotLimits = (*it)->pLimits()[p_type];
+//   }
 
-  ///////// STUPID HACK ///////////
-  // since we have no way of showing more than one set of limits, we'll arbitrarily
-  // show the last set of limits set.. 
-
-  //pl_limits plotLimits;
-
-  unsigned int map_id = 1;
-  for(set<BlobMapperWidget*>::iterator it=blobWidgets.begin(); it != blobWidgets.end(); ++it){
-    widgetColors.push_back((*it)->color());
-    includeMap[map_id] = (*it)->plotDistribution();
-    map_id *= 2;
-    if((*it)->plotDistribution() && (*it)->pLimits().count(p_type))
-      plotLimits = (*it)->pLimits()[p_type];
-  }
   // we want to have one pointer to a blobmapperwidget to use the getParam function.
   set<BlobMapperWidget*>::iterator bmw = blobWidgets.begin();
   if(bmw == blobWidgets.end())
@@ -319,34 +372,10 @@ void BlobMapperWidgetManager::collectSuperBlobValues(vector<vector<float> >& plo
 	continue;
       blob* b = superBlobs[i]->blobs[j].b;
       v = (*bmw)->getParameter(b, p_type);
-//       switch(p_type){
-//       case BlobMapperWidget::VOLUME:
-// 	v = b->points.size();
-// 	break;
-//       case BlobMapperWidget::SUM:
-// 	v = b->sum;
-// 	break;
-//       case BlobMapperWidget::MEAN:
-// 	v = b->sum / (float)b->points.size();
-// 	break;
-//       case BlobMapperWidget::MAX:
-// 	v = b->max;
-// 	break;
-//       case BlobMapperWidget::MIN:
-// 	v = b->min;
-// 	break;
-//       case BlobMapperWidget::EXTENT:
-// 	v = (1 + b->max_x - b->min_x) * (1 + b->max_y - b->min_y) * (1 + b->max_z - b->min_z);
-// 	break;
-//       default:
-// 	v = b->sum;
-//       }
       values[superBlobs[i]->membership].push_back(v);
     }
   }
   // then work out the colors that we'll need using  
-  //  vector<QColor> plotColors;
-  //vector< vector<float> > plotValues;
   for(map<unsigned int, vector<float> >::iterator it=values.begin(); it != values.end(); ++it){
     int r, g, b;
     r = g = b = 0;
@@ -365,15 +394,54 @@ void BlobMapperWidgetManager::collectSuperBlobValues(vector<vector<float> >& plo
     plotColors.push_back(QColor(r, g, b));
     plotValues.push_back((*it).second);
   }
+}
 
-//   if(plotLimits.left < plotLimits.right){
-//     cout << "Found a previous set of limits " << plotLimits.left << "  " << plotLimits.right << endl;
-//     superDistPlotter->setPlotLimits(plotLimits.left, plotLimits.right, false);
-//     superDistPlotter->setData(plotValues, plotColors, false);
-//   }else{
-//     superDistPlotter->setData(plotValues, plotColors, true);
-//   }
-//   superDistPlotter->show();
+// This function only exists in order to allow a collection of blob*  ordered in the
+// same manner as values collected by collectSuperBlobValues. This is a hack in order
+// to be able something like a vector<vector<bool> > instructing us as to which blobs
+// to draw. 
+map<unsigned int, vector<blob*> > BlobMapperWidgetManager::collectSuperBlobBlobs(){
+    map<unsigned int, bool> includeMap = distIncludeMap();
+    map<unsigned int, vector<blob*> > blobMap;
+
+    for(uint i=0; i < superBlobs.size(); ++i){
+	for(uint j=0; j < superBlobs[i]->blobs.size(); ++j){
+	    if(!( includeMap[ superBlobs[i]->blobs[j].mapper_id ] ))
+		continue;
+	    blobMap[superBlobs[i]->membership].push_back( superBlobs[i]->blobs[j].b );
+	}
+    }
+    return(blobMap);
+}
+
+map<unsigned int, bool> BlobMapperWidgetManager::distIncludeMap(){
+    // A map that is dependent on the mapper ids and super blob ids
+    // derived in makeSuperBlobs.
+    map<unsigned int, bool> includeMap;
+    unsigned int map_id = 1;
+    for(set<BlobMapperWidget*>::iterator it=blobWidgets.begin(); it != blobWidgets.end(); ++it){
+	includeMap[map_id] = (*it)->plotDistribution();
+	map_id *= 2;
+    }
+    return(includeMap);
+}
+
+vector<QColor> BlobMapperWidgetManager::widgetPlotColors(){
+    vector<QColor> widgetColors;
+    for(set<BlobMapperWidget*>::iterator it=blobWidgets.begin(); it != blobWidgets.end(); ++it){
+	widgetColors.push_back((*it)->color());
+    }
+    return(widgetColors);
+}
+
+pl_limits BlobMapperWidgetManager::get_plotLimits(BlobMapperWidget::Param p_type){
+    /// Not a very good function..
+    pl_limits pl;
+    for(set<BlobMapperWidget*>::iterator it=blobWidgets.begin(); it != blobWidgets.end(); ++it){
+	if((*it)->plotDistribution() && (*it)->pLimits().count(p_type))
+	    pl = (*it)->pLimits()[p_type];
+    }
+    return(pl);
 }
 
 void BlobMapperWidgetManager::deleteSuperBlobs(){

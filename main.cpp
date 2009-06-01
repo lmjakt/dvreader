@@ -23,7 +23,7 @@
 //End Copyright Notice
 
 #include <QApplication>
-//#include <qapplication.h>
+#include <QStyle>
 #include "dvReader.h"
 #include "jpgView/jpgView.h"
 #include "deltaViewer.h"
@@ -66,7 +66,10 @@ int main(int argc, char** argv){
     }
     
     // make a qapplication..
+    QApplication::setStyle("cleanlooks");
     QApplication app(argc, argv);
+//    app.setStyle("plastique");
+//    app.setStyle("cde");
     const char* ifName = 0;
     if(non_options.size()){
 	ifName = non_options[0];

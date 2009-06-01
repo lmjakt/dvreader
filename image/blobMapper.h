@@ -29,7 +29,9 @@ class BlobMapper
     float minimum(){
 	return(minimumEdge);
     }
-    
+    void dimensions(int& w, int& h, int& d){
+	w = width; h = height; d = depth;
+    }
 
  private:
     struct NeighborInfo {

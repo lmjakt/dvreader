@@ -2,6 +2,7 @@
 #include <iostream>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QPushButton>
 #include <QLabel>
 
 
@@ -30,6 +31,11 @@ BlobScatterPlot::BlobScatterPlot(QWidget* parent)
   alphaBox->setValue(255);
   connect(alphaBox, SIGNAL(valueChanged(int)), plotter, SLOT(setAlpha(int)) );
 
+  QPushButton* filterButton = new QPushButton("filter", this);
+  QPushButton* selectButton = new QPushButton("select", this);
+  connect(filterButton, SIGNAL(clicked()), this, SLOT(filterBlobs()) );
+  connect(selectButton, SIGNAL(clicked()), this, SLOT(selectBlobs()) );
+
   QVBoxLayout* mainBox = new QVBoxLayout(this);
   mainBox->addWidget(plotter);
   hbox = new QHBoxLayout();
@@ -39,11 +45,14 @@ BlobScatterPlot::BlobScatterPlot(QWidget* parent)
   hbox->addWidget(yLabel);
   hbox->addWidget(yParam);
   hbox->addWidget(alphaBox);
+  hbox->addWidget(filterButton);
+  hbox->addWidget(selectButton);
   hbox->addStretch();
 }
 
 void BlobScatterPlot::setData(vector<vector<float> > xv, vector<vector<float> > yv, vector<QColor> c)
 {
+  cout << "BlobScatterPlot::setData() " << endl;
   for(uint i=0; i < c.size(); ++i)
     c[i].setAlpha(alphaBox->value());
 
@@ -86,10 +95,23 @@ void BlobScatterPlot::changePlotParams(int p){
 }
 
 void BlobScatterPlot::changeSelection(){
+  cout << "BlobScatterPlot::changeSelection" << endl;
   vector<bool> b(colorBoxes.size());
   for(uint i=0; i < colorBoxes.size(); ++i)
     b[i] = colorBoxes[i]->isChecked();
   plotter->setSelection(b);
+}
+
+void BlobScatterPlot::filterBlobs(){
+    cout << "BlobScatterPlot::filterBlobs" << endl;
+    vector<vector<bool> > selected = plotter->selectPoints(true);
+    emit blobsSelected(selected);
+}
+
+void BlobScatterPlot::selectBlobs(){
+    cout << "BlobScatterPlot::selectBlobs" << endl;
+    vector<vector<bool > > selected = plotter->selectPoints(false);
+    emit blobsSelected(selected);
 }
 
 void BlobScatterPlot::setParams(QComboBox* box){
@@ -99,6 +121,7 @@ void BlobScatterPlot::setParams(QComboBox* box){
   box->insertItem(BlobMapperWidget::MAX, "Max");
   box->insertItem(BlobMapperWidget::MIN, "Min");
   box->insertItem(BlobMapperWidget::EXTENT, "Extent");
+  box->insertItem(BlobMapperWidget::SURFACE, "Surface");
 }
 
 BlobMapperWidget::Param BlobScatterPlot::getParam(QComboBox* box){
@@ -122,6 +145,9 @@ BlobMapperWidget::Param BlobScatterPlot::getParam(QComboBox* box){
     break;
   case BlobMapperWidget::EXTENT:
     p = BlobMapperWidget::EXTENT;
+    break;
+  case BlobMapperWidget::SURFACE:
+    p = BlobMapperWidget::SURFACE;
     break;
   default:
     p = BlobMapperWidget::SUM;

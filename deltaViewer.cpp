@@ -275,6 +275,12 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   connect(startAnimation, SIGNAL(clicked()), this, SLOT(startTimer()));
   connect(stopAnimation, SIGNAL(clicked()), this, SLOT(stopTimer()) );
 
+  nextButton->setMaximumWidth(30);
+  previousButton->setMaximumWidth(30);
+  startAnimation->setMaximumWidth(30);
+  stopAnimation->setMaximumWidth(30);
+
+
   // A couple of buttons for showing windows..
   QPushButton* showViewButton = new QPushButton("view", this);
   QPushButton* showProjectionButton = new QPushButton("pro", this);
@@ -487,6 +493,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   QHBoxLayout* playButtonBox = new QHBoxLayout();
   box->addLayout(playButtonBox);
 
+  playButtonBox->addStretch();
   playButtonBox->addWidget(previousButton);
   playButtonBox->addWidget(stopAnimation);
   playButtonBox->addWidget(nextButton);
@@ -1247,7 +1254,7 @@ void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h,
     //r = blue = 1.0;
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
 	blob* b = (*it);
-	if( !(blb->filterBlob(b)) )
+	if( !(blb->filterBlob(b)) || !(b->active) )
 	  continue;
 	// check if it overlaps in any of the dimensions..
 	if( !( b->min_x <= xo + w && b->max_x >= xo ) )

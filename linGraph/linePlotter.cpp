@@ -63,8 +63,8 @@ void LinePlotter::setData(vector< vector<float> >& v, vector<QColor>& c, bool re
 	}
     }
     if(resetMask){
-      leftMaskPos = min;
-      rightMaskPos = max;
+      leftMaskPos = 0;
+      rightMaskPos = maxLength;
     }
     // recycle colors if necessary.. 
     if(colors.size() < values.size()){
@@ -106,8 +106,8 @@ void LinePlotter::setMasks(int left, int right){
 void LinePlotter::enableLimits(bool b){
   limitsEnabled = b;
   if(!b){
-    leftMaskPos = min;
-    rightMaskPos = max;
+    leftMaskPos = 0;
+    rightMaskPos = maxLength;
   }
   update();
 }
@@ -159,12 +159,12 @@ void LinePlotter::paintEvent(QPaintEvent* e){
     if(limitsEnabled){
       p.setPen(Qt::NoPen);
       p.setBrush(QColor(100, 100, 100, 100));
-      if(leftMaskPos != min){
+      if(leftMaskPos){
 	int xp =  (int)(w * leftMaskPos)/maxLength;
 	cout << "leftMaskPos : " << w << " * " << leftMaskPos << " / " << maxLength << " = " << xp << endl;
 	p.drawRect(0, 0, xp, (int)h);
       }
-      if(rightMaskPos != max){
+      if(rightMaskPos != maxLength){
 	int xp = (int)(w * rightMaskPos)/maxLength;
 	p.drawRect(xp, 0, (int)w - xp, (int)h);
       }

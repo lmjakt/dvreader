@@ -44,7 +44,7 @@ class BlobMapperWidget : public QWidget
     Q_OBJECT
 	public:
   enum Param {
-    VOLUME, SUM, MEAN, MAX, MIN, EXTENT
+      VOLUME, SUM, MEAN, MAX, MIN, EXTENT, SURFACE
   };
   
   BlobMapperWidget(BlobMapper* bmapper, fluorInfo& fInfo, std::string fname, QColor c, QWidget* parent=0);
@@ -62,6 +62,9 @@ class BlobMapperWidget : public QWidget
   void clearPlotLimits(Param p);
   bool filterBlob(blob* b);  // filters on plotLimits, returns true if it passes
   float getParameter(blob* b, Param p);
+  void dimensions(int& w, int& h, int& d){
+      mapper->dimensions(w, h, d);
+  }
 
   public slots:
   void exportBlobs();

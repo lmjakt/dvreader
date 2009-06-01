@@ -180,8 +180,15 @@ float BlobMapperWidget::getParameter(blob* b, Param p){
   case EXTENT:
     v = (1 + b->max_x - b->min_x) * (1 + b->max_y - b->min_y) * (1 + b->max_z - b->min_z);
     break;
-  default :
-    v = -1;
+  case SURFACE:
+      v = 0;
+      for(uint i=0; i < b->surface.size(); ++i){
+	  if(b->surface[i])
+	      ++v;
+      }
+      break;
+   default :
+       v = -1;
     cerr << "BlobMapperWidget::getParameter unknown parameter " << p << "  returning -1 " << endl;
   }
   return(v);

@@ -22,10 +22,14 @@ class BlobScatterPlot : public QWidget
 
  signals :
   void plotPars(BlobMapperWidget::Param, BlobMapperWidget::Param);
+ void blobsSelected(std::vector<std::vector<bool> >);
 
   private slots:
   void changePlotParams(int p);
   void changeSelection();
+  
+  void filterBlobs();   // removes blobs in the painter path
+  void selectBlobs();   // selects blobs in the painter path
 
  private:
   ScatterPlotter* plotter;
@@ -37,6 +41,7 @@ class BlobScatterPlot : public QWidget
 
   void setParams(QComboBox* box);
   BlobMapperWidget::Param getParam(QComboBox* box);
+  void selectBlobs(bool plotBlob);  // if plotBlob select, otherwise filter.. 
 
 };
 

@@ -4,6 +4,8 @@
 #include <QWidget>
 #include <QColor>
 #include <QKeyEvent>
+#include <QPainterPath>
+#include <QPointF>
 #include <vector>
 
 class ScatterPlotter : public QWidget
@@ -19,6 +21,7 @@ class ScatterPlotter : public QWidget
   void toggleLog();
   void setAlpha(int a);
   void setSelection(std::vector<bool> b);
+  std::vector<std::vector<bool > > selectPoints(bool filter);
 
  private :
   bool initData();
@@ -26,8 +29,14 @@ class ScatterPlotter : public QWidget
   void setLogValues();
   void paintEvent(QPaintEvent* e);
   void keyPressEvent(QKeyEvent* e);
+  void mousePressEvent(QMouseEvent* e);
+  void mouseMoveEvent(QMouseEvent* e);
+  void mouseReleaseEvent(QMouseEvent* e);
   void mouseDoubleClickEvent(QMouseEvent* e);
-
+  QPointF transformPos(QPointF p);
+  QPointF valueToPlotCoordinates(float x, float y, float w, float h); // this modifies x and y and returns the point
+  void valueToPlotCoordinatesR(float& x, float& y, float w, float h); // this modifies x and y and returns the point
+  //QPointF logTransformPos(QPointF p);  // This is problematic. Leave it until later.
 
   //////// variables.. 
   std::vector<std::vector<float> > lin_x;
@@ -49,6 +58,10 @@ class ScatterPlotter : public QWidget
   int tick_spacing, tick_length;
   float xScale, yScale;
   int m_size;  // marker size
+
+  QPainterPath selectPath;
+  QPainterPath logSelectPath;
+  bool selectingPath;
 };
 
 #endif

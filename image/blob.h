@@ -11,6 +11,7 @@ struct blob {
 	min = max = 0;
 	peakPos = 0;
 	r = g = b = 200;
+	active = true;
     }
     ~blob(){
     }
@@ -21,6 +22,7 @@ struct blob {
     int max_x, min_x, max_y, min_y, max_z, min_z;
     unsigned long peakPos;
     int r, g, b;
+    bool active;
 };
 
 // The below is just a way of keeping a reference to a blob along
