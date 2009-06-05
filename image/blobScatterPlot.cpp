@@ -122,6 +122,7 @@ void BlobScatterPlot::setParams(QComboBox* box){
   box->insertItem(BlobMapperWidget::MIN, "Min");
   box->insertItem(BlobMapperWidget::EXTENT, "Extent");
   box->insertItem(BlobMapperWidget::SURFACE, "Surface");
+  box->insertItem(BlobMapperWidget::BACKGROUND, "Background");
 }
 
 BlobMapperWidget::Param BlobScatterPlot::getParam(QComboBox* box){
@@ -148,6 +149,9 @@ BlobMapperWidget::Param BlobScatterPlot::getParam(QComboBox* box){
     break;
   case BlobMapperWidget::SURFACE:
     p = BlobMapperWidget::SURFACE;
+    break;
+  case BlobMapperWidget::BACKGROUND:
+    p = BlobMapperWidget::BACKGROUND;
     break;
   default:
     p = BlobMapperWidget::SUM;

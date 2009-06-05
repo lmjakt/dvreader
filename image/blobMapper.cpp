@@ -449,6 +449,15 @@ blob* BlobMapper::peaksWithinBlob(blob* b, BlobMapper* mapper){
     return(ob);
 }
 
+float BlobMapper::g_value(off_set p){
+    int x, y, z;
+    toVol(p, x, y, z);
+    if(z < depth && z >= 0)
+	return( value(x, y, z) );
+    cerr << "BlobMapper::g_value out of bounds " << p << " --> " << x << "," << y << "," << z << endl;
+    return(0);
+}
+
 void BlobMapper::eatNeighbors(blob* b){
     map<blob*, NeighborInfo> neighbors;
     int x, y, z;

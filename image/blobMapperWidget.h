@@ -44,7 +44,7 @@ class BlobMapperWidget : public QWidget
     Q_OBJECT
 	public:
   enum Param {
-      VOLUME, SUM, MEAN, MAX, MIN, EXTENT, SURFACE
+      VOLUME, SUM, MEAN, MAX, MIN, EXTENT, SURFACE, BACKGROUND
   };
   
   BlobMapperWidget(BlobMapper* bmapper, fluorInfo& fInfo, std::string fname, QColor c, QWidget* parent=0);

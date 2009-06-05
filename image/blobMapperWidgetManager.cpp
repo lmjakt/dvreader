@@ -24,6 +24,7 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
     paramChooser->insertItem(BlobMapperWidget::MIN, "Min");
     paramChooser->insertItem(BlobMapperWidget::EXTENT, "Extent");
     paramChooser->insertItem(BlobMapperWidget::SURFACE, "Surface");
+    paramChooser->insertItem(BlobMapperWidget::BACKGROUND, "Background");
 
     //blobTypeSelector = new QComboBox(false, this);
     //blobTypeSelector->insertItem(-1, "All");
@@ -151,6 +152,9 @@ void BlobMapperWidgetManager::setParamType(int p){
 	case BlobMapperWidget::SURFACE:
 	    plotType = BlobMapperWidget::SURFACE;
 	    break;
+	case BlobMapperWidget::BACKGROUND:
+	    plotType = BlobMapperWidget::BACKGROUND;
+	    break;
 	default:
 	    plotType = BlobMapperWidget::SUM;
     }
@@ -218,7 +222,7 @@ void BlobMapperWidgetManager::exportSuperBlobs(){
 	return;
     }
     int bid = 0;
-    of << "id\tsuper_id\tsub_id\tmembership\tmapper_id\tx\ty\tz\tmin_x\tmax_x\tmin_y\tmax_y\tmin_z\tmax_z\tsum\tvolume\tsurface\tmean\textent\tmin\tmax\n";
+    of << "id\tsuper_id\tsub_id\tmembership\tmapper_id\tx\ty\tz\tmin_x\tmax_x\tmin_y\tmax_y\tmin_z\tmax_z\tsum\tvolume\tsurface\tmean\textent\tmin\tmax\tbackground\n";
     for(uint i=0; i < superBlobs.size(); ++i){
 	uint membership = superBlobs[i]->membership;
 	for(uint j=0; j < superBlobs[i]->blobs.size(); ++j){
@@ -234,6 +238,7 @@ void BlobMapperWidgetManager::exportSuperBlobs(){
 	       << "\t" << bmw->getParameter(b, BlobMapperWidget::EXTENT)
 	       << "\t" << bmw->getParameter(b, BlobMapperWidget::MIN)
 	       << "\t" << bmw->getParameter(b, BlobMapperWidget::MAX)
+	       << "\t" << bmw->getParameter(b, BlobMapperWidget::BACKGROUND)
 	       << endl;
 	}
     }

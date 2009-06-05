@@ -32,6 +32,7 @@ class BlobMapper
     void dimensions(int& w, int& h, int& d){
 	w = width; h = height; d = depth;
     }
+    float g_value(off_set p);  // does a bounds checking..
 
  private:
     struct NeighborInfo {
