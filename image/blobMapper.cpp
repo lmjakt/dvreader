@@ -78,6 +78,55 @@ bool BlobMapper::exportBlobs(string fname){
     return(true);
 }
 
+
+float BlobMapper::getParameter(blob* b, Param p){
+  float v = -1;
+  int c = 0;
+  switch(p){
+  case VOLUME:
+    v = (float)b->points.size();
+    break;
+  case SUM:
+    v = b->sum;
+    break;
+  case MEAN:
+    v = b->sum / (float)b->points.size();
+    break;
+  case MAX:
+    v = b->max;
+    break;
+  case MIN:
+    v = b->min;
+    break;
+  case EXTENT:
+    v = (1 + b->max_x - b->min_x) * (1 + b->max_y - b->min_y) * (1 + b->max_z - b->min_z);
+    break;
+  case SURFACE:
+      v = 0;
+      for(uint i=0; i < b->surface.size(); ++i){
+	  if(b->surface[i])
+	      ++v;
+      }
+      break;
+  case BACKGROUND:
+      v = 0;
+      c = 0;
+      for(uint i=0; i < b->points.size(); ++i){
+	  if(b->surface[i]){
+	      v += g_value(b->points[i]);
+	      ++c;
+	  }
+      }
+      v = v / (float)c;
+      break;
+   default :
+       v = -1;
+    cerr << "BlobMapper::getParameter unknown parameter " << p << "  returning -1 " << endl;
+  }
+  return(v);
+}
+
+
 set<blob*>& BlobMapper::gBlobs(){
     if(image->interp_no() == 1)
 	return(blobs);
@@ -378,7 +427,7 @@ vector<SuperBlob*> BlobMapper::overlapBlobs(vector<BlobMapper*> mappers){
     // A superBlob membership of 0 is also valid. 
     superBlobs.reserve(blobs.size());
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
-	superBlobs.push_back(new SuperBlob( id_blob(thisId, (*it)) ) );
+      superBlobs.push_back(new SuperBlob( id_blob(thisId, (*it), this)) );
     }
     cout << "inited superBlobs from seed size : " << superBlobs.size() << endl;
     // And then..go through all the mappers (unless a mapper should happen to be equal to this)
@@ -399,7 +448,7 @@ vector<SuperBlob*> BlobMapper::overlapBlobs(vector<BlobMapper*> mappers){
 		blob* ob = mappers[i]->peaksWithinBlob(superBlobs[j]->blobs[k].b, (*it).second);
 		if(ob && ob != superBlobs[j]->blobs[k].b){
 		    remainingBlobs.erase(ob);
-		    superBlobs[j]->addBlob( id_blob(mapperIds[i], ob) );
+		    superBlobs[j]->addBlob( id_blob(mapperIds[i], ob, this) );
 		    //cout << "added id_blob to superBlobs id : " << mapperIds[i] << "  i, j, k : " << i << ", " << j << ", " << k << endl;
 		}
 	    }
@@ -408,7 +457,7 @@ vector<SuperBlob*> BlobMapper::overlapBlobs(vector<BlobMapper*> mappers){
 	cout << "And after mergin from " << i << "  size is now : " << superBlobs.size() << "  with " << remainingBlobs.size() << "  remaining " << endl;
 	superBlobs.reserve(superBlobs.size() + remainingBlobs.size());
 	for(set<blob*>::iterator it=remainingBlobs.begin(); it != remainingBlobs.end(); ++it)
-	    superBlobs.push_back(new SuperBlob( id_blob(mapperIds[i], (*it) )));
+	  superBlobs.push_back(new SuperBlob( id_blob(mapperIds[i], (*it), this )));
 	remainingBlobs.clear();
 	cout << "And size is now : " << superBlobs.size() << endl;
     }

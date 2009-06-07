@@ -69,6 +69,7 @@ HEADERS		= \
 		image/blob.h \
 		image/superBlob.h \
 		image/blobScatterPlot.h\
+		image/nd_classifier.h \
 		distanceMapper/compareController.h \
 		distanceMapper/distanceMapper.h \
 		distanceMapper/distanceViewer.h \
@@ -141,6 +142,7 @@ SOURCES		= \
 		image/blobMapperWidgetManager.cpp \
 		image/blob.cpp \
 		image/blobScatterPlot.cpp \
+		image/nd_classifier.cpp \
 		distanceMapper/compareController.cpp \
 		distanceMapper/distanceMapper.cpp \
 		distanceMapper/distanceViewer.cpp \

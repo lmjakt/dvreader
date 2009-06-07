@@ -14,11 +14,16 @@
 class BlobMapper
 {
  public:
-    BlobMapper(ImageData* ia);
-    ~BlobMapper();
+  enum Param {
+    VOLUME, SUM, MEAN, MAX, MIN, EXTENT, SURFACE, BACKGROUND
+  };
+
+  BlobMapper(ImageData* ia);
+  ~BlobMapper();
 
     void mapBlobs(float minEdge, unsigned int wi, int window);
     bool exportBlobs(std::string fname);
+    float getParameter(blob* b, Param p);
     std::set<blob*>& gBlobs();
     void eatNeighbors();
 

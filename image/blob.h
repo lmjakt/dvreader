@@ -3,6 +3,8 @@
 
 #include <vector>
 
+class BlobMapper;
+
 typedef unsigned int off_set;
 typedef unsigned int uint;
 
@@ -33,13 +35,16 @@ struct id_blob {
     id_blob(){
 	mapper_id = 0;
 	b = 0;
+	mapper = 0;
     }
-    id_blob(unsigned int id, blob* bl){
+    id_blob(unsigned int id, blob* bl, BlobMapper* m){
 	b = bl;
 	mapper_id = id;
+	mapper = m;
     }
     unsigned int mapper_id;
     blob* b;
+    BlobMapper* mapper;
 };
 
 #endif

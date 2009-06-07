@@ -43,9 +43,6 @@ class BlobMapperWidget : public QWidget
 {
     Q_OBJECT
 	public:
-  enum Param {
-      VOLUME, SUM, MEAN, MAX, MIN, EXTENT, SURFACE, BACKGROUND
-  };
   
   BlobMapperWidget(BlobMapper* bmapper, fluorInfo& fInfo, std::string fname, QColor c, QWidget* parent=0);
   ~BlobMapperWidget();
@@ -56,12 +53,12 @@ class BlobMapperWidget : public QWidget
   void color(float& r, float& g, float& b);
   QColor color();
   bool plotDistribution();
-  std::map<Param, pl_limits> pLimits();
-  void setPlotLimits(Param p, float l, float r);
+  std::map<BlobMapper::Param, pl_limits> pLimits();
+  void setPlotLimits(BlobMapper::Param p, float l, float r);
   void clearPlotLimits();
-  void clearPlotLimits(Param p);
+  void clearPlotLimits(BlobMapper::Param p);
   bool filterBlob(blob* b);  // filters on plotLimits, returns true if it passes
-  float getParameter(blob* b, Param p);
+  //  float getParameter(blob* b, Param p);
   void dimensions(int& w, int& h, int& d){
       mapper->dimensions(w, h, d);
   }
@@ -92,7 +89,7 @@ class BlobMapperWidget : public QWidget
     QColor currentColor;
     QToolButton* drawTypeButton;
 
-    std::map<Param, pl_limits> plotLimits;
+    std::map<BlobMapper::Param, pl_limits> plotLimits;
     void makeIcons();
 };
 

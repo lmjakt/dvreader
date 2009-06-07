@@ -17,8 +17,8 @@ BlobScatterPlot::BlobScatterPlot(QWidget* parent)
   setParams(xParam);
   setParams(yParam);
 
-  xParam->setCurrentIndex(BlobMapperWidget::VOLUME);
-  yParam->setCurrentIndex(BlobMapperWidget::SUM);
+  xParam->setCurrentIndex(BlobMapper::VOLUME);
+  yParam->setCurrentIndex(BlobMapper::SUM);
 
   connect(xParam, SIGNAL(activated(int)), this, SLOT(changePlotParams(int)) );
   connect(yParam, SIGNAL(activated(int)), this, SLOT(changePlotParams(int)) );
@@ -74,18 +74,18 @@ void BlobScatterPlot::setData(vector<vector<float> > xv, vector<vector<float> > 
   plotter->setData(xv, yv, c);
 }
 
-BlobMapperWidget::Param BlobScatterPlot::x_param(){
+BlobMapper::Param BlobScatterPlot::x_param(){
   return(getParam(xParam));
 }
 
-BlobMapperWidget::Param BlobScatterPlot::y_param(){
+BlobMapper::Param BlobScatterPlot::y_param(){
   return(getParam(yParam));
 }
 
 void BlobScatterPlot::changePlotParams(int p){
   p = p;
-  BlobMapperWidget::Param xp = getParam(xParam);
-  BlobMapperWidget::Param yp = getParam(yParam);
+  BlobMapper::Param xp = getParam(xParam);
+  BlobMapper::Param yp = getParam(yParam);
   if(xParam < 0 || yParam < 0){
     cerr << "BlobScatterPlot::changePlotParams unknown param : " << xParam << " : " << yParam << endl;
     return;
@@ -115,46 +115,46 @@ void BlobScatterPlot::selectBlobs(){
 }
 
 void BlobScatterPlot::setParams(QComboBox* box){
-  box->insertItem(BlobMapperWidget::VOLUME, "Volume");
-  box->insertItem(BlobMapperWidget::SUM, "Sum");
-  box->insertItem(BlobMapperWidget::MEAN, "Mean");
-  box->insertItem(BlobMapperWidget::MAX, "Max");
-  box->insertItem(BlobMapperWidget::MIN, "Min");
-  box->insertItem(BlobMapperWidget::EXTENT, "Extent");
-  box->insertItem(BlobMapperWidget::SURFACE, "Surface");
-  box->insertItem(BlobMapperWidget::BACKGROUND, "Background");
+  box->insertItem(BlobMapper::VOLUME, "Volume");
+  box->insertItem(BlobMapper::SUM, "Sum");
+  box->insertItem(BlobMapper::MEAN, "Mean");
+  box->insertItem(BlobMapper::MAX, "Max");
+  box->insertItem(BlobMapper::MIN, "Min");
+  box->insertItem(BlobMapper::EXTENT, "Extent");
+  box->insertItem(BlobMapper::SURFACE, "Surface");
+  box->insertItem(BlobMapper::BACKGROUND, "Background");
 }
 
-BlobMapperWidget::Param BlobScatterPlot::getParam(QComboBox* box){
-  BlobMapperWidget::Param p = BlobMapperWidget::VOLUME;
+BlobMapper::Param BlobScatterPlot::getParam(QComboBox* box){
+  BlobMapper::Param p = BlobMapper::VOLUME;
 
   switch(box->currentIndex()){
-  case BlobMapperWidget::VOLUME:
-    p = BlobMapperWidget::VOLUME;
+  case BlobMapper::VOLUME:
+    p = BlobMapper::VOLUME;
     break;
-  case BlobMapperWidget::SUM:
-    p = BlobMapperWidget::SUM;
+  case BlobMapper::SUM:
+    p = BlobMapper::SUM;
     break;
-  case BlobMapperWidget::MEAN:
-    p = BlobMapperWidget::MEAN;
+  case BlobMapper::MEAN:
+    p = BlobMapper::MEAN;
     break;
-  case BlobMapperWidget::MAX:
-    p = BlobMapperWidget::MAX;
+  case BlobMapper::MAX:
+    p = BlobMapper::MAX;
     break;
-  case BlobMapperWidget::MIN:
-    p = BlobMapperWidget::MIN;
+  case BlobMapper::MIN:
+    p = BlobMapper::MIN;
     break;
-  case BlobMapperWidget::EXTENT:
-    p = BlobMapperWidget::EXTENT;
+  case BlobMapper::EXTENT:
+    p = BlobMapper::EXTENT;
     break;
-  case BlobMapperWidget::SURFACE:
-    p = BlobMapperWidget::SURFACE;
+  case BlobMapper::SURFACE:
+    p = BlobMapper::SURFACE;
     break;
-  case BlobMapperWidget::BACKGROUND:
-    p = BlobMapperWidget::BACKGROUND;
+  case BlobMapper::BACKGROUND:
+    p = BlobMapper::BACKGROUND;
     break;
   default:
-    p = BlobMapperWidget::SUM;
+    p = BlobMapper::SUM;
   }
   return(p);
 }

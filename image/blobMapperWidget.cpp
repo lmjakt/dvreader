@@ -106,12 +106,12 @@ bool BlobMapperWidget::plotDistribution(){
   return(drawDisButton->isChecked());
 }
 
-map<BlobMapperWidget::Param, pl_limits> BlobMapperWidget::pLimits(){
+map<BlobMapper::Param, pl_limits> BlobMapperWidget::pLimits(){
   cout << "BlobMapperWidget returning pLimits (size of) : " << plotLimits.size() << endl;
   return(plotLimits);
 }
 
-void BlobMapperWidget::setPlotLimits(Param p, float l, float r){
+void BlobMapperWidget::setPlotLimits(BlobMapper::Param p, float l, float r){
   cout << "BlobMapper Widget setting plot limits " << p << "  : " << l << " : " << r << endl;
   plotLimits[p] = pl_limits(l, r);
 }
@@ -120,13 +120,13 @@ void BlobMapperWidget::clearPlotLimits(){
   plotLimits.clear();
 }
 
-void BlobMapperWidget::clearPlotLimits(Param p){
+void BlobMapperWidget::clearPlotLimits(BlobMapper::Param p){
   plotLimits.erase(p);
 }
 
 bool BlobMapperWidget::filterBlob(blob* b){
-  for(map<Param, pl_limits>::iterator it=plotLimits.begin(); it != plotLimits.end(); ++it){
-    float v = getParameter(b, (*it).first);
+  for(map<BlobMapper::Param, pl_limits>::iterator it=plotLimits.begin(); it != plotLimits.end(); ++it){
+    float v = mapper->getParameter(b, (*it).first);
     if(v == -1){
       cerr << "BlobMapperWidget::filterBlob unknown Parameter : " << (*it).first << endl;
       return(true);
@@ -135,53 +135,6 @@ bool BlobMapperWidget::filterBlob(blob* b){
       return(false);
   }
   return(true);
-}
-
-float BlobMapperWidget::getParameter(blob* b, Param p){
-  float v = -1;
-  int c = 0;
-  switch(p){
-  case VOLUME:
-    v = (float)b->points.size();
-    break;
-  case SUM:
-    v = b->sum;
-    break;
-  case MEAN:
-    v = b->sum / (float)b->points.size();
-    break;
-  case MAX:
-    v = b->max;
-    break;
-  case MIN:
-    v = b->min;
-    break;
-  case EXTENT:
-    v = (1 + b->max_x - b->min_x) * (1 + b->max_y - b->min_y) * (1 + b->max_z - b->min_z);
-    break;
-  case SURFACE:
-      v = 0;
-      for(uint i=0; i < b->surface.size(); ++i){
-	  if(b->surface[i])
-	      ++v;
-      }
-      break;
-  case BACKGROUND:
-      v = 0;
-      c = 0;
-      for(uint i=0; i < b->points.size(); ++i){
-	  if(b->surface[i]){
-	      v += mapper->g_value(b->points[i]);
-	      ++c;
-	  }
-      }
-      v = v / (float)c;
-      break;
-   default :
-       v = -1;
-    cerr << "BlobMapperWidget::getParameter unknown parameter " << p << "  returning -1 " << endl;
-  }
-  return(v);
 }
 
 void BlobMapperWidget::exportBlobs(){

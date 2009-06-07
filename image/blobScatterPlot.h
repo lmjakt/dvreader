@@ -2,7 +2,7 @@
 #define BLOBSCATTERPLOT_H
 
 #include "../scatterPlot/scatterPlotter.h"
-#include "blobMapperWidget.h"
+#include "blobMapper.h"
 #include <QWidget>
 #include <QComboBox>
 #include <QSpinBox>
@@ -17,11 +17,11 @@ class BlobScatterPlot : public QWidget
   BlobScatterPlot(QWidget* parent=0);
   
   void setData(std::vector<std::vector<float> > xv, std::vector<std::vector<float> > yv, std::vector<QColor> c);
-  BlobMapperWidget::Param x_param();
-  BlobMapperWidget::Param y_param();
+  BlobMapper::Param x_param();
+  BlobMapper::Param y_param();
 
  signals :
-  void plotPars(BlobMapperWidget::Param, BlobMapperWidget::Param);
+  void plotPars(BlobMapper::Param, BlobMapper::Param);
  void blobsSelected(std::vector<std::vector<bool> >);
 
   private slots:
@@ -40,7 +40,7 @@ class BlobScatterPlot : public QWidget
   std::vector<QCheckBox*> colorBoxes;
 
   void setParams(QComboBox* box);
-  BlobMapperWidget::Param getParam(QComboBox* box);
+  BlobMapper::Param getParam(QComboBox* box);
   void selectBlobs(bool plotBlob);  // if plotBlob select, otherwise filter.. 
 
 };

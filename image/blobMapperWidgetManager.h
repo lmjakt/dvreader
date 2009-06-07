@@ -37,7 +37,7 @@ class BlobMapperWidgetManager : public QWidget
     void clearPlotLimits();
     void setLimits(float l, float r);
     void filterBlobs(std::vector<std::vector<bool> > blobSelection);
-    void scatterPlot(BlobMapperWidget::Param xpar, BlobMapperWidget::Param ypar);
+    void scatterPlot(BlobMapper::Param xpar, BlobMapper::Param ypar);
 
  private:
     std::set<BlobMapperWidget*> blobWidgets;
@@ -45,18 +45,18 @@ class BlobMapperWidgetManager : public QWidget
     //  QComboBox* blobTypeSelector;
     DistPlotter* distPlotter;
     DistPlotter* superDistPlotter;
-    BlobMapperWidget::Param plotType;
+    BlobMapper::Param plotType;
     BlobScatterPlot* scatterPlotter;
     QVBoxLayout* vbox;
 
     void plotDistributions();
     void collectSuperBlobValues(std::vector<std::vector<float > >& plotValues, 
 				std::vector<QColor>& plotColors, pl_limits& plotLimits,
-				BlobMapperWidget::Param p_type);
+				BlobMapper::Param p_type);
     std::map<unsigned int, std::vector<blob*> > collectSuperBlobBlobs();
     std::map<unsigned int, bool> distIncludeMap();
     std::vector<QColor> widgetPlotColors();
-    pl_limits get_plotLimits(BlobMapperWidget::Param p_type);
+    pl_limits get_plotLimits(BlobMapper::Param p_type);
     void plotSuperDistributions();
     void deleteSuperBlobs();
 };
