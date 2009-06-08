@@ -62,6 +62,9 @@ class BlobMapperWidget : public QWidget
   void dimensions(int& w, int& h, int& d){
       mapper->dimensions(w, h, d);
   }
+  fluorInfo fInfo(){
+    return(fluor);
+  }
 
   public slots:
   void exportBlobs();
