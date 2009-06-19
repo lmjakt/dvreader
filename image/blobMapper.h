@@ -6,10 +6,23 @@
 #include "volumeMap.h"
 #include "blob.h"
 #include "superBlob.h"
+#include "../dataStructs.h"
 #include <vector>
 #include <map>
 #include <set>
 #include <string>
+
+struct BlobMapperInfo
+{
+  fluorInfo fluor;
+  float minEdge;
+  BlobMapperInfo(){
+    minEdge = 0;
+  }
+  friend bool operator ==(const BlobMapperInfo& a, const BlobMapperInfo& b){
+    return(a.fluor == b.fluor && a.minEdge == b.minEdge);
+  }
+};
 
 class BlobMapper
 {
@@ -21,8 +34,10 @@ class BlobMapper
   BlobMapper(ImageData* ia);
   ~BlobMapper();
 
-    void mapBlobs(float minEdge, unsigned int wi, int window);
+    void mapBlobs(float minEdge, unsigned int wi, int window, fluorInfo& finfo);
     bool exportBlobs(std::string fname);
+    void setMapId(unsigned int mid);
+    unsigned int mapId();
     float getParameter(blob* b, Param p);
     std::set<blob*>& gBlobs();
     void eatNeighbors();
@@ -38,6 +53,12 @@ class BlobMapper
 	w = width; h = height; d = depth;
     }
     float g_value(off_set p);  // does a bounds checking..
+    unsigned int blobNo(){
+      return(blobs.size());
+    }
+    BlobMapperInfo info(){
+      return(bmInfo);
+    }
 
  private:
     struct NeighborInfo {
@@ -54,8 +75,10 @@ class BlobMapper
 	}
     };
 
+    BlobMapperInfo bmInfo;
 //    std::map<off_set, blob*> blobMap;
     VolumeMap* blobMap;
+    unsigned int map_id;
     std::set<blob*> blobs;
     std::set<blob*> uninterpol_blobs;  // only make if we use interpolation.. 
     bool uninterpol_up_to_date;        // are they up do date...

@@ -8,12 +8,15 @@
 #include <QFileDialog>
 #include <QSize>
 #include <fstream>
+#include <limits.h>
 
 using namespace std;
 
 BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
     : QWidget(parent)
 {
+    max_mapper_id = 1;
+    blobClassifier = 0;
     QFont plotterFont = QFont(font().family(), font().pointSize()-0);
 
     QComboBox* paramChooser = new QComboBox(false, this);
@@ -29,6 +32,16 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
     //blobTypeSelector = new QComboBox(false, this);
     //blobTypeSelector->insertItem(-1, "All");
     
+    superWidget = new SuperBlobWidget();
+    superWidget->setCaption("SuperBlobs");
+    superWidget->setFont(plotterFont);
+    connect(superWidget, SIGNAL(makeSuperBlobs(std::set<BlobMapperWidget*>)),
+	    this, SLOT(makeSuperBlobs(std::set<BlobMapperWidget*>)) );
+    connect(superWidget, SIGNAL(classifySuperBlobs(std::set<BlobMapper::Param>)),
+	    this, SLOT(classifySuperBlobs(std::set<BlobMapper::Param>)) );
+    connect(superWidget, SIGNAL(classifyBlobs(std::set<BlobMapperWidget*>)),
+	    this, SLOT(classifyBlobs(std::set<BlobMapperWidget*>)) );
+
     connect(paramChooser, SIGNAL(activated(int)), this, SLOT(setParamType(int)) );
     plotType = BlobMapper::VOLUME;
 
@@ -69,7 +82,11 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
     distPlotter->setPalette(plotPalette);
     superDistPlotter->setPalette(plotPalette);
 
+    distPlotter->setCaption("Blob distributions");
+    superDistPlotter->setCaption("SuperBlob distributions");
+
     scatterPlotter = new BlobScatterPlot();
+    scatterPlotter->setCaption("Blob Scatter Plot");
     connect(scatterPlotter, SIGNAL(plotPars(BlobMapper::Param, BlobMapper::Param)),
 	    this, SLOT(scatterPlot(BlobMapper::Param, BlobMapper::Param)) );
     connect(scatterPlotter, SIGNAL(blobsSelected(std::vector<std::vector<bool> >)),
@@ -99,9 +116,16 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
 BlobMapperWidgetManager::~BlobMapperWidgetManager(){
     // we should delete the blobMappers .. 
   // and also the superBlobs
+  delete blobClassifier;
 }
 
 void BlobMapperWidgetManager::addBlobMapper(BlobMapper* bm, fluorInfo& fInfo, string fName, QColor c){
+    if(max_mapper_id > INT_MAX){
+      cerr << "BlobMapperWidgetManager::addBlobMapper A maximum of 31 mappers allowed. max_mapper_id overflowing" << endl;
+      return;
+    }
+    bm->setMapId(max_mapper_id);
+    max_mapper_id *= 2;
     BlobMapperWidget* bmw = new BlobMapperWidget(bm, fInfo, fName, c, this);
     connect(bmw, SIGNAL(newColor()), this, SLOT(replot()) );
     connect(bmw, SIGNAL(includeDistChanged()), this, SLOT(replot()) );
@@ -123,6 +147,11 @@ void BlobMapperWidgetManager::addBlobMapper(BlobMapper* bm, fluorInfo& fInfo, st
     //distPlotter->setCaption(fName.c_str());
     plotDistributions();
     //    plotSuperDistributions();
+    
+    cout << "calling superwidget add blobmapperwidgtet" << endl; 
+    superWidget->addBlobMapperWidget(bmw);
+    cout << "add blobmapper widget returned, now calling show" << endl;
+    superWidget->show();
 }
 
 set<BlobMapperWidget*> BlobMapperWidgetManager::blobMapperWidgets(){
@@ -170,19 +199,27 @@ void BlobMapperWidgetManager::deleteBlobWidget(){
 	return;
     }
     blobWidgets.erase(bmw);
-    delete bmw;
+    cout << "calling superwidget to remove bmw" << endl;
+    superWidget->removeBlobMapperWidget(bmw);
+    cout << "superwidgtet did that" << endl;
+    bmw->deleteLater();
+    cout << "and finally we've deleted the actualy bmw thingy" << endl;
     // if we have any superBlobs we would need to remove any that point to this particular mapper;
     // since we don't actually have a way of doing that at the moment, let's just delete all the points.
     deleteSuperBlobs();
 }
 
 void BlobMapperWidgetManager::makeSuperBlobs(){
-    if(blobWidgets.size() < 2){
+  makeSuperBlobs(blobWidgets);
+}
+
+void BlobMapperWidgetManager::makeSuperBlobs(set<BlobMapperWidget*> bmw){
+    if(bmw.size() < 2){
 	cerr << "BlobMapperWidgetManager::makeSuperBlobs : Not enough blobWidgets to make superBlobs" << endl;
 	return;
     }
-    set<BlobMapperWidget*>::iterator it = blobWidgets.begin();
-    if(it == blobWidgets.end())
+    set<BlobMapperWidget*>::iterator it = bmw.begin();
+    if(it == bmw.end())
 	return;
 
     deleteSuperBlobs();
@@ -190,7 +227,7 @@ void BlobMapperWidgetManager::makeSuperBlobs(){
     BlobMapper* seedMapper = (*it)->blobMapper();
     vector<BlobMapper*> mappers;
     it++;
-    while(it != blobWidgets.end()){
+    while(it != bmw.end()){
 	mappers.push_back((*it)->blobMapper());
 	it++;
     }
@@ -200,6 +237,7 @@ void BlobMapperWidgetManager::makeSuperBlobs(){
     plotSuperDistributions();
     cout << "calling scatterPlotter->x_param and so on" << endl;
     scatterPlot(scatterPlotter->x_param(), scatterPlotter->y_param());
+    superWidget->setSuperBlobs(superBlobs);
 }
 
 void BlobMapperWidgetManager::exportSuperBlobs(){
@@ -314,6 +352,36 @@ void BlobMapperWidgetManager::scatterPlot(BlobMapper::Param xpar, BlobMapper::Pa
   scatterPlotter->show();
 }
 
+void BlobMapperWidgetManager::classifySuperBlobs(set<BlobMapper::Param> param){
+  cout << "classify super blobs" << endl;
+  if(!blobClassifier)
+    blobClassifier = new BlobClassifier();
+  if(!superBlobs.size() || !param.size())
+    return;
+  blobClassifier->setParameters(param);
+  blobClassifier->setSuperBlobs(superBlobs);
+  cout << "set the superblobs and the parameters.." << endl;
+  
+}
+
+void BlobMapperWidgetManager::classifyBlobs(set<BlobMapperWidget*> bmw){
+  if(!blobClassifier){
+    cerr << "BlobMapperWidgetManager no trained blobClassifier. Unable to classify" << endl;
+    return;
+  }
+  cout << "This is the blobmapperwidgetmanager trying to classify a total of " << bmw.size()
+       << "  mappers blobs" << endl;
+  vector<BlobMapper*> mappers;
+  vector<BlobMapperWidget*> widgets;  // a bit silly, but it helps
+  for(set<BlobMapperWidget*>::iterator it=bmw.begin(); it != bmw.end(); ++it){
+    mappers.push_back((*it)->blobMapper());
+    widgets.push_back(*it);
+  }
+  vector<BlobClassCounts> counts = blobClassifier->classifyBlobs(mappers);
+  // Then go through and do something that make sense.
+  superWidget->setClassCounts(counts);
+}
+
 void BlobMapperWidgetManager::plotDistributions(){
     vector<vector<float> > values(blobWidgets.size());
     vector<QColor> colors(blobWidgets.size());
@@ -355,30 +423,16 @@ void BlobMapperWidgetManager::plotSuperDistributions(){
   
 void BlobMapperWidgetManager::collectSuperBlobValues(vector<vector<float> >& plotValues, vector<QColor>& plotColors,
 						     pl_limits& plotLimits, BlobMapper::Param p_type){
-  vector<QColor> widgetColors = widgetPlotColors();
-  map<unsigned int, bool> includeMap = distIncludeMap();
+  map<unsigned int, QColor> widgetColors = widgetPlotColors();
+  map<BlobMapper*, bool> includeMap = distIncludeMap();
+  //  map<unsigned int, bool> includeMap = distIncludeMap();
   plotLimits = get_plotLimits(p_type);
-  
-//   unsigned int map_id = 1;
-//   for(set<BlobMapperWidget*>::iterator it=blobWidgets.begin(); it != blobWidgets.end(); ++it){
-//     widgetColors.push_back((*it)->color());
-//     includeMap[map_id] = (*it)->plotDistribution();
-//     map_id *= 2;
-//     if((*it)->plotDistribution() && (*it)->pLimits().count(p_type))
-//       plotLimits = (*it)->pLimits()[p_type];
-//   }
-
-  // we want to have one pointer to a blobmapperwidget to use the getParam function.
-
-//   set<BlobMapperWidget*>::iterator bmw = blobWidgets.begin();
-//   if(bmw == blobWidgets.end())
-//     return;
 
   map<unsigned int, vector<float> > values;
   for(uint i=0; i < superBlobs.size(); ++i){
     float v;
     for(uint j=0; j < superBlobs[i]->blobs.size(); ++j){
-      if(!( includeMap[ superBlobs[i]->blobs[j].mapper_id ] ))
+      if(!( includeMap[ superBlobs[i]->blobs[j].mapper ] ))
 	continue;
       blob* b = superBlobs[i]->blobs[j].b;
       BlobMapper* bm = superBlobs[i]->blobs[j].mapper;
@@ -390,14 +444,15 @@ void BlobMapperWidgetManager::collectSuperBlobValues(vector<vector<float> >& plo
   for(map<unsigned int, vector<float> >::iterator it=values.begin(); it != values.end(); ++it){
     int r, g, b;
     r = g = b = 0;
-    unsigned int component = 1;
-    for(uint i=0; i < widgetColors.size(); ++i){
-      if((*it).first & component){
-	r += widgetColors[i].red();
-	g += widgetColors[i].green();
-	b += widgetColors[i].blue();
+    //unsigned int component = 1;
+    for(map<uint, QColor>::iterator cit=widgetColors.begin(); cit != widgetColors.end(); ++cit){
+    //    for(uint i=0; i < widgetColors.size(); ++i){
+      if((*it).first & (*cit).first){
+	r += (*cit).second.red();
+	g += (*cit).second.green();
+	b += (*cit).second.blue();
       }
-      component *= 2;
+      //      component *= 2;
     }
     r = r > 255 ? 255 : r;
     g = g > 255 ? 255 : g;
@@ -412,12 +467,13 @@ void BlobMapperWidgetManager::collectSuperBlobValues(vector<vector<float> >& plo
 // to be able something like a vector<vector<bool> > instructing us as to which blobs
 // to draw. 
 map<unsigned int, vector<blob*> > BlobMapperWidgetManager::collectSuperBlobBlobs(){
-    map<unsigned int, bool> includeMap = distIncludeMap();
+    map<BlobMapper*, bool> includeMap = distIncludeMap();
+    //    map<unsigned int, bool> includeMap = distIncludeMap();
     map<unsigned int, vector<blob*> > blobMap;
 
     for(uint i=0; i < superBlobs.size(); ++i){
 	for(uint j=0; j < superBlobs[i]->blobs.size(); ++j){
-	    if(!( includeMap[ superBlobs[i]->blobs[j].mapper_id ] ))
+	    if(!( includeMap[ superBlobs[i]->blobs[j].mapper ] ))
 		continue;
 	    blobMap[superBlobs[i]->membership].push_back( superBlobs[i]->blobs[j].b );
 	}
@@ -425,22 +481,24 @@ map<unsigned int, vector<blob*> > BlobMapperWidgetManager::collectSuperBlobBlobs
     return(blobMap);
 }
 
-map<unsigned int, bool> BlobMapperWidgetManager::distIncludeMap(){
+map<BlobMapper*, bool> BlobMapperWidgetManager::distIncludeMap(){
     // A map that is dependent on the mapper ids and super blob ids
     // derived in makeSuperBlobs.
-    map<unsigned int, bool> includeMap;
+    map<BlobMapper*, bool> includeMap;
+    //    map<unsigned int, bool> includeMap;
     unsigned int map_id = 1;
     for(set<BlobMapperWidget*>::iterator it=blobWidgets.begin(); it != blobWidgets.end(); ++it){
-	includeMap[map_id] = (*it)->plotDistribution();
+      includeMap[(*it)->blobMapper()] = (*it)->plotDistribution();
+	//	includeMap[map_id] = (*it)->plotDistribution();
 	map_id *= 2;
     }
     return(includeMap);
 }
 
-vector<QColor> BlobMapperWidgetManager::widgetPlotColors(){
-    vector<QColor> widgetColors;
+map<unsigned int, QColor> BlobMapperWidgetManager::widgetPlotColors(){
+    map<unsigned int, QColor> widgetColors;
     for(set<BlobMapperWidget*>::iterator it=blobWidgets.begin(); it != blobWidgets.end(); ++it){
-	widgetColors.push_back((*it)->color());
+      widgetColors.insert(make_pair((*it)->blobMapper()->mapId(), (*it)->color()) );
     }
     return(widgetColors);
 }

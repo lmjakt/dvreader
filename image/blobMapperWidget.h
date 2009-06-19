@@ -65,6 +65,12 @@ class BlobMapperWidget : public QWidget
   fluorInfo fInfo(){
     return(fluor);
   }
+  float minEdge(){
+    return(mapper->minimum());
+  }
+  unsigned int blobNo(){
+    return(mapper->blobNo());
+  }
 
   public slots:
   void exportBlobs();

@@ -88,6 +88,8 @@ float* ND_Classifier::classify(float* data, unsigned int rows, unsigned int cols
   classes = class_set;
   float* proxData = new float[rows * class_set.size()];
 
+  cout << "nd_classifier: made new proxData size " << rows << " * " << class_set.size() << endl;
+
   for(uint r_no = 0; r_no < rows; ++r_no)
     classify(data + (dims * r_no), proxData + (class_set.size() * r_no));
   
@@ -117,6 +119,8 @@ void ND_Classifier::setClass(){
   }
   class_set.resize(cl.size());
   class_set.assign(cl.begin(), cl.end());
-  for(uint i=0; i < class_set.size(); ++i)
-    class_offsets[i] = class_set[i];
+  for(uint i=0; i < class_set.size(); ++i){
+    class_offsets[ class_set[i] ] = i;
+    //class_offsets[i] = class_set[i];
+  }
 }

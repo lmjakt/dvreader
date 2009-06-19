@@ -6,6 +6,7 @@ using namespace std;
 
 BlobMapper::BlobMapper(ImageData* ia)
 {
+    map_id = 1;
     image = ia;
     image->dims(width, height, depth);
     cout << "Made a new BlobMapper and an image thingy with dims : " << width << "x" << height << "x" << depth << endl;
@@ -23,7 +24,9 @@ BlobMapper::~BlobMapper()
 }
 
 // margin only refers to horizontal stuff.
-void BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window){
+void BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, fluorInfo& finfo){
+    bmInfo.fluor = finfo;
+    bmInfo.minEdge = minEdge;
     deleteBlobs(blobs);
     blobMap->clear();
     waveIndex = wi;
@@ -78,6 +81,13 @@ bool BlobMapper::exportBlobs(string fname){
     return(true);
 }
 
+void BlobMapper::setMapId(unsigned int mid){
+  map_id = mid;
+}
+
+unsigned int BlobMapper::mapId(){
+  return(map_id);
+}
 
 float BlobMapper::getParameter(blob* b, Param p){
   float v = -1;
@@ -401,7 +411,8 @@ void BlobMapper::eatNeighbors(){
     uninterpol_up_to_date = false;
 }
 
-// mappers should not include this
+// the ids of the mappers need to be set by the owner in a reasonable manner
+// (i.e. unique powers of 2)
 vector<SuperBlob*> BlobMapper::overlapBlobs(vector<BlobMapper*> mappers){
     // we can only handle something like 30 blobMappers (total number should be 32)
     // but somehow I seem to get 30 in the assignment. So let's say max 0f 29 for now
@@ -411,23 +422,24 @@ vector<SuperBlob*> BlobMapper::overlapBlobs(vector<BlobMapper*> mappers){
 	return(superBlobs);
     }
 
-    vector<unsigned int> mapperIds;
-    map<unsigned int, BlobMapper*> mapperMap;
-    mapperIds.reserve(mappers.size());
-    unsigned int thisId = 1;
-    mapperMap.insert(make_pair(thisId, this));
-    {
-	unsigned int m = 2;
-	for(uint i=0; i < mappers.size(); ++i){
-	    mapperIds.push_back(m);
-	    mapperMap.insert(make_pair(m, mappers[i]));
-	    m *= 2;
-	}
-    }
-    // A superBlob membership of 0 is also valid. 
+    //    vector<unsigned int> mapperIds;
+    //map<unsigned int, BlobMapper*> mapperMap;
+    //mapperIds.reserve(mappers.size());
+    //unsigned int thisId = 1;
+    // mapperMap.insert(make_pair(thisId, this));
+//     {
+// 	unsigned int m = 2;
+// 	for(uint i=0; i < mappers.size(); ++i){
+// 	    mapperIds.push_back(m);
+// 	    mapperMap.insert(make_pair(m, mappers[i]));
+// 	    m *= 2;
+// 	}
+//     }
+    // A superBlob membership of 0 is not valid. 
     superBlobs.reserve(blobs.size());
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
-      superBlobs.push_back(new SuperBlob( id_blob(thisId, (*it), this)) );
+      //      superBlobs.push_back(new SuperBlob( id_blob(thisId, (*it), this)) );
+      superBlobs.push_back(new SuperBlob( id_blob(map_id, (*it), this)) );
     }
     cout << "inited superBlobs from seed size : " << superBlobs.size() << endl;
     // And then..go through all the mappers (unless a mapper should happen to be equal to this)
@@ -439,16 +451,18 @@ vector<SuperBlob*> BlobMapper::overlapBlobs(vector<BlobMapper*> mappers){
 	for(uint j=0; j < superBlobs.size(); ++j){
 	    for(uint k=0; k < superBlobs[j]->blobs.size(); ++k){
 		// we need to have a way of defining the appropriate blobMapper.
-		map<unsigned int, BlobMapper*>::iterator it = mapperMap.find(superBlobs[j]->blobs[k].mapper_id);
-		if(it == mapperMap.end()){
-		    cerr << "BlobMapper::overlapBlobs Unable to find blobMapper for id " << superBlobs[j]->blobs[k].mapper_id << endl;
-		    cerr << "i, j, k : " << i << ", " << j << ", " << k << endl;
-		    exit(1);
-		}
-		blob* ob = mappers[i]->peaksWithinBlob(superBlobs[j]->blobs[k].b, (*it).second);
+// 		map<unsigned int, BlobMapper*>::iterator it = mapperMap.find(superBlobs[j]->blobs[k].mapper_id);
+// 		if(it == mapperMap.end()){
+// 		    cerr << "BlobMapper::overlapBlobs Unable to find blobMapper for id " << superBlobs[j]->blobs[k].mapper_id << endl;
+// 		    cerr << "i, j, k : " << i << ", " << j << ", " << k << endl;
+// 		    exit(1);
+// 		}
+	        blob* ob = mappers[i]->peaksWithinBlob(superBlobs[j]->blobs[k].b, superBlobs[j]->blobs[k].mapper);
+		//		blob* ob = mappers[i]->peaksWithinBlob(superBlobs[j]->blobs[k].b, (*it).second);
 		if(ob && ob != superBlobs[j]->blobs[k].b){
 		    remainingBlobs.erase(ob);
-		    superBlobs[j]->addBlob( id_blob(mapperIds[i], ob, this) );
+		    superBlobs[j]->addBlob( id_blob(mappers[i]->map_id, ob, mappers[i]) );
+		    //		    superBlobs[j]->addBlob( id_blob(mapperIds[i], ob, mappers[i]) );
 		    //cout << "added id_blob to superBlobs id : " << mapperIds[i] << "  i, j, k : " << i << ", " << j << ", " << k << endl;
 		}
 	    }
@@ -457,7 +471,8 @@ vector<SuperBlob*> BlobMapper::overlapBlobs(vector<BlobMapper*> mappers){
 	cout << "And after mergin from " << i << "  size is now : " << superBlobs.size() << "  with " << remainingBlobs.size() << "  remaining " << endl;
 	superBlobs.reserve(superBlobs.size() + remainingBlobs.size());
 	for(set<blob*>::iterator it=remainingBlobs.begin(); it != remainingBlobs.end(); ++it)
-	  superBlobs.push_back(new SuperBlob( id_blob(mapperIds[i], (*it), this )));
+	  superBlobs.push_back(new SuperBlob( id_blob(mappers[i]->map_id, (*it), mappers[i] )));
+	//	  superBlobs.push_back(new SuperBlob( id_blob(mapperIds[i], (*it), mappers[i] )));
 	remainingBlobs.clear();
 	cout << "And size is now : " << superBlobs.size() << endl;
     }

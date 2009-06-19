@@ -7,6 +7,17 @@
 #include "nd_classifier.h"
 #include "blobMapper.h"
 
+struct BlobClassCounts
+{
+  BlobMapper* mapper;
+  std::map<int, uint> counts;
+  BlobClassCounts(){
+    mapper = 0;
+  }
+  BlobClassCounts(BlobMapper* m){
+    mapper = m;
+  }
+};
 
 class BlobClassifier 
 {
@@ -16,6 +27,8 @@ class BlobClassifier
   
   void setSuperBlobs(std::vector<SuperBlob*>& sblobs);
   void setParameters(std::set<BlobMapper::Param> params);
+  std::map<BlobMapper*, std::map<uint, std::vector<blob*> > > gBlobs();
+  std::vector<BlobClassCounts> classifyBlobs(std::vector<BlobMapper*> mappers);
 
  private:
   std::map<uint, BlobMapper*> bmwMap;
@@ -29,6 +42,9 @@ class BlobClassifier
   void trainClassifiers();   // no real training just sets the data.
   void trainClassifier(BlobMapper* mapper);
   void setTrainData(float* data, blob* b, BlobMapper* bm);
+  BlobClassCounts classifyBlobs(BlobMapper* mapper, float** classData, std::vector<int>& classes, bool normalise);
+  float* extractBlobData(std::set<blob*> b, BlobMapper* bm);
+  std::map<int, uint> countClasses(float* classData, std::set<blob*>& b, std::vector<int>& classes, bool setBlobs);
   
 };
 

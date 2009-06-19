@@ -2141,8 +2141,8 @@ void DeltaViewer::mapBlobs(int wi, float minValue){
 
     // and let's make a thingy blobmapper
     BlobMapper* bm = new BlobMapper(new ImageData(fileSet, 1) );
-    bm->mapBlobs(minValue, (unsigned int)wi, 1);
     fluorInfo fInfo = fileSet->channelInfo((unsigned int)wi);
+    bm->mapBlobs(minValue, (unsigned int)wi, 1, fInfo);
     
     if(!blobManager){
 	blobManager = new BlobMapperWidgetManager(this);
