@@ -34,6 +34,7 @@ class BlobMapperWidgetManager : public QWidget
 	void setParamType(int p);
     void deleteBlobWidget();
     void makeSuperBlobs();
+    void setSuperIds();
     void makeSuperBlobs(std::set<BlobMapperWidget*> bmw);
     void exportSuperBlobs();
     void replot();

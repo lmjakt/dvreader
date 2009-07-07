@@ -14,7 +14,7 @@ struct blob {
 	peakPos = 0;
 	r = g = b = 200;
 	active = true;
-	b_class = 0;
+	b_class = super_class = 0;
 	class_lr = 0;
     }
     ~blob(){
@@ -29,6 +29,7 @@ struct blob {
     bool active;
     int b_class;
     float class_lr;
+    int super_class;
 };
 
 // The below is just a way of keeping a reference to a blob along

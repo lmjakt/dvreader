@@ -422,23 +422,10 @@ vector<SuperBlob*> BlobMapper::overlapBlobs(vector<BlobMapper*> mappers){
 	return(superBlobs);
     }
 
-    //    vector<unsigned int> mapperIds;
-    //map<unsigned int, BlobMapper*> mapperMap;
-    //mapperIds.reserve(mappers.size());
-    //unsigned int thisId = 1;
-    // mapperMap.insert(make_pair(thisId, this));
-//     {
-// 	unsigned int m = 2;
-// 	for(uint i=0; i < mappers.size(); ++i){
-// 	    mapperIds.push_back(m);
-// 	    mapperMap.insert(make_pair(m, mappers[i]));
-// 	    m *= 2;
-// 	}
-//     }
+
     // A superBlob membership of 0 is not valid. 
     superBlobs.reserve(blobs.size());
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
-      //      superBlobs.push_back(new SuperBlob( id_blob(thisId, (*it), this)) );
       superBlobs.push_back(new SuperBlob( id_blob(map_id, (*it), this)) );
     }
     cout << "inited superBlobs from seed size : " << superBlobs.size() << endl;
@@ -450,25 +437,15 @@ vector<SuperBlob*> BlobMapper::overlapBlobs(vector<BlobMapper*> mappers){
 	set<blob*> remainingBlobs = mappers[i]->blobs; // don't call the function as this will uninterpolate
 	for(uint j=0; j < superBlobs.size(); ++j){
 	    for(uint k=0; k < superBlobs[j]->blobs.size(); ++k){
-		// we need to have a way of defining the appropriate blobMapper.
-// 		map<unsigned int, BlobMapper*>::iterator it = mapperMap.find(superBlobs[j]->blobs[k].mapper_id);
-// 		if(it == mapperMap.end()){
-// 		    cerr << "BlobMapper::overlapBlobs Unable to find blobMapper for id " << superBlobs[j]->blobs[k].mapper_id << endl;
-// 		    cerr << "i, j, k : " << i << ", " << j << ", " << k << endl;
-// 		    exit(1);
-// 		}
 	        blob* ob = mappers[i]->peaksWithinBlob(superBlobs[j]->blobs[k].b, superBlobs[j]->blobs[k].mapper);
-		//		blob* ob = mappers[i]->peaksWithinBlob(superBlobs[j]->blobs[k].b, (*it).second);
 		if(ob && ob != superBlobs[j]->blobs[k].b){
 		    remainingBlobs.erase(ob);
 		    superBlobs[j]->addBlob( id_blob(mappers[i]->map_id, ob, mappers[i]) );
-		    //		    superBlobs[j]->addBlob( id_blob(mapperIds[i], ob, mappers[i]) );
-		    //cout << "added id_blob to superBlobs id : " << mapperIds[i] << "  i, j, k : " << i << ", " << j << ", " << k << endl;
 		}
 	    }
 	}
 	// And then make sure to make new superBlobs for the remaining super Blobs
-	cout << "And after mergin from " << i << "  size is now : " << superBlobs.size() << "  with " << remainingBlobs.size() << "  remaining " << endl;
+	//	cout << "And after mergin from " << i << "  size is now : " << superBlobs.size() << "  with " << remainingBlobs.size() << "  remaining " << endl;
 	superBlobs.reserve(superBlobs.size() + remainingBlobs.size());
 	for(set<blob*>::iterator it=remainingBlobs.begin(); it != remainingBlobs.end(); ++it)
 	  superBlobs.push_back(new SuperBlob( id_blob(mappers[i]->map_id, (*it), mappers[i] )));

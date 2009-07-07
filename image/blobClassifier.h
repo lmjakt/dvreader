@@ -11,6 +11,7 @@ struct BlobClassCounts
 {
   BlobMapper* mapper;
   std::map<int, uint> counts;
+  std::map<int, std::map<int, uint> > class_super_counts;
   BlobClassCounts(){
     mapper = 0;
   }
@@ -27,6 +28,7 @@ class BlobClassifier
   
   void setSuperBlobs(std::vector<SuperBlob*>& sblobs);
   void setParameters(std::set<BlobMapper::Param> params);
+  void removeBlobMapper(BlobMapper* bm);
   std::map<BlobMapper*, std::map<uint, std::vector<blob*> > > gBlobs();
   std::vector<BlobClassCounts> classifyBlobs(std::vector<BlobMapper*> mappers);
 
@@ -45,6 +47,7 @@ class BlobClassifier
   BlobClassCounts classifyBlobs(BlobMapper* mapper, float** classData, std::vector<int>& classes, bool normalise);
   float* extractBlobData(std::set<blob*> b, BlobMapper* bm);
   std::map<int, uint> countClasses(float* classData, std::set<blob*>& b, std::vector<int>& classes, bool setBlobs);
+  std::map<int, std::map<int, uint> > count_ClassSuperCounts(std::set<blob*>& b);
   
 };
 

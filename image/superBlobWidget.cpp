@@ -138,8 +138,7 @@ void SuperBlobWidget::setSuperBlobs(vector<SuperBlob*>& sblobs){
   }
 
   // Then we go through and set the appropriate labels;
-  
-  //QString lb;
+
   for(map<BlobMapper*, map<int, int> >::iterator it=classCounts.begin(); it != classCounts.end(); ++it)
     {
       BlobMapper* bm = (*it).first;
@@ -187,6 +186,16 @@ void SuperBlobWidget::setClassCounts(vector<BlobClassCounts> classCounts)
 	number.setNum( (*it).second );
 	blobInfo[bm]->classes[ (*it).first ]->reClassSize->setText(number);
 	cout << "Class : " << (*it).first << "  : " << (*it).second << endl;
+      }
+    for(map<int, map<int, uint> >::iterator oit=classCounts[i].class_super_counts.begin();
+	oit != classCounts[i].class_super_counts.end(); ++oit)
+      {
+	cout << "\t" << (*oit).first << endl;
+	for(map<int, uint>::iterator iit=(*oit).second.begin();
+	    iit != (*oit).second.end(); ++iit)
+	  {
+	    cout << "\t\t" << (*iit).first << "\t: " << (*iit).second << endl;
+	  }
       }
   }
   cout << "SuperBlobWidget::setClassCounts finished" << endl;

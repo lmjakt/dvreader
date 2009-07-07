@@ -202,6 +202,8 @@ void BlobMapperWidgetManager::deleteBlobWidget(){
     cout << "calling superwidget to remove bmw" << endl;
     superWidget->removeBlobMapperWidget(bmw);
     cout << "superwidgtet did that" << endl;
+    if(blobClassifier)
+      blobClassifier->removeBlobMapper(bmw->blobMapper());
     bmw->deleteLater();
     cout << "and finally we've deleted the actualy bmw thingy" << endl;
     // if we have any superBlobs we would need to remove any that point to this particular mapper;
@@ -233,11 +235,20 @@ void BlobMapperWidgetManager::makeSuperBlobs(set<BlobMapperWidget*> bmw){
     }
     
     superBlobs = seedMapper->overlapBlobs(mappers);
+    setSuperIds();
     cout << "MakeSuperBlobs made a total of " << superBlobs.size() << "  superBlobs" << endl;
     plotSuperDistributions();
     cout << "calling scatterPlotter->x_param and so on" << endl;
     scatterPlot(scatterPlotter->x_param(), scatterPlotter->y_param());
     superWidget->setSuperBlobs(superBlobs);
+}
+
+void BlobMapperWidgetManager::setSuperIds(){
+  for(uint i=0; i < superBlobs.size(); ++i){
+    for(uint j=0; j < superBlobs[i]->blobs.size(); ++j){
+      superBlobs[i]->blobs[j].b->super_class = superBlobs[i]->membership;
+    }
+  }
 }
 
 void BlobMapperWidgetManager::exportSuperBlobs(){
@@ -354,11 +365,14 @@ void BlobMapperWidgetManager::scatterPlot(BlobMapper::Param xpar, BlobMapper::Pa
 
 void BlobMapperWidgetManager::classifySuperBlobs(set<BlobMapper::Param> param){
   cout << "classify super blobs" << endl;
+  cout << "blobClassifier :  " << blobClassifier << endl;
   if(!blobClassifier)
     blobClassifier = new BlobClassifier();
   if(!superBlobs.size() || !param.size())
     return;
+  cout << "calling setParameters" << endl;
   blobClassifier->setParameters(param);
+  cout << "calling set superblobs " << endl;
   blobClassifier->setSuperBlobs(superBlobs);
   cout << "set the superblobs and the parameters.." << endl;
   
@@ -379,6 +393,7 @@ void BlobMapperWidgetManager::classifyBlobs(set<BlobMapperWidget*> bmw){
   }
   vector<BlobClassCounts> counts = blobClassifier->classifyBlobs(mappers);
   // Then go through and do something that make sense.
+  cout << "superWidgetManagers thingy about to call setclasscounts " << endl;
   superWidget->setClassCounts(counts);
 }
 
