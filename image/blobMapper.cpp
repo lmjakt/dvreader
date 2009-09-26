@@ -12,12 +12,14 @@ BlobMapper::BlobMapper(ImageData* ia)
     cout << "Made a new BlobMapper and an image thingy with dims : " << width << "x" << height << "x" << depth << endl;
     blobMap = new VolumeMap(width, height, depth);
     uninterpol_up_to_date = false;
+    background = new Background(image, 16, 16, 4, 5);
 }
 
 BlobMapper::~BlobMapper()
 {
     delete image;
     delete blobMap;
+    delete background;
     // we own the blobs so we should delete them.. 
     deleteBlobs(blobs);
     deleteBlobs(uninterpol_blobs);
@@ -25,6 +27,7 @@ BlobMapper::~BlobMapper()
 
 // margin only refers to horizontal stuff.
 void BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, fluorInfo& finfo){
+    background->setBackground(wi);
     bmInfo.fluor = finfo;
     bmInfo.minEdge = minEdge;
     deleteBlobs(blobs);
@@ -91,7 +94,9 @@ unsigned int BlobMapper::mapId(){
 
 float BlobMapper::getParameter(blob* b, Param p){
   float v = -1;
-  int c = 0;
+  // int c = 0;
+  int x, y, z;
+  toVol(b->peakPos, x, y, z);
   switch(p){
   case VOLUME:
     v = (float)b->points.size();
@@ -119,15 +124,16 @@ float BlobMapper::getParameter(blob* b, Param p){
       }
       break;
   case BACKGROUND:
-      v = 0;
-      c = 0;
-      for(uint i=0; i < b->points.size(); ++i){
-	  if(b->surface[i]){
-	      v += g_value(b->points[i]);
-	      ++c;
-	  }
-      }
-      v = v / (float)c;
+      v = background->bg(x, y, z);
+//       v = 0;
+//       c = 0;
+//       for(uint i=0; i < b->points.size(); ++i){
+// 	  if(b->surface[i]){
+// 	      v += g_value(b->points[i]);
+// 	      ++c;
+// 	  }
+//       }
+//       v = v / (float)c;
       break;
    default :
        v = -1;

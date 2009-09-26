@@ -25,7 +25,6 @@
 #ifndef DELTAVIEWER_H
 #define DELTAVIEWER_H
 
-//#include <qwidget.h>
 #include <QWidget>
 
 #include <qtimer.h>
@@ -173,6 +172,7 @@ class DeltaViewer : public QWidget
   void findAllLocalMaxima(int wl, int radius, float minPeakValue, float maxEdgeValue, int clusterK, float bgm, bool exportFile);
   void findAllLocalMaxima3D(int wl, int radius, float minPeakValue, float maxEdgeValue, int clusterK, float bgm, bool exportFile);
   void find_spots(string p_file);  // read parameters from p_file and find a load of spots and then export them
+  void findBlobs(std::string& params);
   void determineSpotDensities(int r, double sigma, double order);  // use a gaussian blur model to give densities.. 
   void blur(std::set<uint> channels, int r, double sigma, double order); // make blurred intensity map for the indicated things
 
@@ -215,8 +215,6 @@ class DeltaViewer : public QWidget
   std::vector<float> projection_means;
   std::vector<float> projection_stds;  // use these as a substitute for the real ones. They'll be a bit higher, but maybe that's ok.
 
-//  ImageData* imageData;
-  //JpgView* viewer; // just use the gl viewer, its faster esp, when using magnified stuff.. 
   GLImage* glViewer;
   GLImage* projection;
   GLImage* x_zView;

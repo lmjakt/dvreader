@@ -6,6 +6,7 @@
 #include "volumeMap.h"
 #include "blob.h"
 #include "superBlob.h"
+#include "background.h"
 #include "../dataStructs.h"
 #include <vector>
 #include <map>
@@ -78,6 +79,7 @@ class BlobMapper
     BlobMapperInfo bmInfo;
 //    std::map<off_set, blob*> blobMap;
     VolumeMap* blobMap;
+    Background* background;
     unsigned int map_id;
     std::set<blob*> blobs;
     std::set<blob*> uninterpol_blobs;  // only make if we use interpolation.. 

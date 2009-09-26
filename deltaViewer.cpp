@@ -31,7 +31,7 @@
 #include <qstring.h>
 #include <qclipboard.h>
 #include <qapplication.h>  // to get the clipboard ?? 
-#include <qtextstream.h>
+#include <QTextStream>
 //#include <qiodevice.h>    // for the io stream modes .. 
 #include <q3filedialog.h>
 //Added by qt3to4:
@@ -39,6 +39,7 @@
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QIODevice>
+#include <QRegExp>
 #include <iostream>
 #include <sstream>
 #include <vector>
@@ -595,6 +596,8 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 	  cout << "This program has been requested to count spots using parameters in file " << opt_commands["find_spots"] << endl;
 	  find_spots(opt_commands["find_spots"]);
       }
+      if(opt_commands.count("find_blobs"))
+	  findBlobs(opt_commands["find_blobs"]);
       exit(0);
   }
 
@@ -2133,15 +2136,53 @@ void DeltaViewer::findContrasts(int wi, float minValue){
 
 }
 
-////// This is a very temporary function and I should probably move it to somewhere else. 
-////// I should also change things to use the volume cache and stuff in imageAnalyser.
-////// but do that later maybe.. 
+
+void DeltaViewer::findBlobs(string& params){
+    cout << "Find blobs, let's try out parameter parsing with QRegExp  " << params << endl;
+    QString qp(params.c_str());
+    QRegExp rx("[,:]?(\\d*\\.?\\d*)[,:]?");
+    map<int, float> param_pairs;
+    int pos = 0;
+    bool ok;
+    while( (pos = rx.indexIn(qp, pos) ) != -1){
+	int wl = (rx.cap(1)).toInt(&ok);
+	pos += rx.matchedLength();
+	if( !ok || ( (pos = rx.indexIn(qp, pos) ) == -1) ){
+	    cout << "gave up because of ok: " << ok << " or pos " << pos << endl;
+	    break;
+	}
+	pos += rx.matchedLength();
+	float min = (rx.cap(1)).toFloat(&ok);
+	if(!ok){
+	    cout << "didn't get a float from " << rx.cap(1).latin1() << endl;
+	    break;
+	}
+	param_pairs.insert(make_pair(wl, min));
+    }
+    QString ofName = fName;
+    QTextStream qts(&ofName);
+    for(map<int, float>::iterator it=param_pairs.begin(); it != param_pairs.end(); ++it){
+	cout << "\tParam " << (*it).first << " : " << (*it).second << endl;
+	qts << "_" << it->first << "-" << it->second;
+	mapBlobs(it->first, it->second);
+    }
+    qts << ".blobs";
+    if(!blobManager){
+	cerr << "blobManager should exist here, but doesn't" << endl;
+	return;
+    }
+    blobManager->makeSuperBlobs();
+    blobManager->exportSuperBlobs(ofName.latin1());
+}
+
 void DeltaViewer::mapBlobs(int wi, float minValue){
     cout << "Deltaviewer map blobs.. " << endl;
 
     // and let's make a thingy blobmapper
-    BlobMapper* bm = new BlobMapper(new ImageData(fileSet, 1) );
     fluorInfo fInfo = fileSet->channelInfo((unsigned int)wi);
+    if(!fInfo.excitation)
+	return;
+    BlobMapper* bm = new BlobMapper(new ImageData(fileSet, 1) );
     bm->mapBlobs(minValue, (unsigned int)wi, 1, fInfo);
     
     if(!blobManager){
@@ -2153,40 +2194,6 @@ void DeltaViewer::mapBlobs(int wi, float minValue){
 	blobManager->show();
     }
     blobManager->addBlobMapper(bm, fInfo, fName.latin1(), wiColor(wi));
-    
-//     BlobMapperWidget* bmw = new BlobMapperWidget(bm, fInfo, fName.latin1(), this);
-//     blobs.insert(bmw);
-    
-//     colorBox->addWidget(bmw);
-//     bmw->show();
-    
-//     cout << "mapBlobs Made a total of " << bmw->blobs().size() << endl;    
-//     cout << "blobs assigned what's going to happen now.. " << endl;
-
-//     // temporary code : lets assign values to objectSums (a distChooser).
-//     float min, max;
-//     min = max = 0;
-//     vector<float> sums;
-//     set<blob*>& b = bmw->blobs();
-//     sums.reserve(b.size());
-//     for(set<blob*>::iterator it = b.begin(); it != b.end(); it++){
-// 	max = max < (*it)->sum ? (*it)->sum : max;
-// 	sums.push_back((*it)->sum);
-//     }
-    
-//     vector<QColor> colors;
-//     colors.push_back(bmw->color());
-//     vector<vector<float> > values;
-//     values.push_back(sums);
-
-//     blobSums->setData(values, colors);
-//     blobSums->show();
-//     blobSums->raise();
-
-//     objectSums->setData(sums, min, max);
-//     objectSums->show();
-//     objectSums->raise();
-    ////////////// END of temporary code.. ////////////////
 }
 
 

@@ -24,6 +24,10 @@ class BlobMapperWidgetManager : public QWidget
 
     void addBlobMapper(BlobMapper* bm, fluorInfo& fInfo, std::string fName, QColor c);
     std::set<BlobMapperWidget*> blobMapperWidgets();
+    void exportSuperBlobs(std::string fname);
+
+    public slots:
+	void makeSuperBlobs();
 
  signals:
     void newColor();
@@ -33,7 +37,6 @@ class BlobMapperWidgetManager : public QWidget
     private slots:
 	void setParamType(int p);
     void deleteBlobWidget();
-    void makeSuperBlobs();
     void setSuperIds();
     void makeSuperBlobs(std::set<BlobMapperWidget*> bmw);
     void exportSuperBlobs();

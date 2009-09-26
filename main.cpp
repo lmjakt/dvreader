@@ -46,13 +46,16 @@ int main(int argc, char** argv){
     int c;
     map<string, string> opt_commands;
     vector<char*> non_options;
-    while( (c = getopt(argc, argv, "-s:d")) != -1){
+    while( (c = getopt(argc, argv, "-s:b:d")) != -1){
 	switch(c){
 	    case 's':
 		opt_commands["find_spots"] = optarg;
 		break;
 	    case 'd':
 		opt_commands["die"] = "yes";   // useful for making projections
+		break;
+	    case 'b':
+		opt_commands["find_blobs"] = optarg;
 		break;
 	    case 1 :
 		non_options.push_back(optarg);
@@ -64,6 +67,10 @@ int main(int argc, char** argv){
 		abort();
 	}
     }
+    
+//     for(map<string, string>::iterator it=opt_commands.begin(); it != opt_commands.end(); ++it)
+// 	cout << (*it).first << " : " << (*it).second << endl;
+//     exit(1);
     
     // make a qapplication..
     QApplication::setStyle("cleanlooks");

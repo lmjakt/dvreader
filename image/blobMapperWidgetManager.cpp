@@ -260,16 +260,23 @@ void BlobMapperWidgetManager::exportSuperBlobs(){
     QString fname = QFileDialog::getSaveFileName();
     if(fname.isNull())
 	return;
-//    set<BlobMapperWidget*>::iterator it = blobWidgets.begin();
+    exportSuperBlobs(fname.latin1());
+}
+
+void BlobMapperWidgetManager::exportSuperBlobs(string fname){
+    cout << "Export Superblobs function fname" << endl;
+    if(!superBlobs.size() || !blobWidgets.size()){
+	cerr << "BlobMapperWidgetManager::exportSuperBlobs : no blobWidgets or no superBlobs" << endl;
+	return;
+    }
     int width, height, depth;
     width = height = depth = 1;
-    //    BlobMapperWidget* bmw = *(blobWidgets.begin());
-    //bmw->dimensions(width, height, depth);
+    (*blobWidgets.begin())->dimensions(width, height, depth);
     CoordConverter cc(width, height, depth);
 
-    ofstream of(fname.ascii());
+    ofstream of(fname.c_str());
     if(!of){
-	cerr << "BlobMapperWidgetManager unable to open file : " << fname.ascii() << endl;
+	cerr << "BlobMapperWidgetManager unable to open file : " << fname << endl;
 	return;
     }
     int bid = 0;
