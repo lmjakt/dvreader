@@ -49,7 +49,7 @@ void Background::setBackground(unsigned int waveindex){
     setBackground();
 }
 
-float Background::bg(unsigned int x, unsigned int y, unsigned int z){
+float Background::bg(int x, int y, int z){
     // use a linear interpolation to get an estimate for the given position.
     if(x >= width || y >= height || z >= depth){
 	cerr << "Background::bg point outsde area: " << x << "," << y << "," << z << endl;
@@ -93,6 +93,16 @@ float Background::bg(unsigned int x, unsigned int y, unsigned int z){
 
     // and then simply interpolate in the z direction..
     float int_back = front + (float(z - bg_pos[bp].z) / float(z_m)) * (back - front);
+    if(int_back > 1){
+      cout << "int_back: " << int_back << " pos:  " << x << "," << y << "," << z
+	   << "  b pos : " << xb << "," << yb << "," << zb << "  bg: " << background[ b_off(xb, yb, zb)] 
+	   << "  bg_pos[bp]: " << bg_pos[bp].x << "," << bg_pos[bp].y << "," << bg_pos[bp].z << "\n"
+	   << "xc : " << xc[0] << "," << xc[1] << "," << xc[2] << "," << xc[3]
+	   << "  front: " << front << "  back: " << back << endl;
+      cout << "\t" << front << " + " <<  (float(z - bg_pos[bp].z) / float(z_m)) << " * " <<  (back - front)
+	   << "  (z_m) : " << z_m << endl;
+    }
+    // cout << "int_back : " << int_back << endl;
     return(int_back);
 }
 
@@ -126,17 +136,17 @@ void Background::setBackground(){
     }
 }
 
-float Background::getb(uint bx, uint by, uint bz){
-    uint z_b = bz * z_m;
-    uint z_e = z_b + z_m < depth ? z_b + z_m : depth;
+float Background::getb(int bx, int by, int bz){
+    int z_b = bz * z_m;
+    int z_e = z_b + z_m < depth ? z_b + z_m : depth;
 
-    uint y_b = by * y_m;
-    uint y_e = y_b + y_m < height ? y_b + y_m : height;
+    int y_b = by * y_m;
+    int y_e = y_b + y_m < height ? y_b + y_m : height;
 
-    uint x_b = bx * x_m;
-    uint x_e = x_b + x_m < width ? x_b + x_m : width;
+    int x_b = bx * x_m;
+    int x_e = x_b + x_m < width ? x_b + x_m : width;
 
-    uint vl = (x_e - x_b) * (y_e - y_b) * (z_e - z_b);
+    int vl = (x_e - x_b) * (y_e - y_b) * (z_e - z_b);
 //     cout << "getb x: " 
 // 	 << bx << " : " << x_b << "->" << x_e 
 // 	 << "  y: " << by << " : " << y_b << "->" << y_e
@@ -148,9 +158,9 @@ float Background::getb(uint bx, uint by, uint bz){
     vector<float> v;
     v.reserve(vl);
     float dp;
-    for(uint z=z_b; z < z_e; ++z){
-	for(uint y=y_b; y < y_e; ++y){
-	    for(uint x=x_b; x < x_e; ++x){
+    for(int z=z_b; z < z_e; ++z){
+	for(int y=y_b; y < y_e; ++y){
+	    for(int x=x_b; x < x_e; ++x){
 		data->point( dp, x, y, z, (uint)wi );
 		v.push_back(dp);
 	    }

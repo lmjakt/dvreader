@@ -93,6 +93,7 @@ unsigned int BlobMapper::mapId(){
 }
 
 float BlobMapper::getParameter(blob* b, Param p){
+  //cout << "getParameter " << b << "  : " << p << endl;
   float v = -1;
   // int c = 0;
   int x, y, z;

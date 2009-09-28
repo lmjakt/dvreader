@@ -40,11 +40,11 @@
 // easier to implement.
 
 struct pos {
-    uint x, y, z;
+    int x, y, z;
     pos(){
 	x=y=z=0;
     }
-    pos(uint X, uint Y, uint Z){
+    pos(int X, int Y, int Z){
 	x=X; y=Y; z=Z;
     }
 };
@@ -54,7 +54,7 @@ class Background {
 	Background(ImageData* id, unsigned int xm, unsigned int ym, unsigned int zm, float pcnt=5);
     ~Background();
     void setBackground(unsigned int waveindex);
-    float bg(unsigned int x, unsigned int y, unsigned int z);
+    float bg(int x, int y, int z);
     
  private:
     ImageData* data;
@@ -68,7 +68,7 @@ class Background {
     unsigned int b_length;              // the number of background things calculated
 
     void setBackground();
-    float getb(uint bx, uint by, uint bz);
+    float getb(int bx, int by, int bz);
     
     uint b_off(int x, int y, int z){
 	return( z * bh * bw + y * bw + x );
