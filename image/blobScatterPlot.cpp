@@ -123,6 +123,7 @@ void BlobScatterPlot::setParams(QComboBox* box){
   box->insertItem(BlobMapper::EXTENT, "Extent");
   box->insertItem(BlobMapper::SURFACE, "Surface");
   box->insertItem(BlobMapper::BACKGROUND, "Background");
+  box->insertItem(BlobMapper::ASUM, "Adj. Sum");
 }
 
 BlobMapper::Param BlobScatterPlot::getParam(QComboBox* box){
@@ -152,6 +153,9 @@ BlobMapper::Param BlobScatterPlot::getParam(QComboBox* box){
     break;
   case BlobMapper::BACKGROUND:
     p = BlobMapper::BACKGROUND;
+    break;
+  case BlobMapper::ASUM:
+    p = BlobMapper::ASUM;
     break;
   default:
     p = BlobMapper::SUM;

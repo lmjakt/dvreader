@@ -45,6 +45,7 @@ class PlotWidget : public QWidget
     
     public slots:
 	void setValues(std::vector<std::vector<float> > v, std::vector<int> m, int LMargin, int RMargin, float MinY=0, float MaxY=0);
+    void setAuxLines(std::map<uint, std::vector<float> > aux);
     void setValues(std::vector<std::vector<float> > v);
     void setColors(std::vector<QColor> Colors);
     void setMinPeakValue(unsigned int id, float mpv);
@@ -66,10 +67,11 @@ class PlotWidget : public QWidget
     int lastX, lastY;  // for tracking mouse movement.
     Slider* rangeSelector;
     std::vector<std::vector<float> > values;
+    std::vector<float> scales;           
     std::vector<QColor> colors;    // for each line draw in Color .. 
+    std::map<uint, std::vector<float> > auxLines;  // multimap would be better, but..
     std::vector<float> minPeakValues;
     std::vector<float> maxEdgeValues;     // two paramaters (normally set to 0 and 1)... 
-    std::vector<float> scales;           
     std::vector<int> marks;   // draw a vertical line at the marks..
     int lMargin, rMargin;  // some margins that we consider to be not interesting or something..
     QColor backgroundColor;  // but this is black.. 

@@ -1670,6 +1670,16 @@ void DeltaViewer::plotLines(){   // use xposition and yposition..
      vector<int> yMarks(1);
      xMarks[0] = xPosition;   // to show the intersect point.. 
      yMarks[0] = yPosition;
+
+     // This may not work, as I'm not sure that colors have been set at this point. But if not later they should be
+     map<uint, vector<float> > auxLines;
+     if(blobManager){
+	 set<BlobMapperWidget*> bmappers = blobManager->blobMapperWidgets();
+	 for(set<BlobMapperWidget*>::iterator it=bmappers.begin(); it != bmappers.end(); ++it){
+	     auxLines[ (*it)->wave_index() ] = (*it)->x_background(yPosition, currentSliceNo, 1);
+	 }
+     }
+     spotWindow->setAuxLines(1, auxLines);
      spotWindow->setLineValues(yPosition, 1, xLines, xMarks, 50, 50, 0, 1.0);
      spotWindow->setLineValues(xPosition, 2, yLines, yMarks, 50, 50, 0, 1.0);
      if(!spotWindow->isVisible()){

@@ -86,8 +86,8 @@ void PlotWidget::setValues(vector<vector<float> > v, vector<int> m, int LMargin,
     // let's specify the range Selector..
     maxX = values[0].size();
     for(uint i=0; i < values.size(); i++){
-	if(maxX < values[i].size()){
-	    maxX = values[i].size();
+	if(maxX < (int)values[i].size()){
+	    maxX = (int)values[i].size();
 	}
     }
     rangeSelector->setRange(0, maxX);
@@ -111,6 +111,18 @@ void PlotWidget::setValues(vector<vector<float> > v, vector<int> m, int LMargin,
 
     // and let's redraw..
     repaint();
+}
+
+void PlotWidget::setAuxLines(map<uint, vector<float> > aux){
+    auxLines.clear();
+    for(map<uint, vector<float> >::iterator it=aux.begin(); it != aux.end(); ++it){
+	if((*it).first < colors.size() && (*it).first < scales.size()){
+	    auxLines.insert(make_pair((*it).first, (*it).second));
+	}else{
+	    cerr << "PlotWidget::setAuxLines, unknown index : " << (*it).first << endl;
+	}
+    }
+//    update(); // 
 }
 
 void PlotWidget::paintEvent(QPaintEvent* pe){
@@ -152,7 +164,7 @@ void PlotWidget::paintEvent(QPaintEvent* pe){
     int range = e - b;
     // and if we have them let's draw peak lines in the appropriate colours..
     for(map<int, vector<int> >::iterator it=peaks.begin(); it != peaks.end(); it++){
-	if((*it).first >= colors.size()){
+	if((*it).first >= (int)colors.size()){
 	    cerr << "peak identifier too large for thingy .. " << endl;
 	    continue;
 	}
@@ -184,7 +196,7 @@ void PlotWidget::paintEvent(QPaintEvent* pe){
 		p.setPen(QPen(colors[g], 1));
 		for(int i=0; i < range-1; i++){
 		    // draw a line from b+i  --> b+i+1;
-		    if(i + b < values[g].size()){
+		    if(i + b < (int)values[g].size()){
 			int x1 = hm + (i * w) / (range - 1);
 			int x2 = hm + ((i+1) * w) / (range - 1);
 			int y1 = graphBottom - int(scales[g] * h * (values[g][i+b] - minY)/yrange );
@@ -195,9 +207,30 @@ void PlotWidget::paintEvent(QPaintEvent* pe){
 		}
 	    }
 	}
+	for(map<uint, vector<float> >::iterator it=auxLines.begin(); it != auxLines.end(); ++it){
+	    float scale = scales[ it->first % scales.size() ];
+	    p.setPen(QPen(colors[ it->first % colors.size() ], 1));
+	    vector<float>& v = it->second;
+	    if(v.size() < 2)
+		continue;
+	    uint ab = (b * v.size()) / maxX;
+	    uint ae = (e * (v.size()-1)) / maxX;
+	    uint arange = ae - ab;
+//	    cout << "PlotWidget::paintEvent auxLines ab :" << ab << " -> " << ae << "  arange : " << arange << endl;
+	    for(uint i=0; i < arange; ++i){
+		int x1 = hm + (i * w) / (arange - 1);
+		int x2 = hm + ((i+1) * w) / (range - 1);
+		int y1 = graphBottom - int(scale * h * (v[i+ab] - minY) / yrange);
+		int y2 = graphBottom - int(scale * h * (v[i+ab+1] - minY) / yrange);
+		p.drawLine(x1, y1, x2, y2);
+//		cout << "\tv[1] and v[2] : " << v[i+ab] << "->" << v[i+ab+1] << endl;
+	    }
+	}
+
     }else{
 	//cerr << "either values size isn't or values[0] size isn't " << values.size() << endl;
     }
+
     p.setPen(QPen(QColor(255, 255, 255)));
     for(uint i=0; i < marks.size(); i++){
 	if(marks[i] > b && marks[i] < e){

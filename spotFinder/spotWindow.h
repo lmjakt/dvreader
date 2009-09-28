@@ -83,6 +83,7 @@ class SpotWindow : public QWidget
 	SpotWindow(int Width, int Height, int Depth, QWidget* parent=0, const char* name=0);
     
     void setLineValues(int slicePosition, int dim, std::vector<std::vector<float> > v, std::vector<int> m, int LMargin, int RMargin, float MinY=0, float MaxY=0);
+    void setAuxLines(int dim, std::map<uint, std::vector<float> > auxLines);
     void setLineColors(std::vector<QColor> Colors);
     void setChannels(std::vector<QString> Channels);    // the names of the channels. (use string so that we can do merge channels as well)
     void setPeaks(std::map<int, linearPeaks> Peaks);

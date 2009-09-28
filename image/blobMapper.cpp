@@ -12,7 +12,7 @@ BlobMapper::BlobMapper(ImageData* ia)
     cout << "Made a new BlobMapper and an image thingy with dims : " << width << "x" << height << "x" << depth << endl;
     blobMap = new VolumeMap(width, height, depth);
     uninterpol_up_to_date = false;
-    background = new Background(image, 16, 16, 4, 5);
+    background = new Background(image, 32, 32, 4, 50);
 }
 
 BlobMapper::~BlobMapper()
@@ -124,7 +124,7 @@ float BlobMapper::getParameter(blob* b, Param p){
 	      ++v;
       }
       break;
-  case BACKGROUND:
+   case BACKGROUND:
       v = background->bg(x, y, z);
 //       v = 0;
 //       c = 0;
@@ -136,6 +136,9 @@ float BlobMapper::getParameter(blob* b, Param p){
 //       }
 //       v = v / (float)c;
       break;
+   case ASUM:
+       v = b->sum - (float(b->points.size()) * background->bg(x, y, z));
+       break;
    default :
        v = -1;
     cerr << "BlobMapper::getParameter unknown parameter " << p << "  returning -1 " << endl;
@@ -504,6 +507,19 @@ float BlobMapper::g_value(off_set p){
 	return( value(x, y, z) );
     cerr << "BlobMapper::g_value out of bounds " << p << " --> " << x << "," << y << "," << z << endl;
     return(0);
+}
+
+vector<float> BlobMapper::x_background(int y, int z, unsigned int ip){
+    vector<float> xb;
+    if(y < 0 || y >= height || z < 0 || z >= depth){
+	cerr << "BlobMapper::x_background out of bounds line requested : " << y << "," << z << endl;
+	return(xb);
+    }
+    xb.resize(width / ip);
+    for(uint i=0; i < xb.size(); ++i){
+	xb[i] = background->bg(i*ip, y, z);
+    }
+    return(xb);
 }
 
 void BlobMapper::eatNeighbors(blob* b){

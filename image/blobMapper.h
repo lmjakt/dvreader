@@ -29,7 +29,7 @@ class BlobMapper
 {
  public:
   enum Param {
-    VOLUME, SUM, MEAN, MAX, MIN, EXTENT, SURFACE, BACKGROUND
+      VOLUME, SUM, MEAN, MAX, MIN, EXTENT, SURFACE, BACKGROUND, ASUM
   };
 
   BlobMapper(ImageData* ia);
@@ -60,6 +60,10 @@ class BlobMapper
     BlobMapperInfo info(){
       return(bmInfo);
     }
+    unsigned int wave_index(){
+	return(waveIndex);
+    }
+    std::vector<float> x_background(int y, int z, unsigned int ip);   // x background for pos y,z interpolated by ip
 
  private:
     struct NeighborInfo {

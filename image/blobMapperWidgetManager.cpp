@@ -28,6 +28,7 @@ BlobMapperWidgetManager::BlobMapperWidgetManager(QWidget* parent)
     paramChooser->insertItem(BlobMapper::EXTENT, "Extent");
     paramChooser->insertItem(BlobMapper::SURFACE, "Surface");
     paramChooser->insertItem(BlobMapper::BACKGROUND, "Background");
+    paramChooser->insertItem(BlobMapper::ASUM, "Adj. Sum");
 
     //blobTypeSelector = new QComboBox(false, this);
     //blobTypeSelector->insertItem(-1, "All");
@@ -184,6 +185,9 @@ void BlobMapperWidgetManager::setParamType(int p){
 	    break;
 	case BlobMapper::BACKGROUND:
 	    plotType = BlobMapper::BACKGROUND;
+	    break;
+	case BlobMapper::ASUM:
+	    plotType = BlobMapper::ASUM;
 	    break;
 	default:
 	    plotType = BlobMapper::SUM;

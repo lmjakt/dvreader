@@ -65,11 +65,17 @@ class BlobMapperWidget : public QWidget
   fluorInfo fInfo(){
     return(fluor);
   }
+  unsigned int wave_index(){
+      return(mapper->wave_index());
+  }
   float minEdge(){
     return(mapper->minimum());
   }
   unsigned int blobNo(){
     return(mapper->blobNo());
+  }
+  std::vector<float> x_background(int y, int z, unsigned int ip){
+      return(mapper->x_background(y, z, ip));
   }
 
   public slots:

@@ -136,6 +136,19 @@ void SpotWindow::setLineValues(int slicePosition, int dim, vector<vector<float> 
     }
 }
 
+void SpotWindow::setAuxLines(int dim, map<uint, vector<float> > auxLines){
+    switch(dim){
+	case 1 :
+	    xPlot->setAuxLines(auxLines);
+	    break;
+	case 2 :
+	    yPlot->setAuxLines(auxLines);
+	    break;
+	default:
+	    cerr << "SpotWindow::setAuxLines unknown dimension : " << dim << endl;
+    }
+}
+
 map<int, vector<int> > SpotWindow::slicePeaks(int slicePosition, int dim){
     map<int, vector<int> > peaks;
     map<int, linearPeaks>::iterator it;
