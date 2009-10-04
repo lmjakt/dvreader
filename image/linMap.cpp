@@ -68,7 +68,7 @@ ptr* LinMap::value(int pos){
     ptr* p = 0;
     uint i;
     if(!findPos(pos, i)){
-	cerr << "LinMap value() didn't find anything " << endl;
+//	cerr << "LinMap value() didn't find anything " << endl;
 	return(p);
     }
     return(tupels[i].obj);

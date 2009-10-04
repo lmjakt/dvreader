@@ -181,6 +181,7 @@ class DeltaViewer : public QWidget
   void findNuclearPerimeters(int wi, float minValue);
   void findContrasts(int wi, float value);   // not sure what the value represents, but.. 
   void mapBlobs(int wi, float minEdge);
+  void mapBlobs(int wi, float minEdge, int xw, int yw, int zw, float pcnt);
   void findSets(int wi, int minSize, int maxSize, float minValue);
 
   //  void setSpotsToSpotMapper();

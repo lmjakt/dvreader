@@ -32,7 +32,7 @@
 #include <QButtonGroup>
 #include <qradiobutton.h>
 #include <qlineedit.h>
-#include <qstring.h>
+#include <QString>
 #include <qlayout.h>
 #include <qpushbutton.h>
 //Added by qt3to4:
@@ -49,6 +49,7 @@ class NucleusWidget : public QWidget
 
     signals :
 	void findNuclearPerimeters(int, float);          // float -> minimum nuclear signal.. 
+    void findStuff(int, float, int, int, int, float);    // use for blomapping with defined things
 
     protected :
 	//QVBoxLayout* vbox;

@@ -136,6 +136,7 @@ class SpotWindow : public QWidget
     void findNuclearPerimeters(int, float);
     void findContrasts(int, float);     // not sure what the float represents at the moment, but it might be useful for something..
     void mapBlobs(int, float);
+    void mapBlobs(int, float, int, int, int, float);  // set background parameters.. 
     void findSets(int, int, int, float); 
     void findSpotDensity(int, double, double);
     void blur(std::set<uint>, int, double, double);

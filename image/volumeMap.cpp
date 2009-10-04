@@ -24,10 +24,12 @@ VolumeMap::VolumeMap(int width, int height, int depth){
     for(uint i=0; i < lines.size(); ++i)
 	lines[i] = new LinMap(10);
     mask = new VolumeMask( (ulong)w, (ulong)h, (ulong)d );
+    linMapMask = new VolumeMask( (ulong)w, (ulong)h, (ulong)d );
 };
 
 VolumeMap::~VolumeMap(){
     delete mask;
+    delete linMapMask;
     for(uint i=0; i < lines.size(); ++i)
 	delete(lines[i]);
 }
@@ -61,12 +63,16 @@ bool VolumeMap::insert(int x, int y, int z, ptr* obj){
     
     if(!mask->setMask(true, x, y, z))
 	return(false);
-    
-    // do not use insert(make_pair()), as we want to be able to change an old value
-    lines[(z * h) + y ]->insert(x, obj);
-//    lines[(z * h) + y ][x] = obj; 
+     // if the object is an empty pointer, don't waste space for it.
+     if(!obj)
+ 	return(true);
 
-    return(true);
+     linMapMask->setMask(true, x, y, z);
+     // do not use insert(make_pair()), as we want to be able to change an old value
+     lines[(z * h) + y ]->insert(x, obj);
+//    lines[(z * h) + y ][x] = obj; 
+     
+     return(true);
     
 }
 
@@ -79,8 +85,8 @@ ptr* VolumeMap::value(off_set pos){
 ptr* VolumeMap::value(int x, int y, int z){
     if(outOfBounds(x, y, z))
 	return(0);
-    if(!mask->mask(x, y, z))
-	return(false);
+    if(!linMapMask->mask(x, y, z))
+	return(0);
     
     return( lines[(z*h) + y]->value(x) );
     
@@ -92,6 +98,7 @@ ptr* VolumeMap::value(int x, int y, int z){
 
 void VolumeMap::clear(){
     mask->zeroMask();
+    linMapMask->zeroMask();
     for(uint i=0; i < lines.size(); ++i){
 	lines[i]->clear();
     }

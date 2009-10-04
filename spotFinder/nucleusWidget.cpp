@@ -32,6 +32,7 @@
 //Added by qt3to4:
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QStringList>
 
 using namespace std;
 
@@ -47,8 +48,9 @@ NucleusWidget::NucleusWidget(QString buttonLabel, QWidget* parent, const char* n
 
     QLabel* minLineLabel = new QLabel("Minimum Intensity", this, "minLineLabel");
     minLine = new QLineEdit(this, "minLine");
-    QDoubleValidator* minValidator = new QDoubleValidator(minLine);
-    minLine->setValidator(minValidator);
+    
+    //QDoubleValidator* minValidator = new QDoubleValidator(minLine);
+    //minLine->setValidator(minValidator);
     
     QPushButton* findButton = new QPushButton(buttonLabel, this, "findButton");
 //    QPushButton* findButton = new QPushButton("Find Nuclei", this, "findButton");
@@ -91,14 +93,36 @@ void NucleusWidget::setChannels(vector<QString> Channels){
     
 void NucleusWidget::findNuclei(){
     bool ok;
-    float minValue = minLine->text().toFloat(&ok);
-    if(!ok){
-	cerr << "NucleusWidget unable to parse float from minLine" << endl;
-	return;
-    }
     int selectedId = channels->checkedId();
     if(selectedId == -1){
 	cerr << "NucleusWidget : no wavelengt selected" << endl;
+	return;
+    }
+    // first let's see if we can get the following set of values,,
+    // minValue, xw, yw, zw, percentile
+    // where these refer to the cell size used for calculating background estimates
+    // 
+    QStringList lst = minLine->text().split(",");
+    if(lst.size() == 5){
+	bool ok1, ok2, ok3, ok4, ok5;
+	float mv = lst[0].toFloat(&ok1);
+	int xw = lst[1].toInt(&ok2);
+	int yw = lst[2].toInt(&ok3);
+	int zw = lst[3].toInt(&ok4);
+	float pcnt = lst[4].toInt(&ok5);
+	if(ok1 && ok2 & ok3 && ok4 && ok5){
+	    emit findStuff(selectedId, mv, xw, yw, zw, pcnt);
+	    return;
+	}
+	cout << "did not find what I was looking for from the line " << minLine->text().ascii() << endl;
+	for(uint i=0; i < lst.size(); ++i){
+	    cout << i << " : " << lst[i].ascii() << endl;
+	}
+    }
+
+    float minValue = minLine->text().toFloat(&ok);
+    if(!ok){
+	cerr << "NucleusWidget unable to parse float from minLine" << endl;
 	return;
     }
 

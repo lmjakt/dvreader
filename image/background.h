@@ -55,6 +55,7 @@ class Background {
     ~Background();
     void setBackground(unsigned int waveindex);
     float bg(int x, int y, int z);
+    void setParameters(int xw, int yw, int zw, float pcnt);
     
  private:
     ImageData* data;

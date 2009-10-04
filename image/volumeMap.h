@@ -41,7 +41,8 @@ class VolumeMap {
 
 //    std::vector< std::map<int, ptr*> > lines;
     std::vector< LinMap*> lines;
-    VolumeMask* mask;
+    VolumeMask* mask;            // this mask refers the volume
+    VolumeMask* linMapMask;      // this mask refers to the lines, object mask.
 
     unsigned long size;
     unsigned int lineNo;

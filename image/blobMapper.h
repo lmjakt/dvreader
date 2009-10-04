@@ -32,7 +32,7 @@ class BlobMapper
       VOLUME, SUM, MEAN, MAX, MIN, EXTENT, SURFACE, BACKGROUND, ASUM
   };
 
-  BlobMapper(ImageData* ia);
+  BlobMapper(ImageData* ia, int xw, int yw, int zw, float pcnt);
   ~BlobMapper();
 
     void mapBlobs(float minEdge, unsigned int wi, int window, fluorInfo& finfo);
@@ -42,6 +42,7 @@ class BlobMapper
     float getParameter(blob* b, Param p);
     std::set<blob*>& gBlobs();
     void eatNeighbors();
+    void setBackgroundParameters(int xw, int yw, int zw, float pcnt);
 
     std::vector<SuperBlob*> overlapBlobs(std::vector<BlobMapper*> mappers);
     blob* overlappingBlob(blob* b, BlobMapper* mapper);
@@ -96,7 +97,7 @@ class BlobMapper
 
     // and some internal functions to facilitate the mapping procedure.d
     blob* initBlob(blob* b, int x, int y, int z, int w);
-    void extendBlob(int x, int y, int z, blob* b, int w); // make this recursive maybe.
+    void extendBlob(int x, int y, int z, blob* b, int w, std::set<off_set>& currentPoints); // make this recursive maybe.
     bool isSurface(int x, int y, int z, blob* b, bool tight=false);
     void mergeBlobs(blob* newBlob, blob* oldBlob);        // new blob is taken by old blob, and references to old blob removed
     void addPointsToBlob(blob* tempBlob, blob* permBlob); // points from tempBlob are added to permBlob, tempBlob is cleared();

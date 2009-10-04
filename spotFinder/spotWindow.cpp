@@ -68,6 +68,7 @@ SpotWindow::SpotWindow(int Width, int Height, int Depth, QWidget* parent, const 
     
     blobMapperWidget = new NucleusWidget("Map Blobs", this);
     connect(blobMapperWidget, SIGNAL(findNuclearPerimeters(int, float)), this, SIGNAL(mapBlobs(int, float)) );
+    connect(blobMapperWidget, SIGNAL(findStuff(int, float, int, int, int, float)), this, SIGNAL(mapBlobs(int, float, int, int, int, float)) );
 
     setWidget = new SetWidget("Find Sets", this);
     connect(setWidget, SIGNAL(findSets(int, int, int, float)), this, SIGNAL(findSets(int, int, int, float)) );

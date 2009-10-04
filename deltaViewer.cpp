@@ -199,6 +199,8 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   connect(spotWindow, SIGNAL(findNuclearPerimeters(int, float)), this, SLOT(findNuclearPerimeters(int, float)) );
   connect(spotWindow, SIGNAL(findContrasts(int, float)), this, SLOT(findContrasts(int, float)) );
   connect(spotWindow, SIGNAL(mapBlobs(int, float)), this, SLOT(mapBlobs(int, float)) );
+  connect(spotWindow, SIGNAL(mapBlobs(int, float, int, int, int, float)),
+	  this, SLOT(mapBlobs(int, float, int, int, int, float)) );
   connect(spotWindow, SIGNAL(findSets(int, int, int, float)), this, SLOT(findSets(int, int, int, float)) );
   connect(spotWindow, SIGNAL(setUseProjection(bool)), this, SLOT(setSpotsUseProjection(bool)) );
   connect(spotWindow, SIGNAL(findSpotDensity(int, double, double)), this, SLOT(determineSpotDensities(int, double, double)) );
@@ -2185,14 +2187,19 @@ void DeltaViewer::findBlobs(string& params){
     blobManager->exportSuperBlobs(ofName.latin1());
 }
 
+
 void DeltaViewer::mapBlobs(int wi, float minValue){
+    mapBlobs(wi, minValue, 32, 32, 4, 75);
+}
+
+void DeltaViewer::mapBlobs(int wi, float minValue, int xw, int yw, int zw, float pcnt){
     cout << "Deltaviewer map blobs.. " << endl;
 
     // and let's make a thingy blobmapper
     fluorInfo fInfo = fileSet->channelInfo((unsigned int)wi);
     if(!fInfo.excitation)
 	return;
-    BlobMapper* bm = new BlobMapper(new ImageData(fileSet, 1) );
+    BlobMapper* bm = new BlobMapper(new ImageData(fileSet, 1), xw, yw, zw, pcnt );
     bm->mapBlobs(minValue, (unsigned int)wi, 1, fInfo);
     
     if(!blobManager){

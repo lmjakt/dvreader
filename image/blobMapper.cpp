@@ -4,7 +4,7 @@
 
 using namespace std;
 
-BlobMapper::BlobMapper(ImageData* ia)
+BlobMapper::BlobMapper(ImageData* ia, int xw, int yw, int zw, float pcnt)
 {
     map_id = 1;
     image = ia;
@@ -12,7 +12,7 @@ BlobMapper::BlobMapper(ImageData* ia)
     cout << "Made a new BlobMapper and an image thingy with dims : " << width << "x" << height << "x" << depth << endl;
     blobMap = new VolumeMap(width, height, depth);
     uninterpol_up_to_date = false;
-    background = new Background(image, 32, 32, 4, 50);
+    background = new Background(image, xw, yw, zw, pcnt);
 }
 
 BlobMapper::~BlobMapper()
@@ -42,7 +42,9 @@ void BlobMapper::mapBlobs(float minEdge, unsigned int wi, int window, fluorInfo&
 	    for(int x=0; x < width; ++x){
 		if(blobMap->masked(x, y, z))
 		    continue;
-		if(value(x, y, z) < minEdge)
+//		if(value(x, y, z) < minEdge)
+//		    continue;
+		if(value(x, y, z) < background->bg(x, y, z))
 		    continue;
 		tempBlob = initBlob(tempBlob, x, y, z, window);
 	    }
@@ -175,22 +177,46 @@ blob* BlobMapper::initBlob(blob* b, int x, int y, int z, int w){
     b->min_y = b->max_y = y;
     b->min_z = b->max_z = z;
 
-    extendBlob(x, y, z, b, w);
+    set<off_set> currentPoints;
+    currentPoints.insert( linear(x, y, z) );
+
+    extendBlob(x, y, z, b, w, currentPoints);
     // if b is merged , it will have a size of 0, and we can just return it for reuse.
     // otherwise we'll need to add it's points into the relevant maps and make a new
     // temporary blob
 
     if(!b->points.size())
 	return(b);
-    blobs.insert(b);
-    for(uint i=0; i < b->points.size(); ++i)
-	blobMap->insert(b->points[i], b);
-    blob* tempBlob = new blob();
-    return(tempBlob);
+    
+    // The function names are a bit confusing here.
+    // Initially, I used a minimum value for initiating a blob. That's a bit bad, as
+    // the reasonble value varies very much with the background. Hence it makes more sense
+    // to ask:
+    // 1. Initiate if above background
+    // 2. If peak pos is some value above bakcground, then keep the blob.
+    //    If not, mask positions, but do not associate them with a blob (insert a 0 value)
 
+    // hence minimumEdge is not used as a minimum edge value, but as a minium peak increase over
+    // the background value.
+
+    int px, py, pz;
+    toVol(b->peakPos, px, py, pz);
+    if(value(px, py, pz) > ( background->bg(px, py, pz) + minimumEdge ) ){
+	blobs.insert(b);
+//	cout << "inserting new blob with : " << b->points.size() << "  points" << endl;
+	for(uint i=0; i < b->points.size(); ++i)
+	    blobMap->insert(b->points[i], b);
+	blob* tempBlob = new blob();
+	return(tempBlob);
+    }
+    for(uint i=0; i < b->points.size(); ++i)
+	blobMap->insert(b->points[i], 0);
+    b->points.resize(0);
+    b->surface.resize(0);
+    return(b);
 }
 
-void BlobMapper::extendBlob(int x, int y, int z, blob* b, int w){
+void BlobMapper::extendBlob(int x, int y, int z, blob* b, int w, set<off_set>& currentPoints){
     float v = value(x, y, z);
     float mv = v;
     int mdx, mdy, mdz;
@@ -220,14 +246,25 @@ void BlobMapper::extendBlob(int x, int y, int z, blob* b, int w){
     int ny = y + mdy;
     int nz = z + mdz;
     
+    // circular link.
+    if(currentPoints.count(linear(nx, ny, nz)))
+       return;
+    currentPoints.insert(linear(nx, ny, nz));
+
     blob* oldBlob = blobMap->value(nx, ny, nz);
     if(!oldBlob){
 	b->points.push_back( linear(nx, ny, nz) );
 	b->surface.push_back(false);
-	if(!blobMap->insert(nx, ny, nz, b)){
-	    cerr << "unable to insert into map at : " << nx << "," << ny << "," << nz << endl;
-	    exit(1);
-	}
+	// The next line seems stupid, but is necessary to avoid circular mapping
+	// leading to infinite recursion.
+	// note that using 0 means that we only mark this voxel as having been inspected
+	// (i.e. we mask it).
+	// if the voxel turns out good, then we reassign it somewhere else.
+	// replaced with a set of points to check.. 
+//	if(!blobMap->insert(nx, ny, nz, 0)){
+//	    cerr << "unable to insert into map at : " << nx << "," << ny << "," << nz << endl;
+//	    exit(1);
+//	}
 	// update mins and maxes.. since we go upwards, just update mv
 	b->max = mv;
 	b->peakPos = linear(nx, ny, nz);
@@ -238,14 +275,16 @@ void BlobMapper::extendBlob(int x, int y, int z, blob* b, int w){
 	b->min_z = nz < b->min_z ? nz : b->min_z;
 	b->max_z = nz > b->max_z ? nz : b->max_z;
 	//// and Recurse..
-	extendBlob(nx, ny, nz, b, w);
+	extendBlob(nx, ny, nz, b, w, currentPoints);
 	return;
 
     }
     // It is possible to come to a circle here. If this is the case we can just return.
-    if(oldBlob == b)
-	return;
+    // check replaced with a set of points above.
+//    if(oldBlob == b)
+//	return;
 
+//    cout << "\tadding point to oldBlob : " << nx << "," << ny << "," << nz << endl;
     addPointsToBlob(b, oldBlob);
     return;
 }
@@ -315,6 +354,7 @@ void BlobMapper::mergeBlobs(blob* newBlob, blob* oldBlob){
 }
 
 void BlobMapper::addPointsToBlob(blob* tempBlob, blob* permBlob){
+//    cout << "adding " << tempBlob->points.size() << " points to : " << permBlob->points.size() << endl;
     permBlob->points.reserve(permBlob->points.size() + tempBlob->points.size());
     //permBlob->values.reserve(permBlob->points.size() + tempBlob->points.size());
     permBlob->surface.reserve(permBlob->points.size() + tempBlob->points.size());
@@ -419,6 +459,10 @@ void BlobMapper::eatNeighbors(){
 	eatNeighbors(*it);
     finaliseBlobs();
     uninterpol_up_to_date = false;
+}
+
+void BlobMapper::setBackgroundParameters(int xw, int yw, int zw, float pcnt){
+    background->setParameters(xw, yw, zw, pcnt);
 }
 
 // the ids of the mappers need to be set by the owner in a reasonable manner

@@ -24,7 +24,8 @@ struct blob {
     std::vector<bool> surface; 
     float min, max, sum;
     int max_x, min_x, max_y, min_y, max_z, min_z;
-    unsigned long peakPos;
+    off_set peakPos;
+//    unsigned long peakPos;
     int r, g, b;
     bool active;
     int b_class;

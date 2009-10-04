@@ -136,6 +136,14 @@ void Background::setBackground(){
     }
 }
 
+void Background::setParameters(int xw, int yw, int zw, float pcnt){
+    x_m = xw;
+    y_m = yw;
+    z_m = zw;
+    percentile = pcnt;
+    setBackground(wi);
+}
+
 float Background::getb(int bx, int by, int bz){
     int z_b = bz * z_m;
     int z_e = z_b + z_m < depth ? z_b + z_m : depth;
