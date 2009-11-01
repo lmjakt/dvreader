@@ -38,7 +38,7 @@ class FileSet {
 	FileSet(int* waveLengths, int waveNo, float maxLevel);
     ~FileSet();
 
-    bool addFrame(std::string fname, std::ifstream* in, ssize_t framePos, ssize_t readPos, ssize_t extHeadSize,
+    bool addFrame(std::string fname, std::ifstream* in, size_t framePos, size_t readPos, size_t extHeadSize,
 		  short numInt, short numFloat, unsigned short byteSize,
 		  bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz);
     bool getStack(float& xpos, float& ypos);   // sets the appropriate values up for a given thingy.. 

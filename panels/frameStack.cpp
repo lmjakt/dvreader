@@ -79,7 +79,7 @@ FrameStack::~FrameStack(){
     delete in;
 }
 
-bool FrameStack::addFrame(const char* fname, ssize_t framePos, ssize_t readPos, ssize_t extHeadSize,
+bool FrameStack::addFrame(const char* fname, size_t framePos, size_t readPos, size_t extHeadSize,
 				 short numInt, short numFloat, unsigned short byteSize,
 				 bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz, Frame*& frame)
 {

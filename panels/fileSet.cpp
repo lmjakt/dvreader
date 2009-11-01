@@ -66,7 +66,7 @@ FileSet::~FileSet(){
     }
 }
 
-bool FileSet::addFrame(string fname, ifstream* in, ssize_t framePos, ssize_t readPos, ssize_t extHeadSize,
+bool FileSet::addFrame(string fname, ifstream* in, size_t framePos, size_t readPos, size_t extHeadSize,
 		       short numInt, short numFloat, unsigned short byteSize,
 		       bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz)
 {

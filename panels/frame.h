@@ -32,7 +32,7 @@ typedef unsigned int uint;
 
 class Frame {
     public :
-	Frame(std::ifstream* inStream, ssize_t framePos, ssize_t readPos, ssize_t extHeadSize, 
+	Frame(std::ifstream* inStream, size_t framePos, size_t readPos, size_t extHeadSize, 
 	      short numInt, short numFloat, unsigned short byteSize, 
 	      bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz);
     
@@ -77,7 +77,7 @@ class Frame {
     unsigned int pHeight;     // pixel parameters
     
     std::ifstream* in;        // the file from which we will be reading
-    ssize_t frameOffset;     // the start position in the file from which we read
+    size_t frameOffset;     // the start position in the file from which we read
     unsigned short bno;  // the number of bytes for each value
     bool isReal;         // if true then count values as floats or doubles (note that bno=2 and isReal=true shouldn't be possible)
     bool isBigEndian;  // byte order .. (assume small endian unless otherwise noted)

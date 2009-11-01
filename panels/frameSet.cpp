@@ -44,7 +44,7 @@ FrameSet::~FrameSet(){
     }
 }
 
-bool FrameSet::addFrame(const char* fname, ssize_t framePos, ssize_t readPos, ssize_t extHeadSize,
+bool FrameSet::addFrame(const char* fname, size_t framePos, size_t readPos, size_t extHeadSize,
 			short numInt, short numFloat, unsigned short byteSize,
 			bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz){
     // first make a frame.
@@ -126,6 +126,10 @@ bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source
     bool read;
     // the above is a bit ugly, but it makes the following a little less ugly. 
     for(map<fluorInfo, Frame*>::iterator it = frames.begin(); it != frames.end(); it++){
+      if( !(colors[i].r + colors[i].g + colors[i].b) && !raw ){
+	++i;
+	continue;
+      }
 	if(!raw){
 	    read = (*it).second->readToRGB(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, maxLevel, bias[i], scale[i], colors[i].r, colors[i].g, colors[i].b);
 	}else{

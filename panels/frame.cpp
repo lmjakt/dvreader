@@ -27,7 +27,7 @@
 
 using namespace std;
 
-Frame::Frame(ifstream* inStream, ssize_t framePos, ssize_t readPos, ssize_t extHeadSize, 
+Frame::Frame(ifstream* inStream, size_t framePos, size_t readPos, size_t extHeadSize, 
 	     short numInt, short numFloat, unsigned short byteSize, 
 	     bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz)
 {
@@ -189,7 +189,9 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
 //	 << "  dest_x " << dest_x << "  dest_y " << dest_y << "  dest_w " << dest_w << "  maxLevel " << maxLevel << "  bias " << bias << "  scale  " << scale << endl;
     
     unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
-    ssize_t startPos = frameOffset + (pWidth * 2 * source_y);
+    size_t startPos = (uint)frameOffset + (pWidth * 2 * source_y);
+    cout << "size of size_t : " << sizeof(size_t) << " startPos : " << startPos 
+	 << "  frameOffset : " << (uint)frameOffset << " : pwidth " << pWidth << "  source_y " << source_y << endl;
     in->seekg(startPos);
     in->read((char*)buffer, pWidth * height * 2);
     if(in->fail()){
@@ -260,7 +262,7 @@ bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int sourc
 //	 << "  dest_x " << dest_x << "  dest_y " << dest_y << "  dest_w " << dest_w << "  maxLevel " << maxLevel << endl;
     
     unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
-    ssize_t startPos = frameOffset + (pWidth * 2 * source_y);
+    size_t startPos = frameOffset + (pWidth * 2 * source_y);
     in->seekg(startPos);
     in->read((char*)buffer, pWidth * height * 2);
     if(in->fail()){
