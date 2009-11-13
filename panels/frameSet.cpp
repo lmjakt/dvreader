@@ -113,7 +113,8 @@ bool FrameSet::addFrame(Frame* frame){
 }
 
 bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
-			 unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, raw_data* raw){
+			 unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, float maxLevel, vector<float> bias, 
+			 vector<float> scale, vector<color_map> colors, bool bg_sub, raw_data* raw){
     // actually we haven't explicitly defined how the colors and the other things will be treated, but
     //  since we have a map<float, colors> then we can sort of assume that we will use the same ones..
 
@@ -131,12 +132,12 @@ bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source
 	continue;
       }
 	if(!raw){
-	    read = (*it).second->readToRGB(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, maxLevel, bias[i], scale[i], colors[i].r, colors[i].g, colors[i].b);
+	  read = (*it).second->readToRGB(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, maxLevel, bias[i], scale[i], colors[i].r, colors[i].g, colors[i].b, bg_sub);
 	}else{
 //	    cout << "raw channel no is " << raw->channels << "  and length is " << raw->channels << endl;
 //	    cout << "calling read with raw and positions set to : " << i << "  starting from " << raw->positions[i] << endl;
 	    if(read = (*it).second->readToRGB(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, maxLevel, 
-					      bias[i], scale[i], colors[i].r, colors[i].g, colors[i].b, raw->values[i] + raw->positions[i])){
+					      bias[i], scale[i], colors[i].r, colors[i].g, colors[i].b, bg_sub, raw->values[i] + raw->positions[i])){
 //		cout << "incrementing raw positiosn with " << width * height << endl;
 		raw->positions[i] += (width * height);
 //		cout << "raw positions up dated  " << endl;
@@ -152,8 +153,12 @@ bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source
     return(ok);   // so a partial read gives a false..
 }
 
+//bool FrameSet::readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
+//		   unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
+//		   bool bg_sub, float maxLevel, unsigned int waveIndex){
 bool FrameSet::readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
-		 unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, float maxLevel, unsigned int waveIndex){
+			   unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
+			   float maxLevel, unsigned int waveIndex){
     if(waveIndex >= fInfo.size()){
 	cerr << "FrameSet::readToFloat waveIndex is too large : " << waveIndex << endl;
 	return(false);
@@ -163,5 +168,6 @@ bool FrameSet::readToFloat(float* dest, unsigned int source_x, unsigned int sour
 	cerr << "FrameSet::readToFloat unknown wavelength : " << waveIndex << endl;
 	return(false);
     }
+    //    return((*it).second->readToFloat(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, bg_sub, maxLevel));
     return((*it).second->readToFloat(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, maxLevel));
 }

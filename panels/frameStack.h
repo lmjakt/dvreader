@@ -174,10 +174,10 @@ class FrameStack {
     // window is the +/- area that we'll search 
     // This function does no errorchecking of the position, but assuming that the relative position is correct it does something.. 
     bool readToRGB(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int dest_pwidth, unsigned int dest_pheight, unsigned int slice_no, 
-		   float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0);
+		   float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, bool bg_sub, raw_data* raw=0);
 
     bool readToRGB(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height, unsigned int slice_no, 
-		   float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0);
+		   float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, bool bg_sub, raw_data* raw=0);
 
 
     bool mip_projection(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int dest_pwidth, unsigned int dest_pheight,
@@ -194,7 +194,7 @@ class FrameStack {
 		     int iheight, int zb, int idepth,  unsigned int waveIndex, float maxLevel);   // simply read the appropriate pixels into a volume.. 
 
     bool readToFloatPro(float* dest, unsigned int xb, unsigned int iwidth, unsigned int yb, 
-		     unsigned int iheight, unsigned int wave);   // simply read the appropriate pixels in.. 
+			unsigned int iheight, unsigned int wave);   // simply read the appropriate pixels in.. 
 
     bool readToFloatProGlobal(float* dest, int xb, int iwidth, int yb, 
 			      int iheight, unsigned int wave);   // convert global coordinates to local ones.. 

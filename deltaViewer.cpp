@@ -166,6 +166,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   glViewer = new GLImage(texColNo, texRowNo, textureSize);   // total of 12 panels.. 
   glViewer->resize(textureSize, textureSize);         // which is just the simple thing to do.. 
 
+  //glViewer->setCaption("Main");
   glViewer->setCaption(ifName);
   connect(glViewer, SIGNAL(nextImage()), this, SLOT(nextImage()) );
   connect(glViewer, SIGNAL(previousImage()), this, SLOT(previousImage()) );
@@ -259,7 +260,8 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   }
   QLabel* fileLabel = new QLabel(fileName, this, "fileName");
   QLabel* pathLabel = new QLabel(path, this, "pathLabel");
-  setCaption(fileName);  // good for using thingy.. 
+  setCaption("main");
+  //  setCaption(fileName);  // good for using thingy.. 
       
 
 //  QPushButton* nextButton = new QPushButton("Next", this, "nextButton");
@@ -334,7 +336,9 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   updateDist = new QCheckBox("Update Dist", this, "updateDist");
   connect(updateDist, SIGNAL(toggled(bool)), this, SLOT(updateDistToggled(bool)) );
 
-  useComponents = new QCheckBox("Use Individual Components", this);
+  // Use components hijacked for background subtraction.. 
+  useComponents = new QCheckBox("Background subtract", this);
+  //  useComponents = new QCheckBox("Use Individual Components", this);
   connect(useComponents, SIGNAL(toggled(bool)), this, SLOT(useComponentsToggled(bool)) );
 
   objectSums = new DistChooser("Object Intensities", 100);
@@ -806,7 +810,7 @@ void DeltaViewer::setImage(int slice){
 	    memset((void*)data, 0, textureSize * textureSize * 3 * sizeof(float));
 	
 	    cout << "calling fileset reatToRGB with " << xb << "," << yb << " : " << tw << "x" << th << endl;
-	    if(fileSet->readToRGB(data, xb, yb, tw, th, currentSliceNo, maxLevel, biases, scales, cv, raw)){
+	    if(fileSet->readToRGB(data, xb, yb, tw, th, currentSliceNo, maxLevel, biases, scales, cv, useComponents->isChecked(), raw)){
 		textureCounter++;
 		paintBlobs(data, xb, yb, currentSliceNo, tw, th);
 //		for(set<BlobMapperWidget*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
@@ -846,7 +850,7 @@ bool DeltaViewer::readToRGB(float* dest, int xb, int yb, unsigned int tw, unsign
     for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
 	cv.push_back((*it).second);
     }
-    return(fileSet->readToRGB(dest, (uint)xb, (uint)yb, tw, th, slice_no, maxLevel, biases, scales, cv, 0) );
+    return(fileSet->readToRGB(dest, (uint)xb, (uint)yb, tw, th, slice_no, maxLevel, biases, scales, cv, useComponents->isChecked(), 0) );
     
 }
 

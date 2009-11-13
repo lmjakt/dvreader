@@ -45,10 +45,10 @@ class FileSet {
     bool finalise();   // checks for a complete rectangle and sets up the x, y, and z_position vectors
 
     bool readToRGB(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int slice_no, unsigned int dest_pwidth, unsigned int dest_pheight,
-		   float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0);
+		   float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, bool bg_sub, raw_data* raw=0);
 
     bool readToRGB(float* dest, unsigned int xpos, unsigned int ypos, unsigned int dest_width, unsigned int dest_height, unsigned int slice_no, 
-		   float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0);
+		   float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, bool bg_sub, raw_data* raw=0);
 
     bool mip_projection(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int dest_pwidth, unsigned int dest_pheight,
 		       float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0);
@@ -111,6 +111,9 @@ class FileSet {
     
     std::map<float, std::map<float, FrameStack*> > frames;      // since this is inconvenient to access I'll have an accessor function
     std::set<fluorInfo> flInfo;        // the various file sets and things.. 
+    // the first photoSensor value for a given channel. 
+    // set the values for each frame.. 
+    std::map<fluorInfo, float> photoSensors;  
     std::vector<float> x_positions;
     std::vector<float> y_positions;
     std::set<float> x_set;

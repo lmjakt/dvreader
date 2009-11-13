@@ -62,7 +62,7 @@ PerimeterPlotter::PerimeterPlotter(int texSize, QWidget* parent, const char* nam
 	int r = colors[0] % 255;
 	int g = colors[1] % 255;
 	int b = colors[2] % 255;
-	cout << colors[0] << "," << colors[1] << "," << colors[2] << "  -->  " << r << "," << g << "," << b << endl;
+	//cout << colors[0] << "," << colors[1] << "," << colors[2] << "  -->  " << r << "," << g << "," << b << endl;
 	if(r + g + b > 150)
 	    colorMap.push_back(QColor(r, g, b));
 	++i;

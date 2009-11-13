@@ -23,9 +23,40 @@
 //End Copyright Notice
 
 #include "frame.h"
+#include <string.h>
 #include <iostream>
+#include <vector>
+#include <algorithm>
 
 using namespace std;
+
+// don't do any error checking as this function should only be used from within this 
+// class. (Maybe I should declare it in the .cpp file rather than in the .h 
+
+float td_bg::bg(int x, int y){
+  int xb = (x - x_m/2) / x_m;
+  int yb = (y - y_m/2) / y_m;
+  //  cout << "td_bg::bg : " << x << "," << y << "  xb,yb: " << xb << "," << yb << "  x_m,y_m : " << x_m << "," << y_m << endl;
+  // as long as x and y are not negatvie, then the smallest value we'll get here will
+  // be -0.5, which will be rouned to 0. So this should be a safe way of finding the appropriate
+  // points from which to interpolate.
+  
+  // xb and yb can be 0, but we need xb to be smaller than the the width and height of the background.
+  // note that this is not error checking as these are allowed values, but for which we need to make
+  // some compensation.
+  int bgw = w / x_m;
+  int bgh = h / y_m;
+  xb = xb < bgw - 1 ? xb : bgw - 2;
+  yb = yb < bgh - 1 ? yb : bgh - 2;
+  int pb = yb * bgw + xb;
+
+  //cout << "\t" << "xb,yb" << xb << "," << yb << "  pb: " << pb << endl;
+
+  float bot = background[pb] + ((float)(x - bg_pos[pb].x) / (float)x_m) * (background[pb+1] - background[pb]);
+  float top = background[pb + bgw] + ((float)(x - bg_pos[pb+bgw].x) / (float)x_m) * (background[pb+bgw+1] - background[pb+bgw]);
+  float b = bot + ((float)(y - bg_pos[pb].y)/(float)y_m) * (top - bot);
+  return(b);
+}
 
 Frame::Frame(ifstream* inStream, size_t framePos, size_t readPos, size_t extHeadSize, 
 	     short numInt, short numFloat, unsigned short byteSize, 
@@ -64,7 +95,7 @@ Frame::Frame(ifstream* inStream, size_t framePos, size_t readPos, size_t extHead
     in->seekg(readPos);
     in->read((char*)headerInt, numInt * 4);    // but this fails if int is of a different size.
     in->read((char*)headerFloat, numFloat * 4); // and again this is dependant on various things..
-    if(in->fail()){
+   if(in->fail()){
 	cerr << "Frame::Frame failed to read extended header" << endl;
 	delete headerInt;
 	delete headerFloat;
@@ -129,10 +160,13 @@ float Frame::exposure(){
 }
 
 bool Frame::readToRGB(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
-		      unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, float maxLevel, float bias, float scale, float r, float g, float b, float* raw){
+		      unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, float maxLevel, 
+		      float bias, float scale, float r, float g, float b, bool bg_sub, float* raw){
     // note that the dest has to be already initialised
     // we are only going to add to it..
     
+  cout << "Frame readToRGB : excite : " << excitationWavelength << " : " << photoSensor << endl;
+
     if(width > pWidth || height > pHeight || source_y >= pHeight || source_x >= pWidth){
 	cerr << "Frame::readToRGB inappropriate coordinates : " << source_x << "\t" << source_y << "\t" << width << "\t" << height << endl;
 	return(false);
@@ -143,15 +177,19 @@ bool Frame::readToRGB(float* dest, unsigned int source_x, unsigned int source_y,
 	return(readToRGB_r(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, maxLevel, bias, scale, r, g, b, raw));
     }
     if(!isReal && bno == 2){
-	return(readToRGB_s(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w,  maxLevel, bias, scale, r, g, b, raw));
+        return(readToRGB_s(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w,  maxLevel, bias, scale, r, g, b, bg_sub, raw));
     }
     cerr << "Frame::readToRGB unsupported data file type" << endl;
     return(false);
 }
 
+//bool Frame::readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
+//		      unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
+//			bool bg_sub, float maxLevel){
 bool Frame::readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
-		      unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, float maxLevel){
-    // note that the dest has to be already initialised
+			unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
+			float maxLevel){
+    // note that the dest has to be already initialised2
     // we are only going to add to it..
     
     if(width > pWidth || height > pHeight || source_y >= pHeight || source_x >= pWidth){
@@ -166,7 +204,8 @@ bool Frame::readToFloat(float* dest, unsigned int source_x, unsigned int source_
 	//return(readToFloat_r(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, maxLevel));
     }
     if(!isReal && bno == 2){
-	return(readToFloat_s(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w,  maxLevel));
+      return(readToFloat_s(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, maxLevel));
+      //      return(readToFloat_s(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, bg_sub, maxLevel));
     }
     cerr << "Frame::readToRGB unsupported data file type" << endl;
     return(false);
@@ -180,7 +219,8 @@ bool Frame::readToRGB_r(float* dest, unsigned int source_x, unsigned int source_
 }
 
 bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
-			unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, float maxLevel, float bias, float scale, float r, float g, float b, float* raw){
+			unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, float maxLevel, 
+			float bias, float scale, float r, float g, float b, bool bg_sub, float* raw){
     // 1. First make an appropriately sized buffer
     // 2. Seek to the appropriate position, and read into the buffer (necessary to do full width, but the height can ofcourse be done separately)
     // 3. Go through all values in the read position, do the transformation and 
@@ -188,6 +228,13 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
 //    cout << "Frame::readToRGB_s source_x : " << source_x << "  source_y " << source_y << "  width " << width << "  height " << height
 //	 << "  dest_x " << dest_x << "  dest_y " << dest_y << "  dest_w " << dest_w << "  maxLevel " << maxLevel << "  bias " << bias << "  scale  " << scale << endl;
     
+//  bg_sub = false;
+
+   if(bg_sub && !background.x_m){
+     cout << "Frame::readToRGB_s background subtraction requested: creating background object" << endl;
+     setBackground(16, 16, 0.2);
+   }
+
     unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
     size_t startPos = (uint)frameOffset + (pWidth * 2 * source_y);
     cout << "size of size_t : " << sizeof(size_t) << " startPos : " << startPos 
@@ -196,7 +243,7 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
     in->read((char*)buffer, pWidth * height * 2);
     if(in->fail()){
 	delete buffer;
-	cerr << "Frame::readToRGB_r unable to read from offset " << startPos << "\tfor " << pWidth * height * 2 << "\tbytes" << endl;
+	cerr << "Frame::readToRGB_s unable to read from offset " << startPos << "\tfor " << pWidth * height * 2 << "\tbytes" << endl;
 	in->clear();
 	return(false);
     }
@@ -206,9 +253,11 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
 
     unsigned short* source;
     float* dst;
+    float bg;  // background estimate
+    float v;  // the value we calculate.. 
     if(raw){
-	for(unsigned int yp = 0; yp < height; yp++){
-//	    cout << "\treading line " << yp << endl;
+        for(unsigned int yp = 0; yp < height; yp++){
+	//	    cout << "\treading line " << yp << endl;
 	    source = buffer + yp * pWidth + source_x;
 	    dst = dest + (dest_y * dest_w + yp * dest_w + dest_x) * 3 ; // then increment the counters appopriately.. 
 	    for(unsigned int xp = 0; xp < width; xp++){
@@ -216,8 +265,10 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
 		// and perform the transformation..
 		//float sv = float(*source);
 		*raw = float(*source)/maxLevel;
-		float v = bias + scale * (*raw);
-//		float v = bias + scale * (float(*source)/maxLevel);
+		bg = bg_sub ? background.bg(xp, yp) : 0;
+		v = bias + scale * (phSensor_m * float(*source) - bg )/maxLevel;
+		//float v = bias + scale * (*raw);
+		//float v = bias + scale * (float(*source)/maxLevel);
 		++raw;
 		if(v > 0){
 		    dst[0] += v * r;
@@ -236,7 +287,9 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
 		// work out the appropriate position..
 		// and perform the transformation..
 		//float sv = float(*source);
-		float v = bias + scale * (float(*source)/maxLevel);
+	        bg = bg_sub ? background.bg(xp, yp) : 0;
+		v = bias + scale * ( phSensor_m * float(*source) - bg )/maxLevel;
+		//		float v = bias + scale * (float(*source)/maxLevel);
 		if(v > 0){
 		    dst[0] += v * r;
 		    dst[1] += v * g;
@@ -252,15 +305,29 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
     return(true);
 }
 
+//bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
+//		  unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
+//		  bool bg_sub, float maxLevel){
 bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
-			  unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, float maxLevel){
+			  unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
+			  float maxLevel){
     // 1. First make an appropriately sized buffer
     // 2. Seek to the appropriate position, and read into the buffer (necessary to do full width, but the height can ofcourse be done separately)
     // 3. Go through all values in the read position, do the transformation and 
     
-//    cout << "\tFrame::readToFloat_s source_x : " << source_x << "  source_y " << source_y << "  width " << width << "  height " << height
-//	 << "  dest_x " << dest_x << "  dest_y " << dest_y << "  dest_w " << dest_w << "  maxLevel " << maxLevel << endl;
+  //    cout << "\tFrame::readToFloat_s source_x : " << source_x << "  source_y " << source_y << "  width " << width << "  height " << height
+  //	 << "  dest_x " << dest_x << "  dest_y " << dest_y << "  dest_w " << dest_w << "  maxLevel " << maxLevel << endl;
     
+//   bg_sub = false;
+//   if(bg_sub && !background.x_m){
+//     cout << "Frame::readToFloat_s background subtraction requested: creating background object" << endl;
+//     setBackground(16, 16, 0.2);
+//   }
+
+//   if(!bg_sub){
+//     cout << "Frame::readToFloat_s without background subtraction" << endl;
+//   }
+
     unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
     size_t startPos = frameOffset + (pWidth * 2 * source_y);
     in->seekg(startPos);
@@ -277,7 +344,7 @@ bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int sourc
 
     unsigned short* source;
     float* dst;
-    
+    float bg = 0;
     for(unsigned int yp = 0; yp < height; yp++){
 	source = buffer + yp * pWidth + source_x;
 	dst = dest + (dest_y * dest_w + yp * dest_w + dest_x); // then increment the counters appopriately.. 
@@ -285,9 +352,11 @@ bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int sourc
 	    // work out the appropriate position..
 	    // and perform the transformation..
 	    //float sv = float(*source);
-
-	    *dst = float(*source)/maxLevel;
-
+	    //bg = bg_sub ? background.bg(xp, yp) : 0;
+	    //    cout << float(*source) << " - " << bg << " = " << float(*source) - bg << endl;
+	    *dst = float(*source) / maxLevel;
+	    //*dst = (float(*source) - bg)/maxLevel;
+	    *dst = *dst < 0 ? 0 : *dst;
 	    ++dst;
 	    ++source;
 	}
@@ -309,4 +378,52 @@ void Frame::swapBytes(char* data, unsigned int wn, unsigned int ws){    // swaps
 	}
     }
     delete word;
+}
+
+bool Frame::setBackground(int xm, int ym, float qntile){
+  if( xm >= pWidth || 
+      ym >= pHeight || 
+      qntile < 0 || 
+      qntile >= 1.0 )
+    {
+      cerr << "Frame::setBackground called with bad parameters : " << xm << ", " << ym << ", " << qntile << endl;
+      return(false);
+    }
+    cout << "Setting background " << endl;
+    //  a bit ugly, but we'll need a float buffer. Since we don't know what maxlevel might get called,
+    // we use 1.
+    float* buffer = new float[pWidth * pHeight];
+    // The 'false' below is VERY important, otherwise we'll end up in an infinite loop. 
+    //    if(! readToFloat(buffer, 0, 0, pWidth, pHeight, 0, 0, pWidth, false, 1.0) ){
+    if(! readToFloat(buffer, 0, 0, pWidth, pHeight, 0, 0, pWidth, 1.0) ){
+      cerr << "Frame::setBackground unable to readToFloat : " << endl;
+      delete buffer;
+      return(false);
+    }
+    delete background.background;  // this should be ok, even if it is 0 according to something I read
+    background.x_m = xm; background.y_m = ym; background.w = pWidth; background.h = pHeight; background.quantile = qntile;
+    int bg_size =  (pWidth / xm) * (pHeight / ym);
+    int bw = pWidth / xm;
+    int bh = pHeight / ym;
+    background.background = new float[ bg_size ];
+    memset((void*)background.background, 0, sizeof(float) * bg_size);
+    background.bg_pos = new a_pos[ bg_size ];
+
+    // we need to get the background from each cell separately.
+    for(int by=0; by < bh; ++by){
+      for(int bx=0; bx < bw; ++bx){
+	vector<float> rect;
+	rect.reserve(xm * ym);
+	for(int dy=0; dy < ym && (dy + by * ym) < pHeight; ++dy){
+	  for(int dx=0; dx < xm && (dx + bx * xm) < pWidth; ++dx){
+	    rect.push_back(phSensor_m * buffer[ (dy + by * ym) * pWidth + (dx + bx * xm)]);
+	  }
+	}
+	sort(rect.begin(), rect.end());
+	background.background[ by * bw + bx ] = rect[uint( float(rect.size()) * qntile )];
+	background.bg_pos[by * bw + bx].x = ((bx+1) * xm) - xm/2; 
+	background.bg_pos[by * bw + bx].y = ((by+1) * ym) - ym/2;
+      }
+    }
+    return(true); 
 }

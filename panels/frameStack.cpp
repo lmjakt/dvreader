@@ -645,7 +645,7 @@ offsets FrameStack::findNeighbourOffset(FrameStack* neighbour, float* neighbourA
 }
 
 bool FrameStack::readToRGB(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int dest_pwidth, unsigned int dest_pheight, unsigned int slice_no, 
-			   float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, raw_data* raw)
+			   float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, bool bg_sub, raw_data* raw)
 {
     if(!finalised){
 	cerr << "FrameStack::readToRGB Trying to read into buffer from unfinalised framestack. Will finalise, but this suggests error in code" << endl;
@@ -716,7 +716,7 @@ bool FrameStack::readToRGB(float* dest, float xpos, float ypos, float dest_width
 }
 
 bool FrameStack::readToRGB(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height, unsigned int slice_no, 
-			   float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, raw_data* raw){
+			   float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, bool bg_sub, raw_data* raw){
 //     if(pixelX == -1 && pixelY == -1){
 // 	cerr << "FrameStack::readToRGB (int version) pixel positions undefined " << endl;
 // 	return(false);
@@ -769,7 +769,7 @@ bool FrameStack::readToRGB(float* dest, int xpos, int ypos, unsigned int dest_wi
 	
  	cout << "\n call Function with " << source_x << ", " << source_y << ", " << subWidth  << ", " << subHeight << ", " << dest_x << ", " << dest_y << ", " << dest_width << endl;
 	cout << "Recorded Z position : " << sections[slice_no]->z_pos() << endl;
-	return(sections[slice_no]->readToRGB(dest, source_x, source_y, subWidth, subHeight, dest_x, dest_y, dest_width, maxLevel, bias, scale, colors, raw));
+	return(sections[slice_no]->readToRGB(dest, source_x, source_y, subWidth, subHeight, dest_x, dest_y, dest_width, maxLevel, bias, scale, colors, bg_sub, raw));
     }
     return(false);
 }
@@ -848,7 +848,8 @@ bool FrameStack::mip_projection(float* dest, float xpos, float ypos, float dest_
 	memset(mip_buffer, 0, sizeof(float) * iw * ih);
 	for(uint j=0; j < sections.size(); j++){
 //	    cout << "\tsection : " << j << endl;
-	    if(!sections[j]->readToFloat(buffer, ix, iy, iw, ih, 0, 0, iw, maxLevel, i)){
+	  ///////// CHANGE HERE TO REMOVE BACKGROUND CORRECTION, OR TO MAKE OPTIONAL.. FOR PROJECTION 
+	  if(!sections[j]->readToFloat(buffer, ix, iy, iw, ih, 0, 0, iw, maxLevel, i)){
 //	    if(!sections[j]->readToFloat(buffer, 0, 0, iw, ih, 0, 0, iw, maxLevel, fwaves[i])){
 		ok = false;
 		cerr << "FrameStack::mip_projection unable to read from section : " << j << "  wavelength : " << fwaves[i] << " (" << i << ")" << endl;
@@ -899,9 +900,9 @@ bool FrameStack::mip_projection(float* dest, int xpos, int ypos, unsigned int de
 	finalise(maxLevel);
     }
 
-//     cout << "FrameStack::mip_projection : request :" << xpos << ", " << ypos << "  width, height : " << dest_width << ", " << dest_height
-// 	 << " source : " << pixelX << ", " << pixelY << "  leftBorder : " << leftBorder << "  rightBorder : " << rightBorder << "  topBorder "
-// 	 << topBorder << "  bottomBorder " << bottomBorder << endl;
+     cout << "FrameStack::mip_projection : request :" << xpos << ", " << ypos << "  width, height : " << dest_width << ", " << dest_height
+ 	 << " source : " << pixelX << ", " << pixelY << "  leftBorder : " << leftBorder << "  rightBorder : " << rightBorder << "  topBorder "
+ 	 << topBorder << "  bottomBorder " << bottomBorder << endl;
 
     int dest_x, source_x, dest_y, source_y;
     unsigned int subWidth, subHeight;
@@ -990,6 +991,7 @@ bool FrameStack::readToFloatPro(float* dest, unsigned int xb, unsigned int iwidt
 }
     
 bool FrameStack::readToFloatProGlobal(float* dest, int xb, int iwidth, int yb, int iheight, unsigned int wave){
+  cout << "FrameStack::readToFloatProGlobal " << endl;
     int dest_x, source_x, dest_y, source_y;
     unsigned int subWidth, subHeight;
     if(wave >= fwaves.size()){
@@ -1018,8 +1020,9 @@ float* FrameStack::make_mip_projection(unsigned int wi, float maxLevel, vector<f
     memset((void*)proj, 0, sizeof(float) * pWidth * pHeight);
     float* buf = new float[pWidth * pHeight];
     contrast.resize(sections.size());
+    cout << "FrameStack::make_mip_projection" << endl;
     for(uint i=0; i < sections.size(); ++i){
-	if(sections[i]->readToFloat(buf, 0, 0, pWidth, pHeight, 0, 0, pWidth, maxLevel, wi)){
+      if(sections[i]->readToFloat(buf, 0, 0, pWidth, pHeight, 0, 0, pWidth, maxLevel, wi)){
 	    // check if we need to update the buffers..
 	    for(uint j=0; j < pWidth * pHeight; ++j){
 		proj[j] = buf[j] > proj[j] ? buf[j] : proj[j];
@@ -1028,10 +1031,14 @@ float* FrameStack::make_mip_projection(unsigned int wi, float maxLevel, vector<f
 	    contrast[i] = determineContrast(buf, pWidth, pHeight, margin, margin, pWidth - 2 * margin, pHeight - 2 * margin);
 	}
     }
+    //    for(uint j=0; j < pWidth; ++j){
+    //  cout << j << " : " << proj[ 512 * pWidth + j] << endl;
+    //}
     return(proj);
 }
 
 bool FrameStack::readToFloat(float* dest, unsigned int xb, unsigned int iwidth, unsigned int yb, unsigned int iheight, unsigned int secNo, unsigned int waveIndex, float maxLevel){
+  cout << "FrameStackk::readToFloat" << endl;
     if(secNo >= sections.size()){
 	cerr << "FrameStack::readToFloat secNo (" << secNo << ") is larger than sections size : " << sections.size() << endl;
 	return(false);
@@ -1041,7 +1048,7 @@ bool FrameStack::readToFloat(float* dest, unsigned int xb, unsigned int iwidth, 
 
 bool FrameStack::readToFloat(float* dest, int xb, int iwidth, int yb, 
 		 int iheight, int zb, int idepth,  unsigned int waveIndex, float maxLevel){   // simply read the appropriate pixels into a volume.. 
-    
+  cout << "FrameStack::readToFloat number 2" << endl;
     // check that zb and idepth are ok.. zb must be > 0 and < sections.size..
     if(zb < 0 || zb >= int(sections.size()) || idepth <= 0 || zb + idepth > int(sections.size())){
 	cerr << "FrameStack unsuitable z-sections requested : " << zb << "  -->  " << zb + idepth << endl;
@@ -1059,7 +1066,7 @@ bool FrameStack::readToFloat(float* dest, int xb, int iwidth, int yb,
     // then just go through the z sections and call readToFloat on each one..
     bool ok = true;
     for(int zp=zb; zp < zb + idepth; ++zp){
-	if(!sections[zp]->readToFloat(dst, source_x, source_y, subWidth, subHeight, dest_x, dest_y, iwidth, maxIntensity, waveIndex)){
+      if(!sections[zp]->readToFloat(dst, source_x, source_y, subWidth, subHeight, dest_x, dest_y, iwidth, maxIntensity, waveIndex)){
 	    ok = false;
 //	    cout << "-//\\-" << endl;
 	}

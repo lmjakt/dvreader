@@ -68,24 +68,37 @@ FileSet::~FileSet(){
 
 bool FileSet::addFrame(string fname, ifstream* in, size_t framePos, size_t readPos, size_t extHeadSize,
 		       short numInt, short numFloat, unsigned short byteSize,
-		       bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz)
+		       bool real, bool bigEnd, unsigned int width, unsigned int height, 
+		       float dx, float dy, float dz)
 {
     // make a new frame, and if its x and y coordinates don't fit then 
     // make a new framestack and stick it into that ..
-
-    if(!fileName){
+  if(!fileName){
 	fileName = fname.c_str();
+	//	cout << "\n\n\nFILENAME HAS BEEN SET TO : " << fileName << " From : " << fname << " via: " << fname.c_str() << " \n\n" << endl;
     }
+  if(*fileName != *fname.c_str()){
+    cerr << "FileSet::addFrame fileName has changed, reassigning from " << fileName << " to : " << fname << endl;
+    fileName = fname.c_str();
+  }
+  //  cout << "at the beginning of addFrame, fileName : " << fileName << "  set from " << fname << endl;
 
     // first use a temporary ifstream as it seems we can't make and delete thousands of ifstreams..
-    Frame* frame = new Frame(in, framePos, readPos, extHeadSize, numInt, numFloat, byteSize, real, bigEnd, width, height, dx, dy, dz);
+    Frame* frame = new Frame(in, framePos, readPos, extHeadSize, 
+			     numInt, numFloat, byteSize, real, bigEnd, width, height, dx, dy, dz);
     if(!frame->ok()){
 	cerr << "FileSet::addFrame Frame is not ok" << endl;
 	delete frame;
 	return(false);
     }
-    flInfo.insert(fluorInfo(frame->excitation(), frame->emission(), frame->exposure()));
-
+    fluorInfo finfo(frame->excitation(), frame->emission(), frame->exposure());
+    flInfo.insert(finfo);
+    //flInfo.insert(fluorInfo(frame->excitation(), frame->emission(), frame->exposure()));
+    if(!photoSensors.count(finfo)){
+      photoSensors[finfo] = frame->phSensor();
+    }
+    frame->setPhSensorStandard( photoSensors[finfo] );
+    
     // and then look for a suitable framestack..
     bool stackIsNew = false;
     float x_pos = frame->xPos();
@@ -95,7 +108,7 @@ bool FileSet::addFrame(string fname, ifstream* in, size_t framePos, size_t readP
 
     if(!getStack(x_pos, y_pos)){
 	stackIsNew = true;
-	cout << "no stack found for frame counter  "  << ifstreamCounter << endl;
+	cerr << "no stack found for frame counter  "  << ifstreamCounter << endl;
 	ifstream* newStream = new ifstream(fname.c_str());
 	ifstreamCounter++;
 	if(!(*newStream)){
@@ -132,7 +145,7 @@ bool FileSet::addFrame(string fname, ifstream* in, size_t framePos, size_t readP
 	y = frame->yPos();
 	// and then how to insert ..
 	frames[x_pos][y_pos] = fstack;
-	cout << "adding first framestack to FileSet position : " << x << ", " << y << ", " << frame->zPos() << "  dims : " << pixelWidth << ", " << pixelHeight << endl;
+	//cout << "adding first framestack to FileSet position : " << x << ", " << y << ", " << frame->zPos() << "  dims : " << pixelWidth << ", " << pixelHeight << endl;
 
 	//and make sure to insert the x, y and z values..
 	x_set.insert(x_pos);
@@ -157,6 +170,8 @@ bool FileSet::addFrame(string fname, ifstream* in, size_t framePos, size_t readP
     if(x_pos < x){ x = x_pos; }
     if(y_pos < y){ y = y_pos; }
     
+    //cout << "at the end of addFrame and fileName is now: " << fileName << endl;
+
     return(true);
 }
 
@@ -268,9 +283,11 @@ bool FileSet::finalise(){
 	}
     }
     // first check if there is afile..
+
     string infoFile = fileName;
     infoFile.append(".info");
-    
+    //cout << "\n\nINFOFILE HAS BEEN SET TO : " << infoFile << " from : " << fileName << "\n\n\n" <<  endl; 
+
     FileSetInfo stackInfo(infoFile.c_str());
     if(stackInfo.ok){
 	cout << "Managed to read fileSetInfo from  " << infoFile << endl;
@@ -352,7 +369,7 @@ bool FileSet::finalise(){
 }
 
 bool FileSet::readToRGB(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int dest_pwidth, unsigned int dest_pheight, unsigned int sliceNo,
-			float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, raw_data* raw)
+			float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, bool bg_sub, raw_data* raw)
 {
     // the trickiest part is working out which framestack should contribute to each of these. However, maybe I don't have to do this
     // here.
@@ -361,7 +378,7 @@ bool FileSet::readToRGB(float* dest, float xpos, float ypos, float dest_width, f
     int counter = 0;  // this just counts how many different framestacks contribute to the slice..
     for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
 	for(map<float, FrameStack*>::iterator fit=(*it).second.begin(); fit != (*it).second.end(); fit++){
-	    if((*fit).second->readToRGB(dest, xpos, ypos, dest_width, dest_height, dest_pwidth, dest_pheight, sliceNo, maxLevel, bias, scale, colors, raw)){
+	  if((*fit).second->readToRGB(dest, xpos, ypos, dest_width, dest_height, dest_pwidth, dest_pheight, sliceNo, maxLevel, bias, scale, colors, bg_sub, raw)){
 		counter++;
 	    }
 	}
@@ -371,12 +388,12 @@ bool FileSet::readToRGB(float* dest, float xpos, float ypos, float dest_width, f
 }
 
 bool FileSet::readToRGB(float* dest, unsigned int xpos, unsigned int ypos, unsigned int dest_width, unsigned int dest_height, unsigned int slice_no, 
-			float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, raw_data* raw){
+			float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, bool bg_sub, raw_data* raw){
     // given that each framestack knows it's bordering frame stacks I can just ask them to work it out themselves..
     int counter = 0;  // this just counts how many different framestacks contribute to the slice..
     for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
 	for(map<float, FrameStack*>::iterator fit=(*it).second.begin(); fit != (*it).second.end(); fit++){
-	    if((*fit).second->readToRGB(dest, xpos, ypos, dest_width, dest_height, slice_no, maxLevel, bias, scale, colors, raw)){
+	  if((*fit).second->readToRGB(dest, xpos, ypos, dest_width, dest_height, slice_no, maxLevel, bias, scale, colors, bg_sub, raw)){
 		counter++;
 	    }
 	}
