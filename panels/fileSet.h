@@ -27,11 +27,31 @@
 
 #include "frameStack.h"
 #include "../dataStructs.h"
+//#include "../image/background.h"
 #include <map>
 #include <vector>
 #include <string>
 
+/////////// the following introduces circular dependancies 
+class Background;
+class ImageData;
 
+// Background objects contain a reference to an imageData object; the imageData object
+// provides some higher level access functions for the FileSet Object, and has a pointer
+// to a FileSet object. Hence we get..
+
+// FileSet(1) --> Background --> ImageData --> FileSet(1)
+// note that ImageData doesn't have to point to the same fileSet, though, since
+// we so far only support one FileSet in a given application, this seems likely to
+// be the case.
+
+// So who deletes whom.?? 
+// well, the background object doesn't delete the imagedata object, and the ImageData object
+// doesn't delete the fileSet object
+// so we might be ok.
+// but this seems to be a big kludge to avoid making big changes in the flow of information.
+//
+// if we're not careful we could obviously end up introducing infinite loops. That would be bad.
 
 class FileSet {
     public :
@@ -43,6 +63,7 @@ class FileSet {
 		  bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz);
     bool getStack(float& xpos, float& ypos);   // sets the appropriate values up for a given thingy.. 
     bool finalise();   // checks for a complete rectangle and sets up the x, y, and z_position vectors
+    
 
     bool readToRGB(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int slice_no, unsigned int dest_pwidth, unsigned int dest_pheight,
 		   float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, bool bg_sub, raw_data* raw=0);
@@ -59,6 +80,8 @@ class FileSet {
     bool readToFloatPro(float* dest, int xb, int iwidth, int yb, int iheight, int wave);     // the projection (but checks to make sure no negativ values).. 
     // wave in readtofloatPro is waveindex (and it is checked, but nothing happens if too large) 
     // we then also need a whole load of accessor functions to allow us to make sense of the data
+    void setBackgroundParameters(std::map<fluorInfo, backgroundPars> bgp);
+
     float xpos(){
 	return(x);
     }
@@ -105,15 +128,22 @@ class FileSet {
 	return(overlapData);
     }
 
+    std::set<fluorInfo> channelInfo(){
+      return(flInfo);
+    }
+
     private :
 
-	void determineZOffsets();    // this is actually a bit tricky .. 
+    void determineZOffsets();    // this is actually a bit tricky .. 
+    void initBackgrounds();      // we should probably remove this at some point.
+    void initBackgrounds(std::map<fluorInfo, backgroundPars> bgp);
     
     std::map<float, std::map<float, FrameStack*> > frames;      // since this is inconvenient to access I'll have an accessor function
     std::set<fluorInfo> flInfo;        // the various file sets and things.. 
     // the first photoSensor value for a given channel. 
     // set the values for each frame.. 
     std::map<fluorInfo, float> photoSensors;  
+    std::map<fluorInfo, Background*> backgrounds;
     std::vector<float> x_positions;
     std::vector<float> y_positions;
     std::set<float> x_set;

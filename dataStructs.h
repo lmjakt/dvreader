@@ -33,6 +33,8 @@
 #include <string.h>
 #include <math.h>
 
+//typedef unsigned int uint;
+
 struct fluorInfo {  // information about fluoresence
     float excitation;
     float emission;
@@ -55,6 +57,26 @@ struct fluorInfo {  // information about fluoresence
 	return(a.emission == b.emission && a.excitation == b.excitation);
     }
 };
+
+
+struct backgroundPars {
+  uint x_m, y_m, z_m;
+  float pcntile;
+  backgroundPars(){
+    x_m = y_m = 32;
+    z_m = 8;
+    pcntile = 50;
+  }
+  backgroundPars(uint x, uint y, uint z, float p){
+    x_m = x; y_m = y; z_m = z;
+    pcntile = (p > 0 && p < 100) ? p : 50;
+  }
+  backgroundPars(int x, int y, int z, float p){
+    x_m = (uint)x; y_m = (uint)y; z_m = (uint)z;
+    pcntile = (p > 0 && p < 100) ? p : 50;
+  }
+};
+
 
 struct objectDistanceInfo {
     bool isFlat;
