@@ -35,14 +35,7 @@ Background::Background(ImageData* id, unsigned int xm, unsigned int ym, unsigned
     percentile = (pcnt < 100 && pcnt >= 0) ? pcnt : 5;
     background = 0;
     data->dims(width, height, depth);
-}
-
-Background::Background(ImageData* id, backgroundPars bgp){
-  data = id;
-  x_m = bgp.x_m; y_m = bgp.y_m; z_m = bgp.z_m;
-  percentile = bgp.pcntile;
-  background = 0;
-  data->dims(width, height, depth);
+    background = 0;
 }
 
 Background::~Background(){
@@ -100,28 +93,25 @@ float Background::bg(int x, int y, int z){
 
     // and then simply interpolate in the z direction..
     float int_back = front + (float(z - bg_pos[bp].z) / float(z_m)) * (back - front);
-//     if(int_back > 1){
-//       cout << "int_back: " << int_back << " pos:  " << x << "," << y << "," << z
-// 	   << "  b pos : " << xb << "," << yb << "," << zb << "  bg: " << background[ b_off(xb, yb, zb)] 
-// 	   << "  bg_pos[bp]: " << bg_pos[bp].x << "," << bg_pos[bp].y << "," << bg_pos[bp].z << "\n"
-// 	   << "xc : " << xc[0] << "," << xc[1] << "," << xc[2] << "," << xc[3]
-// 	   << "  front: " << front << "  back: " << back << endl;
-//       cout << "\t" << front << " + " <<  (float(z - bg_pos[bp].z) / float(z_m)) << " * " <<  (back - front)
-// 	   << "  (z_m) : " << z_m << endl;
-//     }
+    if(int_back > 1){
+      cout << "int_back: " << int_back << " pos:  " << x << "," << y << "," << z
+	   << "  b pos : " << xb << "," << yb << "," << zb << "  bg: " << background[ b_off(xb, yb, zb)] 
+	   << "  bg_pos[bp]: " << bg_pos[bp].x << "," << bg_pos[bp].y << "," << bg_pos[bp].z << "\n"
+	   << "xc : " << xc[0] << "," << xc[1] << "," << xc[2] << "," << xc[3]
+	   << "  front: " << front << "  back: " << back << endl;
+      cout << "\t" << front << " + " <<  (float(z - bg_pos[bp].z) / float(z_m)) << " * " <<  (back - front)
+	   << "  (z_m) : " << z_m << endl;
+    }
     // cout << "int_back : " << int_back << endl;
     return(int_back);
 }
 
 void Background::setBackground(){
     // The number of elements required will be
-  cout << "Background::setBackground " << "waveIndex is : " << wi << "  pars : "
-       << x_m << "," << y_m << "," << z_m << "  pcntile" << percentile << endl;
     bw = width / x_m; 
     bh = height / y_m; 
     bd = depth / z_m;
     b_length = bd * bh * bw;
-    cout << bw << "x" << bh << "x" << bd << " --> " << b_length << endl;
     if(!b_length){
 	cerr << "Background::setBackground 0 b_length dims : " 
 	     << depth << "/" << z_m
@@ -144,7 +134,6 @@ void Background::setBackground(){
 	    }
 	}
     }
-    cout << "background Set" << endl;
 }
 
 void Background::setParameters(int xw, int yw, int zw, float pcnt){
@@ -153,10 +142,6 @@ void Background::setParameters(int xw, int yw, int zw, float pcnt){
     z_m = zw;
     percentile = pcnt;
     setBackground(wi);
-}
-
-void Background::setParameters(backgroundPars bgp){
-  setParameters(bgp.x_m, bgp.y_m, bgp.z_m, bgp.pcntile);
 }
 
 float Background::getb(int bx, int by, int bz){

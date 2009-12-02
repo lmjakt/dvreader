@@ -24,7 +24,6 @@
 
 #include <QApplication>
 #include <QStyle>
-#include <QFont>
 #include "dvReader.h"
 #include "jpgView/jpgView.h"
 #include "deltaViewer.h"
@@ -32,7 +31,6 @@
 #include <iostream>
 #include <stdlib.h>
 #include <unistd.h>
-#include <time.h>
 #include <map>
 #include <vector>
 
@@ -69,9 +67,6 @@ int main(int argc, char** argv){
 		abort();
 	}
     }
-
-    // make sure that srand has been called so any function can simply call rand
-    srand(time(0));
     
 //     for(map<string, string>::iterator it=opt_commands.begin(); it != opt_commands.end(); ++it)
 // 	cout << (*it).first << " : " << (*it).second << endl;
@@ -86,12 +81,6 @@ int main(int argc, char** argv){
     if(non_options.size()){
 	ifName = non_options[0];
     }
-
-    // let's play around with fonts and see if we can get it to do something useful
-    QFont appFont = app.font();
-    appFont.setPointSize( appFont.pointSize() - 2);
-    app.setFont(appFont);
-
     DeltaViewer viewer(opt_commands, ifName);
     viewer.setContentsMargins(0, 0, 0, 0);
     app.setMainWidget(&viewer);

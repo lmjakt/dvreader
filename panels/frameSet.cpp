@@ -109,20 +109,7 @@ bool FrameSet::addFrame(Frame* frame){
     frames.insert(make_pair(fluor, frame));
     fInfo.push_back(fluor);
     sort(fInfo.begin(), fInfo.end());
-
     return(true);
-}
-
-void FrameSet::setBackgrounds(std::map<fluorInfo, Background*> backgrounds, int zp){
-  for(map<fluorInfo, Frame*>::iterator it = frames.begin();
-      it != frames.end(); it++){
-    if(backgrounds.count(it->first)){
-      it->second->setBackground(backgrounds[it->first], zp);
-    }else{
-      cerr << "FrameSet::setBackgounds no background available for : "
-	   << (*it).first.excitation << " --> " << (*it).first.emission << endl;
-    }
-  }
 }
 
 bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,

@@ -73,8 +73,6 @@ HEADERS		= \
 		image/blobClassifier.h \
 		image/superBlobWidget.h \
 		image/background.h \
-		image/backgroundWidget.h \
-		image/backgroundWindow.h \
 		distanceMapper/compareController.h \
 		distanceMapper/distanceMapper.h \
 		distanceMapper/distanceViewer.h \
@@ -151,8 +149,6 @@ SOURCES		= \
 		image/blobClassifier.cpp \
 		image/superBlobWidget.cpp \
 		image/background.cpp \
-		image/backgroundWidget.cpp \
-		image/backgroundWindow.cpp \
 		distanceMapper/compareController.cpp \
 		distanceMapper/distanceMapper.cpp \
 		distanceMapper/distanceViewer.cpp \

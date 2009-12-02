@@ -64,7 +64,6 @@
 //#include "image/blobMapper.h"
 #include "image/blobMapperWidget.h"
 #include "image/blobMapperWidgetManager.h"
-#include "image/backgroundWindow.h"
 
 using namespace std;
 
@@ -103,7 +102,6 @@ class DeltaViewer : public QWidget
   }
   bool readToRGB(float* dest, int xb, int yb, unsigned int tw, unsigned int th, unsigned int slice_no);
   bool readToRGBPro(float* dest, int xb, int yb, unsigned int tw, unsigned int th);
-  void int_color(int i, float& r, float& g, float& b);
 
   private :
     void setRanges(QString text);  // take a word or a line or something and set the parameters.. 
@@ -204,12 +202,9 @@ class DeltaViewer : public QWidget
   void paramDataRangeChanged(float lowt, float hight);
   void paramDataColorChanged(int wl, float r, float g, float b);
 
-  void setBackgroundPars(std::map<fluorInfo, backgroundPars> bgPars);
-
   private :
       /// Move this later, bull
-  BlobMapperWidgetManager* blobManager;
-  BackgroundWindow* backgroundWindow;    
+      BlobMapperWidgetManager* blobManager;
 //      set<BlobMapperWidget*> blobs;
   
   QString fName;
