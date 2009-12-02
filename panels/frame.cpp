@@ -58,7 +58,7 @@ float td_bg::bg(int x, int y){
   return(b);
 }
 
-Frame::Frame(ifstream* inStream, size_t framePos, size_t readPos, size_t extHeadSize, 
+Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type readPos, std::ios::pos_type extHeadSize, 
 	     short numInt, short numFloat, unsigned short byteSize, 
 	     bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz)
 {
@@ -92,6 +92,8 @@ Frame::Frame(ifstream* inStream, size_t framePos, size_t readPos, size_t extHead
     int* headerInt = new int[numInt];   // don't use sizeof(int), as the size on this machine doesn't really matter
     float* headerFloat = new float[numFloat];
 
+    cout << "size of size_t is " << sizeof(size_t) << "  size of std::ios::pos_type " << sizeof(ios::pos_type) << endl;
+
     in->seekg(readPos);
     in->read((char*)headerInt, numInt * 4);    // but this fails if int is of a different size.
     in->read((char*)headerFloat, numFloat * 4); // and again this is dependant on various things..
@@ -114,9 +116,10 @@ Frame::Frame(ifstream* inStream, size_t framePos, size_t readPos, size_t extHead
     
     delete headerInt;
     delete headerFloat;
-    if(excitationWavelength > 300 && excitationWavelength < 1000 && emissionWavelength > 300 && emissionWavelength < 1300){ // stupid check, but..
-	isOk = true;
-    }
+    isOk = true;
+    //    if(excitationWavelength > 300 && excitationWavelength < 1000 && emissionWavelength > 300 && emissionWavelength < 1300){ // stupid check, but..
+    //	isOk = true;
+    //}
 }
 
 Frame::~Frame(){
@@ -236,7 +239,7 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
    }
 
     unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
-    size_t startPos = (uint)frameOffset + (pWidth * 2 * source_y);
+    std::ios::pos_type startPos = frameOffset + (std::ios::pos_type)(pWidth * 2 * source_y);
     cout << "size of size_t : " << sizeof(size_t) << " startPos : " << startPos 
 	 << "  frameOffset : " << (uint)frameOffset << " : pwidth " << pWidth << "  source_y " << source_y << endl;
     in->seekg(startPos);
@@ -329,7 +332,7 @@ bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int sourc
 //   }
 
     unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
-    size_t startPos = frameOffset + (pWidth * 2 * source_y);
+    std::ios::pos_type startPos = frameOffset + (std::ios::pos_type)(pWidth * 2 * source_y);
     in->seekg(startPos);
     in->read((char*)buffer, pWidth * height * 2);
     if(in->fail()){

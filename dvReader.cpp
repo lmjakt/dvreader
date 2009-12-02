@@ -283,8 +283,8 @@ bool DVReader::readDVFile(const char* fName){
 
 
     
-    size_t secSize = (pSize * nx * ny);  // the number of bytes per image..
-    size_t imBegin = headerSize + next;  // next = n extended.. 
+    std::ios::pos_type secSize = (pSize * nx * ny);  // the number of bytes per image..
+    std::ios::pos_type imBegin = headerSize + next;  // next = n extended.. 
     
     // let's have a look first ..
     cout << "next : " << next << "\tnint : " << nint << "\tnreal : " << nreal << endl;
@@ -305,9 +305,9 @@ bool DVReader::readDVFile(const char* fName){
     float tempFloat;   // assume 
     in.seekg(headerSize);
     for(int i=0; i < nsec; i++){
-	size_t framePos = imBegin + secSize * i;
-	size_t readPos = headerSize + (nint + nreal) * 4 * i;
-	size_t extHeadSize = next;  // I think.. 
+	std::ios::pos_type framePos = imBegin + secSize * i;
+	std::ios::pos_type readPos = headerSize + (nint + nreal) * 4 * i;
+	std::ios::pos_type extHeadSize = next;  // I think.. 
 	bool bigEnd = !sameEndian;   // but this is indeed very bad way of doing it.. 
 	if(!fileSet->addFrame(fName, in2, framePos, readPos, extHeadSize, nint, nreal, pSize, isReal, bigEnd, nx, ny, dx, dy, dz)){
 	    cerr << "DVreader unable to add frame to file set will die here for debugging.." << endl;
