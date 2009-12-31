@@ -79,7 +79,7 @@ FrameStack::~FrameStack(){
     delete in;
 }
 
-bool FrameStack::addFrame(const char* fname, size_t framePos, size_t readPos, size_t extHeadSize,
+bool FrameStack::addFrame(const char* fname, std::ios::pos_type framePos, std::ios::pos_type readPos, std::ios::pos_type extHeadSize,
 				 short numInt, short numFloat, unsigned short byteSize,
 				 bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz, Frame*& frame)
 {
@@ -101,7 +101,7 @@ void FrameStack::setBackgrounds(std::map<fluorInfo, Background*> backgrounds){
 }
 
 bool FrameStack::addFrame(Frame* frame){
-  cout << "FrameStack::addFrame excite : " << frame->excitation() << endl;
+  //cout << "FrameStack::addFrame excite : " << frame->excitation() << endl;
     if(!frame->ok()){
 	cerr << "FrameStack::addFrame frame reports itself as being not ok. bummer" << endl;
 	return(false);
@@ -138,7 +138,7 @@ bool FrameStack::addFrame(Frame* frame){
 	//cerr << "SectionStack -- couldn't find a section at z position : " << frame->zPos() << endl;
 	// in this case we need to make a new frameSet and add the section..
       FrameSet* fset = new FrameSet(wave_lengths, wave_no);
-      cout << "made new frameset for excite " << frame->excitation() <<  "  and will add " << endl;
+      //cout << "made new frameset for excite " << frame->excitation() <<  "  and will add " << endl;
 	if(!fset->addFrame(frame)){
 	    cerr << "FrameStack : unable to add frame to newly created frameset (2)" << endl;
 	    return(false);
@@ -178,7 +178,7 @@ void FrameStack::finalise(float maxLevel, FrameInfo* frameData){
 	topBorder = pixelY + int(pHeight) < topBorder ? pixelY + pHeight : topBorder;
 	bottomBorder = pixelY > bottomBorder ? pixelY : bottomBorder;
 
-	cout << "\t\tpixelX : " << pixelX << "\tpixelY : " << pixelY << endl;
+	//cout << "\t\tpixelX : " << pixelX << "\tpixelY : " << pixelY << endl;
 	
 	cout << "FrameStack::finalise projection data has been read in from a file" << endl;
 	projection = frameInformation->projection;   // though we may not need to know the projection .. 
@@ -286,7 +286,7 @@ int FrameStack::setBorder(int pos, POSITION n){
 	default :
 	    cerr << "FrameStack::setBorder unknonw position given " << n << endl;
     }
-    cout << "Border set to " << p << endl;
+    //cout << "Border set to " << p << endl;
     return(p);
 }
 
@@ -774,8 +774,8 @@ bool FrameStack::readToRGB(float* dest, int xpos, int ypos, unsigned int dest_wi
 // 	     << "\tinternal positions  dest : " << dest_x << ", " << dest_y << "     source : " << source_x << ", " << source_y << endl
 // 	     << "\t\tpixel position: " << pixelX << "," << pixelY <<  "    dims : " << subWidth << ", " << subHeight << endl;
 	
- 	cout << "\n call Function with " << source_x << ", " << source_y << ", " << subWidth  << ", " << subHeight << ", " << dest_x << ", " << dest_y << ", " << dest_width << endl;
-	cout << "Recorded Z position : " << sections[slice_no]->z_pos() << endl;
+// 	cout << "\n call Function with " << source_x << ", " << source_y << ", " << subWidth  << ", " << subHeight << ", " << dest_x << ", " << dest_y << ", " << dest_width << endl;
+//	cout << "Recorded Z position : " << sections[slice_no]->z_pos() << endl;
 	return(sections[slice_no]->readToRGB(dest, source_x, source_y, subWidth, subHeight, dest_x, dest_y, dest_width, maxLevel, bias, scale, colors, bg_sub, raw));
     }
     return(false);

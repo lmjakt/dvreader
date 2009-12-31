@@ -44,7 +44,7 @@ FrameSet::~FrameSet(){
     }
 }
 
-bool FrameSet::addFrame(const char* fname, size_t framePos, size_t readPos, size_t extHeadSize,
+bool FrameSet::addFrame(const char* fname, std::ios::pos_type framePos, std::ios::pos_type readPos, std::ios::pos_type extHeadSize,
 			short numInt, short numFloat, unsigned short byteSize,
 			bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz){
     // first make a frame.

@@ -61,7 +61,7 @@ float td_bg::bg(int x, int y){
   return(b);
 }
 
-Frame::Frame(ifstream* inStream, size_t framePos, size_t readPos, size_t extHeadSize, 
+Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type readPos, std::ios::pos_type extHeadSize, 
 	     short numInt, short numFloat, unsigned short byteSize, 
 	     bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz)
 {
@@ -99,8 +99,8 @@ Frame::Frame(ifstream* inStream, size_t framePos, size_t readPos, size_t extHead
 
     ////////////////
     ////// 
-    cout << "Frame constructor trying to work out differences: size_t " << sizeof(size_t)
-	 << "  off_t " << sizeof(off_t) << endl;
+    //cout << "Frame constructor trying to work out differences: size_t " << sizeof(size_t)
+    //	 << "  off_t " << sizeof(off_t) << "  std::ios::pos_type " << sizeof(std::ios::pos_type) << endl;
 
     in->seekg(readPos);
     in->read((char*)headerInt, numInt * 4);    // but this fails if int is of a different size.
@@ -131,6 +131,8 @@ Frame::Frame(ifstream* inStream, size_t framePos, size_t readPos, size_t extHead
     excitationWavelength = headerFloat[10];
     emissionWavelength = headerFloat[11];
     
+    //cout << "readPos : " << readPos << "  framePos : " << framePos << "  z : " << z << endl;
+
     delete headerInt;
     delete headerFloat;
 
@@ -190,7 +192,7 @@ bool Frame::readToRGB(float* dest, unsigned int source_x, unsigned int source_y,
     // note that the dest has to be already initialised
     // we are only going to add to it..
     
-  cout << "Frame readToRGB : excite : " << excitationWavelength << " : " << photoSensor << endl;
+  //cout << "Frame readToRGB : excite : " << excitationWavelength << " : " << photoSensor << endl;
 
     if(width > pWidth || height > pHeight || source_y >= pHeight || source_x >= pWidth){
 	cerr << "Frame::readToRGB inappropriate coordinates : " << source_x << "\t" << source_y << "\t" << width << "\t" << height << endl;
@@ -265,10 +267,11 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
     exit(1);
   }
 
+  cout << "Frame::readToRGB_s wave: " << excitationWavelength << "  photoS : " << photoSensor << "  photoS_m " << phSensor_m << endl;
     unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
-    size_t startPos = (uint)frameOffset + (pWidth * 2 * source_y);
-    cout << "size of size_t : " << sizeof(size_t) << " startPos : " << startPos 
-	 << "  frameOffset : " << (uint)frameOffset << " : pwidth " << pWidth << "  source_y " << source_y << endl;
+    std::ios::pos_type startPos = frameOffset + (std::ios::pos_type)(pWidth * 2 * source_y);
+    //cout << "size of size_t : " << sizeof(size_t) << " startPos : " << startPos 
+    //	 << "  frameOffset : " << (uint)frameOffset << " : pwidth " << pWidth << "  source_y " << source_y << endl;
     in->seekg(startPos);
     in->read((char*)buffer, pWidth * height * 2);
     if(in->fail()){
@@ -297,8 +300,13 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
 		*raw = float(*source)/maxLevel;
 		bg = bg_sub ? threeDBackground->bg(xp, yp, zp) : 0;
 		//		bg = bg_sub ? background.bg(xp, yp) : 0;
-		v = bias + scale * (phSensor_m * float(*source) - (bg * maxLevel) )/maxLevel;
-		//float v = bias + scale * (*raw);
+		//v = bias + scale * phSensor_m * (float)(*source) / maxLevel;
+		//v = bias + scale * (float)(*source) / (maxLevel * phSensor_m);
+		v = bias + scale * ((float)*source - (bg * maxLevel) )/maxLevel;
+		//		v = bias + scale * (phSensor_m * float(*source) - (bg * maxLevel) )/maxLevel;
+		//uv = bias + scale * (float(*source) / phSensor_m - (bg * maxLevel) )/maxLevel;
+		
+//float v = bias + scale * (*raw);
 		//float v = bias + scale * (float(*source)/maxLevel);
 		++raw;
 		if(v > 0){
@@ -320,7 +328,8 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
 		//float sv = float(*source);
 	      //	        bg = bg_sub ? background.bg(xp, yp) : 0;
 		bg = bg_sub ? threeDBackground->bg(xp, yp, zp) : 0;
-		v = bias + scale * ( phSensor_m * float(*source) - (bg * maxLevel) )/maxLevel;
+		//		v = bias + scale * ( phSensor_m * float(*source) - (bg * maxLevel) )/maxLevel;
+		v = bias + scale * (float(*source) - (bg * maxLevel) )/(maxLevel);
 		//		float v = bias + scale * (float(*source)/maxLevel);
 		if(v > 0){
 		    dst[0] += v * r;
@@ -361,7 +370,7 @@ bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int sourc
 //   }
 
     unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
-    size_t startPos = frameOffset + (pWidth * 2 * source_y);
+    std::ios::pos_type startPos = frameOffset + (std::ios::pos_type)(pWidth * 2 * source_y);
     in->seekg(startPos);
     in->read((char*)buffer, pWidth * height * 2);
     if(in->fail()){

@@ -153,8 +153,8 @@ class DVReader
   FileSet* fileSet;            // accesses the file or files containing the data and interprets these in a reasonable manner ?
   float maxLevel;
   //  groupObject** objects;         // one object for each pixel. Don't seperate for individual wavelengths yet. Not enough memory
-  int headerSize;   // this is usually 1024, but might be different I suppose.. 
-  int sectionSize;
+  std::ios::pos_type headerSize;   // this is usually 1024, but might be different I suppose.. 
+  std::ios::pos_type sectionSize;
   int currentSection;
   short pSize;   // the number of bytes for each pixel.. 
   int margin;  // the deconvolution process includes a margin at the edges. we want to ignore pixels in this area

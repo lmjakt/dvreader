@@ -38,7 +38,7 @@ class FrameSet {
     ~FrameSet();
 
     // addFrame creates an additional ifstream for each Frame
-    bool addFrame(const char* fname, size_t framePos, size_t readPos, size_t extHeadSize,
+    bool addFrame(const char* fname, std::ios::pos_type framePos, std::ios::pos_type readPos, std::ios::pos_type extHeadSize,
 		  short numInt, short numFloat, unsigned short byteSize,
 		  bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz);
     bool addFrame(Frame* frame);  // deletes frame if not good... 
