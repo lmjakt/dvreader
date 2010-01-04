@@ -33,6 +33,7 @@
 
 
 #include "imageData.h"
+#include "../dataStructs.h"
 #include <vector>
 
 // The Background class does not take ownership of the ImageData pointer. And will not delete
@@ -52,10 +53,12 @@ struct pos {
 class Background {
     public :
 	Background(ImageData* id, unsigned int xm, unsigned int ym, unsigned int zm, float pcnt=5);
+	Background(ImageData* id, backgroundPars bgp);
     ~Background();
     void setBackground(unsigned int waveindex);
     float bg(int x, int y, int z);
     void setParameters(int xw, int yw, int zw, float pcnt);
+    void setParameters(backgroundPars bgp);
     
  private:
     ImageData* data;
