@@ -91,9 +91,16 @@ Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type
     
     int* headerInt = new int[numInt];   // don't use sizeof(int), as the size on this machine doesn't really matter
     float* headerFloat = new float[numFloat];
-
+    /*
+<<<<<<< HEAD:panels/frame.cpp
     cout << "size of size_t is " << sizeof(size_t) << "  size of std::ios::pos_type " << sizeof(ios::pos_type) << endl;
-
+=======
+    ////////////////
+    ////// 
+    //cout << "Frame constructor trying to work out differences: size_t " << sizeof(size_t)
+    //	 << "  off_t " << sizeof(off_t) << "  std::ios::pos_type " << sizeof(std::ios::pos_type) << endl;
+>>>>>>> 3D_bg_subtract:panels/frame.cpp
+    */
     in->seekg(readPos);
     in->read((char*)headerInt, numInt * 4);    // but this fails if int is of a different size.
     in->read((char*)headerFloat, numFloat * 4); // and again this is dependant on various things..
@@ -114,6 +121,8 @@ Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type
     excitationWavelength = headerFloat[10];
     emissionWavelength = headerFloat[11];
     
+    //cout << "readPos : " << readPos << "  framePos : " << framePos << "  z : " << z << endl;
+
     delete headerInt;
     delete headerFloat;
     isOk = true;
@@ -168,7 +177,7 @@ bool Frame::readToRGB(float* dest, unsigned int source_x, unsigned int source_y,
     // note that the dest has to be already initialised
     // we are only going to add to it..
     
-  cout << "Frame readToRGB : excite : " << excitationWavelength << " : " << photoSensor << endl;
+  //cout << "Frame readToRGB : excite : " << excitationWavelength << " : " << photoSensor << endl;
 
     if(width > pWidth || height > pHeight || source_y >= pHeight || source_x >= pWidth){
 	cerr << "Frame::readToRGB inappropriate coordinates : " << source_x << "\t" << source_y << "\t" << width << "\t" << height << endl;
@@ -238,10 +247,18 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
      setBackground(16, 16, 0.2);
    }
 
+  cout << "Frame::readToRGB_s wave: " << excitationWavelength << "  photoS : " << photoSensor << "  photoS_m " << phSensor_m << endl;
     unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
     std::ios::pos_type startPos = frameOffset + (std::ios::pos_type)(pWidth * 2 * source_y);
+/*
+<<<<<<< HEAD:panels/frame.cpp
     cout << "size of size_t : " << sizeof(size_t) << " startPos : " << startPos 
 	 << "  frameOffset : " << (uint)frameOffset << " : pwidth " << pWidth << "  source_y " << source_y << endl;
+=======
+    //cout << "size of size_t : " << sizeof(size_t) << " startPos : " << startPos 
+    //	 << "  frameOffset : " << (uint)frameOffset << " : pwidth " << pWidth << "  source_y " << source_y << endl;
+>>>>>>> 3D_bg_subtract:panels/frame.cpp
+*/
     in->seekg(startPos);
     in->read((char*)buffer, pWidth * height * 2);
     if(in->fail()){
@@ -268,9 +285,22 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
 		// and perform the transformation..
 		//float sv = float(*source);
 		*raw = float(*source)/maxLevel;
-		bg = bg_sub ? background.bg(xp, yp) : 0;
-		v = bias + scale * (phSensor_m * float(*source) - bg )/maxLevel;
-		//float v = bias + scale * (*raw);
+
+// <<<<<<< HEAD:panels/frame.cpp
+// 		bg = bg_sub ? background.bg(xp, yp) : 0;
+// 		v = bias + scale * (phSensor_m * float(*source) - bg )/maxLevel;
+// 		//float v = bias + scale * (*raw);
+// =======
+		bg = bg_sub ? threeDBackground->bg(xp, yp, zp) : 0;
+		//		bg = bg_sub ? background.bg(xp, yp) : 0;
+		//v = bias + scale * phSensor_m * (float)(*source) / maxLevel;
+		//v = bias + scale * (float)(*source) / (maxLevel * phSensor_m);
+		v = bias + scale * ((float)*source - (bg * maxLevel) )/maxLevel;
+		//		v = bias + scale * (phSensor_m * float(*source) - (bg * maxLevel) )/maxLevel;
+		//uv = bias + scale * (float(*source) / phSensor_m - (bg * maxLevel) )/maxLevel;
+		
+//float v = bias + scale * (*raw);
+// >>>>>>> 3D_bg_subtract:panels/frame.cpp
 		//float v = bias + scale * (float(*source)/maxLevel);
 		++raw;
 		if(v > 0){
@@ -290,8 +320,15 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
 		// work out the appropriate position..
 		// and perform the transformation..
 		//float sv = float(*source);
-	        bg = bg_sub ? background.bg(xp, yp) : 0;
-		v = bias + scale * ( phSensor_m * float(*source) - bg )/maxLevel;
+// <<<<<<< HEAD:panels/frame.cpp
+// 	        bg = bg_sub ? background.bg(xp, yp) : 0;
+// 		v = bias + scale * ( phSensor_m * float(*source) - bg )/maxLevel;
+// =======
+	      //	        bg = bg_sub ? background.bg(xp, yp) : 0;
+		bg = bg_sub ? threeDBackground->bg(xp, yp, zp) : 0;
+		//		v = bias + scale * ( phSensor_m * float(*source) - (bg * maxLevel) )/maxLevel;
+		v = bias + scale * (float(*source) - (bg * maxLevel) )/(maxLevel);
+		//>>>>>>> 3D_bg_subtract:panels/frame.cpp
 		//		float v = bias + scale * (float(*source)/maxLevel);
 		if(v > 0){
 		    dst[0] += v * r;

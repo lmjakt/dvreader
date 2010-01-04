@@ -177,7 +177,7 @@ void DistChooser::paintEvent(QPaintEvent* e){
   // well paint the bugger..
 
   if(!maxCount){ maxCount = 1; }   // avoid divide by 0.. 
-  int pointsize = qApp->font().pointSize()-1;
+  int pointsize = qApp->font().pointSize();
   QPixmap pix(width(), height());
   pix.fill(QColor(201, 206, 221));    // could change this.. ! 
 
@@ -249,7 +249,7 @@ void DistChooser::paintEvent(QPaintEvent* e){
   QString tickLabel;  // for the numbers
   int tickLength = 5;
   int tickCount;   // the count.. 
-  p->setFont(QFont("Helvetica", pointsize-1));
+  p->setFont(QFont("Helvetica", pointsize));
   if(yTickno > 0){
     for(int i=0; i <= yTickno; i++){
       int y = ys - (i * h)/yTickno;
@@ -283,7 +283,7 @@ void DistChooser::paintEvent(QPaintEvent* e){
   int textSpace = 115;
   int rowHeight = 11;
   int topSpace = 8;
-  p->setFont(QFont("Helvetica", pointsize-1));
+  p->setFont(QFont("Helvetica", pointsize));
   tickLabel = statisticName.c_str();
   p->drawText(0, topSpace, width(), rowHeight, Qt::AlignHCenter, tickLabel);
   topSpace += rowHeight;
@@ -291,7 +291,7 @@ void DistChooser::paintEvent(QPaintEvent* e){
   minTValue = lowT * (max - min) + min;
   maxTValue = highT * (max - min) + min;
   if(showText){
-    p->setFont(QFont("Helvetica", pointsize-1));
+    p->setFont(QFont("Helvetica", pointsize));
     tickLabel.sprintf("%1.2e", max);
     tickLabel.prepend("Max Value: ");
     topSpace += rowHeight;
@@ -350,7 +350,7 @@ void DistChooser::paintEvent(QPaintEvent* e){
   p->setPen(QPen(QColor(150, 150, 200), 0));
   p->drawRect(textArea);
   //  p->drawRect(w+lm+3, tm, rm-6, rm-6);
-  p->setFont(QFont("Times", pointsize-1));
+  p->setFont(QFont("Times", pointsize));
   p->setPen(QPen(QColor(200, 200, 200), 0));
   //  p->setPen(QPen(QColor(75, 5, 5), 0));
   //p->drawText(w+lm+6, tm+(rm-8), "T");
@@ -382,7 +382,7 @@ void DistChooser::paintEvent(QPaintEvent* e){
   default :
     cout << "unknown axis State " << endl;
   }
-  p->setFont(QFont("Helvetica", pointsize-1));
+  p->setFont(QFont("Helvetica", pointsize));
   p->setPen(QPen(QColor(0, 0, 0), 0));
 
   p->drawText(xArea, Qt::AlignCenter, "X");

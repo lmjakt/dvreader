@@ -275,7 +275,7 @@ bool DVReader::readDVFile(const char* fName){
     
     sectionSize = nx * ny * pSize;
     // seek to the appropriate position..
-    in.seekg(headerSize + next);
+    in.seekg(headerSize + (std::ios::pos_type)next);
     // this is a bit ugly, but I believe that this is the only way in which we can do this...
     secNo = nsec/nw;   // the real number of sections..
 
@@ -284,7 +284,11 @@ bool DVReader::readDVFile(const char* fName){
 
     
     std::ios::pos_type secSize = (pSize * nx * ny);  // the number of bytes per image..
-    std::ios::pos_type imBegin = headerSize + next;  // next = n extended.. 
+    //<<<<<<< HEAD:dvReader.cpp
+    //std::ios::pos_type imBegin = headerSize + next;  // next = n extended.. 
+    //=======
+    std::ios::pos_type imBegin = headerSize + (std::ios::pos_type)next;  // next = n extended.. 
+    //>>>>>>> 3D_bg_subtract:dvReader.cpp
     
     // let's have a look first ..
     cout << "next : " << next << "\tnint : " << nint << "\tnreal : " << nreal << endl;
@@ -306,7 +310,11 @@ bool DVReader::readDVFile(const char* fName){
     in.seekg(headerSize);
     for(int i=0; i < nsec; i++){
 	std::ios::pos_type framePos = imBegin + secSize * i;
-	std::ios::pos_type readPos = headerSize + (nint + nreal) * 4 * i;
+	//<<<<<<< HEAD:dvReader.cpp
+	//std::ios::pos_type readPos = headerSize + (nint + nreal) * 4 * i;
+	//=======
+	std::ios::pos_type readPos = headerSize + (std::ios::pos_type)((nint + nreal) * 4 * i);
+	//>>>>>>> 3D_bg_subtract:dvReader.cpp
 	std::ios::pos_type extHeadSize = next;  // I think.. 
 	bool bigEnd = !sameEndian;   // but this is indeed very bad way of doing it.. 
 	if(!fileSet->addFrame(fName, in2, framePos, readPos, extHeadSize, nint, nreal, pSize, isReal, bigEnd, nx, ny, dx, dy, dz)){
@@ -851,7 +859,7 @@ bool DVReader::readBytes(int bn, float* row, ifstream& in){
   if(in.fail()){    
     cerr << "Failed somehow to read from the file, going back to the beginning,, to check where we are" << endl;
     in.clear();
-    in.seekg(headerSize + next);
+    in.seekg(headerSize + (std::ios::pos_type)next);
     currentSection = 0;
     delete shortRow;
     delete charRow;

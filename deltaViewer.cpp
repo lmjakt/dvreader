@@ -782,7 +782,7 @@ void DeltaViewer::setImage(int slice){
     // and since I need to give a vector of a colour map rather than a map.. 
     vector<color_map> cv;
     for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
-	cout << "color map wave length = " << (*it).first << "  color " << (*it).second.r << "," << (*it).second.g << "," << (*it).second.b << endl;
+      //	cout << "color map wave length = " << (*it).first << "  color " << (*it).second.r << "," << (*it).second.g << "," << (*it).second.b << endl;
 	cv.push_back((*it).second);
     }
 
@@ -809,7 +809,7 @@ void DeltaViewer::setImage(int slice){
 	    int tw = xb + textureSize < currentView.px + currentView.pw ? textureSize : (currentView.px + currentView.pw) - xb;
 	    memset((void*)data, 0, textureSize * textureSize * 3 * sizeof(float));
 	
-	    cout << "calling fileset reatToRGB with " << xb << "," << yb << " : " << tw << "x" << th << endl;
+	    //	    cout << "calling fileset reatToRGB with " << xb << "," << yb << " : " << tw << "x" << th << endl;
 	    if(fileSet->readToRGB(data, xb, yb, tw, th, currentSliceNo, maxLevel, biases, scales, cv, useComponents->isChecked(), raw)){
 		textureCounter++;
 		paintBlobs(data, xb, yb, currentSliceNo, tw, th);
@@ -915,7 +915,7 @@ void DeltaViewer::setProjection(){
     float maxLevel = 4096;   // fix this at some point..
     vector<color_map> cv;
     for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
-	cout << "color map wave length = " << (*it).first << "  color " << (*it).second.r << "," << (*it).second.g << "," << (*it).second.b << endl;
+      //	cout << "color map wave length = " << (*it).first << "  color " << (*it).second.r << "," << (*it).second.g << "," << (*it).second.b << endl;
 	cv.push_back((*it).second);
     }
 
@@ -1002,7 +1002,7 @@ void DeltaViewer::paintProjection(){
     
     vector<color_map> cv;
     for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
-	cout << "color map wave length = " << (*it).first << "  color " << (*it).second.r << "," << (*it).second.g << "," << (*it).second.b << endl;
+      //	cout << "color map wave length = " << (*it).first << "  color " << (*it).second.r << "," << (*it).second.g << "," << (*it).second.b << endl;
 	cv.push_back((*it).second);
     }
 
@@ -1060,7 +1060,7 @@ void DeltaViewer::exportProjection(){
 
     vector<color_map> cv;
     for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
-	cout << "color map wave length = " << (*it).first << "  color " << (*it).second.r << "," << (*it).second.g << "," << (*it).second.b << endl;
+      //	cout << "color map wave length = " << (*it).first << "  color " << (*it).second.r << "," << (*it).second.g << "," << (*it).second.b << endl;
 	cv.push_back((*it).second);
     }
     
@@ -2133,8 +2133,11 @@ void DeltaViewer::findContrasts(int wi, float minValue){
     labelString.setNum(fileSet->channel(wi));
     labelString.append(" Contrast");
     ParameterChooser* chooser = new ParameterChooser(contrastData, labelString, wi, fileSet->channel(wi), QColor(255, 255, 0), this);
+    cout << "findContrasts first param chooser created" << endl;
     connect(chooser, SIGNAL(colorChanged(int, float, float, float)), this, SLOT(paramDataColorChanged(int, float, float, float)) );
+    cout << "first chooser connected" << endl;
     connect(chooser, SIGNAL(newRanges(float, float)), this, SLOT(paramDataRangeChanged(float, float)) );
+    cout << "first chooser second connection" << endl;
     parameterSets.insert(make_pair(chooser, contrastData));
     colorBox->addWidget(chooser);
     chooser->show();

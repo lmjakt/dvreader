@@ -41,7 +41,7 @@ class FrameStack {
     FrameStack(int* waveLengths, int waveNo, std::ifstream* inStream, float maxLevel);
     ~FrameStack();
     
-    bool addFrame(const char* fname, size_t framePos, size_t readPos, size_t extHeadSize,
+    bool addFrame(const char* fname, std::ios::pos_type framePos, std::ios::pos_type readPos, std::ios::pos_type extHeadSize,
 			 short numInt, short numFloat, unsigned short byteSize,
 			 bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz, Frame*& frame);   
 
