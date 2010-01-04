@@ -33,6 +33,7 @@ ParameterChooser::ParameterChooser(parameterData parData, QString label, int win
 
     // make the color chooser and a button to display it.. 
     chooser = new DistChooser(label.latin1(), 100);
+    cout << "ParameterChooser just finished making a distchooser" << endl;
     // chooser only takes a vector for setting values.. so we'll make a vector
     // from the parData. this is a bit slow, but..
     data = parData;
@@ -40,22 +41,26 @@ ParameterChooser::ParameterChooser(parameterData parData, QString label, int win
     for(uint i=0; i < (data.width * data.height); ++i){
 	v[i] = data.values[i];
     }
+    cout << "v is " << v.size() << " min : " << parData.minValue << " max : " << parData.maxValue 
+	 << "  : " << parData.width << "," << parData.height << endl;
     chooser->setData(v, data.minValue, data.maxValue);
     connect(chooser, SIGNAL(newRanges(float, float)), this, SLOT(setBiasAndScale(float, float)) );
     connect(chooser, SIGNAL(newRanges(float, float)), this, SIGNAL(newRanges(float, float)) );
     chooser->resize(300, 200);
-
+    cout << "data set for chooser and size set to 300,200" << endl;
     bias = 0;
     scale = 1.0 / (data.maxValue - data.minValue);   // hence we can just multiply by this number.. 
 
     // make a button..
     QPushButton* dispButton = new QPushButton("dist", this, "dispButton");
     connect(dispButton, SIGNAL(clicked()), this, SLOT(displayDistChooser()) );
-   
+    cout << "made a dispButton" << endl;
     QHBoxLayout* hbox = new QHBoxLayout();
+    cout << "made a layout box" << endl;
     vbox->addLayout(hbox);
     hbox->addStretch();
     hbox->addWidget(dispButton);
+    cout << "Parameter chooser construction finished" << endl;
 }
 
 ParameterChooser::~ParameterChooser(){

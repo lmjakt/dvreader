@@ -74,13 +74,14 @@ ColorChooser::ColorChooser(QString label, int windex, int wlength, QColor c, QWi
   subtractBox->setChecked(false);
   connect(subtractBox, SIGNAL(toggled(bool)), this, SIGNAL(checkSubtractions(bool)) );  // which actually ignores the thingy
 
-  //  vbox = new QVBoxLayout(this);
+  vbox = new QVBoxLayout(this);
 
-  QHBoxLayout* box = new QHBoxLayout(this);
+  QHBoxLayout* box = new QHBoxLayout();
+  //  QHBoxLayout* box = new QHBoxLayout(this);
+  vbox->addLayout(box);
   box->setSpacing(0);
   box->setMargin(0);
   box->setContentsMargins(0, 0, 0, 0);
-  //vbox->addLayout(box);
   box->addWidget(wLabel);
   box->addStretch();
 //  box->addWidget(objectButton);

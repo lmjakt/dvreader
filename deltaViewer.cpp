@@ -2162,8 +2162,11 @@ void DeltaViewer::findContrasts(int wi, float minValue){
     labelString.setNum(fileSet->channel(wi));
     labelString.append(" Contrast");
     ParameterChooser* chooser = new ParameterChooser(contrastData, labelString, wi, fileSet->channel(wi), QColor(255, 255, 0), this);
+    cout << "findContrasts first param chooser created" << endl;
     connect(chooser, SIGNAL(colorChanged(int, float, float, float)), this, SLOT(paramDataColorChanged(int, float, float, float)) );
+    cout << "first chooser connected" << endl;
     connect(chooser, SIGNAL(newRanges(float, float)), this, SLOT(paramDataRangeChanged(float, float)) );
+    cout << "first chooser second connection" << endl;
     parameterSets.insert(make_pair(chooser, contrastData));
     colorBox->addWidget(chooser);
     chooser->show();
