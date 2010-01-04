@@ -27,6 +27,10 @@
 
 #include <fstream>
 #include <vector>
+#include <sys/types.h>
+#include <unistd.h>
+
+class Background;
 
 typedef unsigned int uint;
 
@@ -113,6 +117,7 @@ class Frame {
 		     float maxLevel); 
     // NOTE the constructor will make a number of assumptions about the structure of the extended header. If these are not met, then 
     // it will set some flag to indicate failure.. 
+    void setBackground(Background* bg, int z_pos);
 
     private :
 	
@@ -129,7 +134,7 @@ class Frame {
     float x, y, z;        // the position of the frame (read from the header).. 
     float w, h;           // width and height
     float vx, vy, vz;     // the distances represented by one voxel.. (can be derived from the above number (except for vd)
-    
+    int zp;               // the z position, or rather the slice number
     // other image parameters...
     float photoSensor;
     float photoSensorStandard;  // the standard value
@@ -142,8 +147,11 @@ class Frame {
     // A flag to indicate if everything ok..
     bool isOk;
 
+    // td_background is a two dimensional background object,, let's try using
+    // a three dimensional object Background instead..
     // a background object
     td_bg background; 
+    Background* threeDBackground;
 
     // assume float information..
     bool readToRGB_r(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
@@ -165,7 +173,6 @@ class Frame {
     void swapBytes(char* data, unsigned int wn, unsigned int ws);
 
     bool setBackground(int xm, int ym, float qntile);   // xm, ym and qntile need to be settable.
-    
 
 };
     
