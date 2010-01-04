@@ -30,6 +30,8 @@
 #include <algorithm>
 #include <string>
 #include <math.h>
+#include "../image/background.h"
+#include "../image/imageData.h"
 
 using namespace std;
 
@@ -369,12 +371,21 @@ bool FileSet::finalise(){
     return(completeRectangle);
 }
 
-bool FileSet::readToRGB(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int dest_pwidth, unsigned int dest_pheight, unsigned int sliceNo,
-			float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, bool bg_sub, raw_data* raw)
+bool FileSet::readToRGB(float* dest, float xpos, float ypos, float dest_width, float dest_height, 
+			unsigned int dest_pwidth, unsigned int dest_pheight, unsigned int sliceNo,
+			float maxLevel, vector<float> bias, vector<float> scale, 
+			vector<color_map> colors, bool bg_sub, raw_data* raw)
 {
+  // Note: I don't think this function is actually used anymore, as the we use pixel level positioning these days.
+  // so should try getting rid of it.. 
     // the trickiest part is working out which framestack should contribute to each of these. However, maybe I don't have to do this
     // here.
     
+  // If bg_sub is true, but we don't have any backgrounds, then set up the backgrounds
+  if(bg_sub && !backgrounds.size()){
+    initBackgrounds();
+  }
+
     // given that each framestack knows it's bordering frame stacks I can just ask them to work it out themselves..
     int counter = 0;  // this just counts how many different framestacks contribute to the slice..
     for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
@@ -388,9 +399,14 @@ bool FileSet::readToRGB(float* dest, float xpos, float ypos, float dest_width, f
     return(counter > 0);   // which is nicer than saying return counter.. because...
 }
 
-bool FileSet::readToRGB(float* dest, unsigned int xpos, unsigned int ypos, unsigned int dest_width, unsigned int dest_height, unsigned int slice_no, 
-			float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, bool bg_sub, raw_data* raw){
+bool FileSet::readToRGB(float* dest, unsigned int xpos, unsigned int ypos, unsigned int dest_width, unsigned int dest_height, 
+			unsigned int slice_no, float maxLevel, vector<float> bias, vector<float> scale, 
+			vector<color_map> colors, bool bg_sub, raw_data* raw){
     // given that each framestack knows it's bordering frame stacks I can just ask them to work it out themselves..
+  if(bg_sub && !backgrounds.size()){
+    initBackgrounds();
+  }
+  
     int counter = 0;  // this just counts how many different framestacks contribute to the slice..
     for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
 	for(map<float, FrameStack*>::iterator fit=(*it).second.begin(); fit != (*it).second.end(); fit++){
@@ -571,4 +587,76 @@ void FileSet::determineZOffsets(){
 	    }
 	}
     }
+}
+
+void FileSet::initBackgrounds(){
+  // do only if we don't have any backgrounds.
+  cout << "Calling init backgrounds" << endl;
+  if(backgrounds.size())
+    return;
+  int wcounter = 0;           // horrible kludge warning 
+  for(set<fluorInfo>::iterator it=flInfo.begin(); it != flInfo.end(); it++){
+    ImageData* id = new ImageData(this);
+    Background* bg = new Background(id, 16, 16, 8, 75);  // default background parameters
+    backgrounds.insert(make_pair((*it), bg));
+    cout << "setting background for " << wcounter << endl;
+    bg->setBackground(wcounter);
+    wcounter++;
+  }
+  // The backgrounds will need to be passed on to the frame-stacks, and so on..
+  // frameStacks are arranged by x and y position. hence a painful double map
+  for(map<float, map<float, FrameStack*> >::iterator it=frames.begin();
+      it != frames.end(); it++){
+    for(map<float, FrameStack*>::iterator jt=it->second.begin();
+	jt != it->second.end(); jt++){
+      jt->second->setBackgrounds(backgrounds);
+    }
+  }
+}
+
+void FileSet::initBackgrounds(map<fluorInfo, backgroundPars> bgp){
+  if(backgrounds.size()){
+    setBackgroundParameters(bgp);
+    return;
+  }  
+  int wcounter = 0;           // horrible kludge warning 
+  for(set<fluorInfo>::iterator it=flInfo.begin(); it != flInfo.end(); it++){
+    ImageData* id = new ImageData(this);
+    Background* bg = 0;
+    if(!bgp.count((*it))){
+      bg = new Background(id, 16, 16, 8, 75);  // default background parameters
+    }else{
+      bg = new Background(id, bgp[(*it)]);
+    }
+    backgrounds.insert(make_pair((*it), bg));
+    cout << "setting background for " << wcounter << endl;
+    bg->setBackground(wcounter);
+    wcounter++;
+  }
+  // The backgrounds will need to be passed on to the frame-stacks, and so on..
+  // frameStacks are arranged by x and y position. hence a painful double map
+  for(map<float, map<float, FrameStack*> >::iterator it=frames.begin();
+      it != frames.end(); it++){
+    for(map<float, FrameStack*>::iterator jt=it->second.begin();
+	jt != it->second.end(); jt++){
+      jt->second->setBackgrounds(backgrounds);
+    }
+  }
+  
+}
+
+void FileSet::setBackgroundParameters(map<fluorInfo, backgroundPars> bgp){
+  if(!backgrounds.size()){
+    initBackgrounds(bgp);
+    return;
+  }
+  for(map<fluorInfo, Background*>::iterator it=backgrounds.begin();
+      it != backgrounds.end(); ++it){
+    if(!bgp.count(it->first)){
+      cerr << "FileSet::setBackgroundParameters : missing parameter set" << endl;
+      continue;
+    }
+    it->second->setParameters(bgp[it->first]);
+    // that will actually do everything we need to do.
+  }  
 }

@@ -107,14 +107,14 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   lastMaximumValue = -1;
   animate = false;
 
-  // before anything else, let's try to have a look at the font and see if we can get something
-  // reasonable
-  setContentsMargins(1, 1, 1, 1);
-  QFont widgetFont = font();
-  cout << "font is set to " << widgetFont.family().latin1() << " points : " << widgetFont.pointSize() << "  pixel : "
-       << widgetFont.pixelSize() << endl;
-  widgetFont.setPointSize( widgetFont.pointSize() - 2);
-  setFont(widgetFont);
+//   // before anything else, let's try to have a look at the font and see if we can get something
+//   // reasonable
+//   setContentsMargins(1, 1, 1, 1);
+//   QFont widgetFont = font();
+//   cout << "font is set to " << widgetFont.family().latin1() << " points : " << widgetFont.pointSize() << "  pixel : "
+//        << widgetFont.pixelSize() << endl;
+//   widgetFont.setPointSize( widgetFont.pointSize() - 2);
+//   setFont(widgetFont);
 
   if(!ifName){
       cout << "using a file dialog to get a file name" << endl;
@@ -158,7 +158,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 
   spotMapperWindow = new SpotMapperWindow(this, fileSet->pwidth(), fileSet->pheight(), fileSet->sectionNo(), textureSize);
   spotMapperWindow->resize(1100, 1100);
-  spotMapperWindow->setFont(widgetFont);
+  //  spotMapperWindow->setFont(widgetFont);
   cout << "file set is reproting a pixel size of " << fileSet->pwidth() << ", " << fileSet->pheight() << "  giving " << 1 + fileSet->pwidth() / textureSize << "  columns" << endl;
   cout << "And .. the number of sections is " << fileSet->sectionNo() << endl;
   connect(perimeterWindow, SIGNAL(perimetersFinalised(std::vector<PerimeterSet>, float, int)), spotMapperWindow, SLOT(setPerimeters(std::vector<PerimeterSet>, float, int)) );
@@ -490,6 +490,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 
   ///////////  Initialise blobManager to 0, then if we need it make it and 
   blobManager=0;
+  backgroundWindow = 0;
 
   QVBoxLayout* box = new QVBoxLayout(this);
   box->setSpacing(1);
@@ -862,7 +863,14 @@ bool DeltaViewer::readToRGBPro(float* dest, int xb, int yb, unsigned int tw, uns
     return(fileSet->mip_projection(dest, xb, yb, tw, th, maxLevel, biases, scales, cv, 0));
 }
 	   
+void DeltaViewer::int_color(int i, float& r, float& g, float& b){
+  int max = 100;
+  int m = 40;
+  r = float( (i * m) % max ) / float(max);
+  g = float( (i * m + 50) % max ) / float(max);
+  b = float( (i * m + 75) % max ) / float(max);
 
+}
 
 void DeltaViewer::setProjection(){
     // first check if we have a projection file..
@@ -1261,7 +1269,9 @@ void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h,
     float r, g, blue;
     blb->color(r, g, blue);
     //r = blue = 1.0;
+    int blobCounter = 0;
     for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
+      int_color(++blobCounter, r, g, blue);
 	blob* b = (*it);
 	if( !(blb->filterBlob(b)) || !(b->active) )
 	  continue;
@@ -1273,7 +1283,6 @@ void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h,
 	if(!isProjection &&  !(b->min_z <= z && b->max_z >= z) )
 	    continue;
 	// Then simply go through the  points and see whether or not
-	
 	int b_x, b_y, b_z;  // the point coordinates
 	if(br == RepIcon::PEAK){
 	  cc.vol(b->peakPos, b_x, b_y, b_z);
@@ -1774,14 +1783,34 @@ void DeltaViewer::updateDistToggled(bool on){
   }
 }
 
+/// This function now handles the background issues. 
+/// Not in the smartest way, but anyway..
+
 void DeltaViewer::useComponentsToggled(bool on){
-    cout << "useComponents currently unavailable" << endl;
-    on = on;
+  //    cout << "useComponents currently unavailable" << endl;
+  if(!backgroundWindow){
+    backgroundWindow = new BackgroundWindow( fileSet->channelInfo() );
+    connect(backgroundWindow, SIGNAL(setBackgroundPars(std::map<fluorInfo, backgroundPars>)),
+	    this, SLOT(setBackgroundPars(std::map<fluorInfo, backgroundPars>)) );
+    backgroundWindow->show();
+    return;
+  }
+
+  on = on;
+  setImage(currentSliceNo);
 //     reader->useComponentFactors(on);
 //     displayImage();
 //     displaySlices();
 }
 
+void DeltaViewer::setBackgroundPars(std::map<fluorInfo, backgroundPars> bgPars){
+  cout << "Calling some function in fileSet to set the background parameters" << endl;
+  for(map<fluorInfo, backgroundPars>::iterator it=bgPars.begin(); it != bgPars.end(); it++){
+    cout << "DeltaViewer pars are : " << it->second.x_m << "," << it->second.y_m << "," << it->second.z_m << " : " << it->second.pcntile << endl;
+  }
+  fileSet->setBackgroundParameters(bgPars);
+  setImage(currentSliceNo);
+}
 
 void DeltaViewer::newMagnification(float mag){
     // set the text of magnification appropriately.

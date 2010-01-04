@@ -95,7 +95,13 @@ bool FrameStack::addFrame(const char* fname, std::ios::pos_type framePos, std::i
     return(addFrame(frame));
 }
 
+void FrameStack::setBackgrounds(std::map<fluorInfo, Background*> backgrounds){
+  for(uint i=0; i < sections.size(); ++i)
+    sections[i]->setBackgrounds(backgrounds, i);
+}
+
 bool FrameStack::addFrame(Frame* frame){
+  //cout << "FrameStack::addFrame excite : " << frame->excitation() << endl;
     if(!frame->ok()){
 	cerr << "FrameStack::addFrame frame reports itself as being not ok. bummer" << endl;
 	return(false);
@@ -131,9 +137,9 @@ bool FrameStack::addFrame(Frame* frame){
     if(it == sectionMap.end()){
 	//cerr << "SectionStack -- couldn't find a section at z position : " << frame->zPos() << endl;
 	// in this case we need to make a new frameSet and add the section..
-
-        FrameSet* fset = new FrameSet(wave_lengths, wave_no);
-        if(!fset->addFrame(frame)){
+      FrameSet* fset = new FrameSet(wave_lengths, wave_no);
+      //cout << "made new frameset for excite " << frame->excitation() <<  "  and will add " << endl;
+	if(!fset->addFrame(frame)){
 	    cerr << "FrameStack : unable to add frame to newly created frameset (2)" << endl;
 	    return(false);
 	}

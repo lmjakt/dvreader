@@ -33,6 +33,8 @@
 #include <vector>
 #include <fstream>
 
+class Background;
+
 class FrameStack {
     public :
 	enum POSITION {
@@ -46,7 +48,7 @@ class FrameStack {
 			 bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz, Frame*& frame);   
 
     bool addFrame(Frame* frame);
-
+    void setBackgrounds(std::map<fluorInfo, Background*> backgrounds);
     // returns 0, if the frame is added to this stack
     // otherwise returns another frameStack
     std::ifstream* fileStream(){
