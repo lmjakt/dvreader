@@ -42,6 +42,7 @@
 #include "nucleusWidget.h"
 #include "setWidget.h"
 #include "blurWidget.h"
+#include "../cavity/cavityBallInputWidget.h"
 #include "../dataStructs.h"
 #include <string>
 
@@ -102,6 +103,8 @@ class SpotWindow : public QWidget
     NucleusWidget* nucleusWidget;
     NucleusWidget* contrastWidget;
     NucleusWidget* blobMapperWidget;
+    CavityBallInputWidget* cavityBallWidget;
+
     SetWidget* setWidget;   // bad name, but can't think of anything better.. 
     BlurWidget* blurWidget;  // and then a load of controls for other stuff.. but that's for later ...
     std::map<int, linearPeaks> linePeaks;
@@ -137,6 +140,7 @@ class SpotWindow : public QWidget
     void findContrasts(int, float);     // not sure what the float represents at the moment, but it might be useful for something..
     void mapBlobs(int, float);
     void mapBlobs(int, float, int, int, int, float);  // set background parameters.. 
+    void mapCavities(int, int, int, int, float, float);
     void findSets(int, int, int, float); 
     void findSpotDensity(int, double, double);
     void blur(std::set<uint>, int, double, double);

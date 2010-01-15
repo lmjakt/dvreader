@@ -651,12 +651,15 @@ offsets FrameStack::findNeighbourOffset(FrameStack* neighbour, float* neighbourA
     return(off);
 }
 
-bool FrameStack::readToRGB(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int dest_pwidth, unsigned int dest_pheight, unsigned int slice_no, 
-			   float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, bool bg_sub, raw_data* raw)
+bool FrameStack::readToRGB(float* dest, float xpos, float ypos, float dest_width, 
+			   float dest_height, unsigned int dest_pwidth, 
+			   unsigned int dest_pheight, unsigned int slice_no,
+			   vector<channel_info> chinfo, raw_data* raw)
+//  			   float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, bool bg_sub, raw_data* raw)
 {
-    if(!finalised){
+  if(!finalised){
 	cerr << "FrameStack::readToRGB Trying to read into buffer from unfinalised framestack. Will finalise, but this suggests error in code" << endl;
-	finalise(maxLevel);
+	finalise(chinfo[0].maxLevel);
     }
     if(slice_no >= sections.size()){
 	cerr << "FrameStack::readToRGB slice_no larger then sections size. slice_no : " << slice_no << " sections size : " << sections.size() << endl;
@@ -718,12 +721,19 @@ bool FrameStack::readToRGB(float* dest, float xpos, float ypos, float dest_width
     
     // and then we should be able to call the relevant function in the appropriate fileset..
     //   cout << "\n call Function with " << ix << ", " << iy << ", " << iw << ", " << ih << ", " << dix << ", " << diy << ", " << dest_pwidth << endl;
-    return(sections[slice_no]->readToRGB(dest, ix, iy, iw, ih, dix, diy, dest_pwidth, maxLevel, bias, scale, colors, raw));
+
+    return(sections[slice_no]->readToRGB(dest, ix, iy, iw, ih, dix, diy, dest_pwidth, 
+					 chinfo, raw));
+    //					 maxLevel, bias, scale, colors, raw));
+    //    return(sections[slice_no]->readToRGB(dest, ix, iy, iw, ih, dix, diy, dest_pwidth, maxLevel, bias, scale, colors, raw));
     
 }
 
-bool FrameStack::readToRGB(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height, unsigned int slice_no, 
-			   float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, bool bg_sub, raw_data* raw){
+bool FrameStack::readToRGB(float* dest, int xpos, int ypos, 
+			   unsigned int dest_width, unsigned int dest_height, 
+			   unsigned int slice_no, vector<channel_info> chinfo,
+			   raw_data* raw){
+  //			   float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, bool bg_sub, raw_data* raw){
 //     if(pixelX == -1 && pixelY == -1){
 // 	cerr << "FrameStack::readToRGB (int version) pixel positions undefined " << endl;
 // 	return(false);
@@ -776,7 +786,10 @@ bool FrameStack::readToRGB(float* dest, int xpos, int ypos, unsigned int dest_wi
 	
 // 	cout << "\n call Function with " << source_x << ", " << source_y << ", " << subWidth  << ", " << subHeight << ", " << dest_x << ", " << dest_y << ", " << dest_width << endl;
 //	cout << "Recorded Z position : " << sections[slice_no]->z_pos() << endl;
-	return(sections[slice_no]->readToRGB(dest, source_x, source_y, subWidth, subHeight, dest_x, dest_y, dest_width, maxLevel, bias, scale, colors, bg_sub, raw));
+
+
+	return(sections[slice_no]->readToRGB(dest, source_x, source_y, subWidth, subHeight, dest_x, dest_y, dest_width, chinfo, raw));
+	//	return(sections[slice_no]->readToRGB(dest, source_x, source_y, subWidth, subHeight, dest_x, dest_y, dest_width, maxLevel, bias, scale, colors, bg_sub, raw));
     }
     return(false);
 }

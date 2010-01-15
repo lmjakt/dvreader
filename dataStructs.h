@@ -35,6 +35,52 @@
 
 //typedef unsigned int uint;
 
+typedef unsigned long o_set;
+
+struct pos {
+  int x, y, z;
+  pos(int xp, int yp, int zp){
+    x = xp; y = yp; z = zp;
+  }
+  pos(uint xp, uint yp, uint zp){
+    x = (int)xp; y = (int)yp; z = (int)zp;
+  }
+  pos(float xp, float yp, float zp){
+    x = (int)(roundf(xp));
+    y = (int)(roundf(yp));
+    z = (int)(roundf(zp));
+  }
+  pos(){
+    x = y = z = 0;
+  }
+  friend bool operator <(const pos& a, const pos& b){
+    if(a.z != b.z)
+      return(a.z < b.z);
+    if(a.y != b.y)
+      return(a.y < b.y);
+    return(a.x < b.x);
+  }
+  friend bool operator ==(const pos& a, const pos& b){
+    return( a.z == b.z && a.y == b.y && a.x == b.x);
+  }
+  pos operator +(pos a){
+    a.x += x;
+    a.y += y;
+    a.z += z;
+    return(a);
+  }
+  pos operator -(pos a){
+    a.x = x - a.x;
+    a.y = y - a.y;
+    a.z = z - a.z;
+    return(a);
+  }
+  friend std::ostream& operator<<(std::ostream& out, const pos& a){
+    return( out << a.x << "," << a.y << "," << a.z );
+  }
+};
+
+
 struct fluorInfo {  // information about fluoresence
     float excitation;
     float emission;
@@ -277,6 +323,25 @@ struct color_map {
     QColor qcolor(){
 	return(QColor(int(r * 255.0), int(g * 255.0), int(b * 255.0)));
     }
+};
+
+struct channel_info {
+  color_map color;
+  float maxLevel;
+  float bias;
+  float scale;
+  bool bg_subtract;
+  bool contrast;
+  channel_info(){
+    maxLevel = 4096;
+    bias = 0;
+    scale = 1.0;
+    bg_subtract = contrast = false;
+  }
+  channel_info(color_map cm, float ml, float b, float s, bool bgs, bool cnt){
+    color = cm; maxLevel = ml; bias = b; scale = s; 
+    bg_subtract = bgs; contrast = cnt;
+  }
 };
 
 struct distribution {   // a struct that holds the distribution for some values..

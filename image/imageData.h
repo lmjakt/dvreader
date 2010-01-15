@@ -9,6 +9,7 @@
 
 #include "volumeCache.h"
 #include "../panels/fileSet.h"
+#include "../dataStructs.h"
 
 const int pCache = 1024000;  // if we were really smart we could get that from /proc/cpuinfo
 
@@ -22,6 +23,7 @@ class ImageData {
     void dims(unsigned int& w, unsigned int& h, unsigned int& d);  // the dimensions of the thing.
     void dims(int& w, int& h, int& d);  // the dimensions of the thing.    
     bool point(float& p, int xp, int yp, int zp, unsigned int wi);   // tries the volume_cache, if not ok, makes a new cache.. 
+    bool point(float& p, pos& pt, unsigned int wi);
 
     uint interp_no(){
 	return(interp);

@@ -65,6 +65,7 @@
 #include "image/blobMapperWidget.h"
 #include "image/blobMapperWidgetManager.h"
 #include "image/backgroundWindow.h"
+#include "image/rectangle.h"
 
 using namespace std;
 
@@ -126,6 +127,8 @@ class DeltaViewer : public QWidget
   void paintBlobs(float* area, int xo, int yo, int z, int w, int h, bool isProjection=false);
   void paintBlobs(float* area, int xo, int yo, int z, int w, int h, 
 		  BlobMapperWidget* blb, bool isProjection);
+  void paint(float* area, std::vector<o_set> points, Rectangle rect, int z, color_map cm);
+
   void exportPeaks();  // write the peaks to a file in a reasonable manner.. 
   void paintNuclei(float* area, int px, int py, int w, int h);  // and this checks if there are any nuclei to be painted.. (but a bit more tricky)
   void paintParameterData(float* area, int px, int py, int w, int h);
@@ -184,6 +187,8 @@ class DeltaViewer : public QWidget
   void findContrasts(int wi, float value);   // not sure what the value represents, but.. 
   void mapBlobs(int wi, float minEdge);
   void mapBlobs(int wi, float minEdge, int xw, int yw, int zw, float pcnt);
+  
+  void mapCavities(int wi, int xr, int yr, int zr, float P, float DP);
   void findSets(int wi, int minSize, int maxSize, float minValue);
 
   //  void setSpotsToSpotMapper();
@@ -209,7 +214,8 @@ class DeltaViewer : public QWidget
   private :
       /// Move this later, bull
   BlobMapperWidgetManager* blobManager;
-  BackgroundWindow* backgroundWindow;    
+  BackgroundWindow* backgroundWindow;   
+  vector<o_set> aux_points;   // for quick checks of various functions.
 //      set<BlobMapperWidget*> blobs;
   
   QString fName;

@@ -113,6 +113,10 @@ float Background::bg(int x, int y, int z){
     return(int_back);
 }
 
+float Background::bg(pos p){
+  return( bg(p.x, p.y, p.z) );
+}
+
 void Background::setBackground(){
     // The number of elements required will be
   cout << "Background::setBackground " << "waveIndex is : " << wi << "  pars : "

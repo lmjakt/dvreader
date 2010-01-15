@@ -371,10 +371,12 @@ bool FileSet::finalise(){
     return(completeRectangle);
 }
 
-bool FileSet::readToRGB(float* dest, float xpos, float ypos, float dest_width, float dest_height, 
-			unsigned int dest_pwidth, unsigned int dest_pheight, unsigned int sliceNo,
-			float maxLevel, vector<float> bias, vector<float> scale, 
-			vector<color_map> colors, bool bg_sub, raw_data* raw)
+bool FileSet::readToRGB(float* dest, float xpos, float ypos, float dest_width, 
+			float dest_height, unsigned int dest_pwidth, 
+			unsigned int dest_pheight, unsigned int sliceNo,
+			vector<channel_info> chinfo, raw_data* raw)
+//			float maxLevel, vector<float> bias, vector<float> scale, 
+//			vector<color_map> colors, bool bg_sub, raw_data* raw)
 {
   // Note: I don't think this function is actually used anymore, as the we use pixel level positioning these days.
   // so should try getting rid of it.. 
@@ -382,7 +384,7 @@ bool FileSet::readToRGB(float* dest, float xpos, float ypos, float dest_width, f
     // here.
     
   // If bg_sub is true, but we don't have any backgrounds, then set up the backgrounds
-  if(bg_sub && !backgrounds.size()){
+  if(chinfo[0].bg_subtract && !backgrounds.size()){
     initBackgrounds();
   }
 
@@ -390,7 +392,8 @@ bool FileSet::readToRGB(float* dest, float xpos, float ypos, float dest_width, f
     int counter = 0;  // this just counts how many different framestacks contribute to the slice..
     for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
 	for(map<float, FrameStack*>::iterator fit=(*it).second.begin(); fit != (*it).second.end(); fit++){
-	  if((*fit).second->readToRGB(dest, xpos, ypos, dest_width, dest_height, dest_pwidth, dest_pheight, sliceNo, maxLevel, bias, scale, colors, bg_sub, raw)){
+	  if((*fit).second->readToRGB(dest, xpos, ypos, dest_width, dest_height, dest_pwidth, dest_pheight, sliceNo, 
+				      chinfo, raw)){
 		counter++;
 	    }
 	}
@@ -399,18 +402,23 @@ bool FileSet::readToRGB(float* dest, float xpos, float ypos, float dest_width, f
     return(counter > 0);   // which is nicer than saying return counter.. because...
 }
 
-bool FileSet::readToRGB(float* dest, unsigned int xpos, unsigned int ypos, unsigned int dest_width, unsigned int dest_height, 
-			unsigned int slice_no, float maxLevel, vector<float> bias, vector<float> scale, 
-			vector<color_map> colors, bool bg_sub, raw_data* raw){
-    // given that each framestack knows it's bordering frame stacks I can just ask them to work it out themselves..
-  if(bg_sub && !backgrounds.size()){
+bool FileSet::readToRGB(float* dest, unsigned int xpos, unsigned int ypos, 
+			unsigned int dest_width, unsigned int dest_height, 
+			unsigned int slice_no, vector<channel_info> chinfo,
+			raw_data* raw){
+//float maxLevel, vector<float> bias, vector<float> scale, 
+//			vector<color_map> colors, bool bg_sub, raw_data* raw){
+  // given that each framestack knows it's bordering frame stacks I can just ask them to work it out themselves..
+  if(chinfo[0].bg_subtract && !backgrounds.size()){
     initBackgrounds();
   }
   
     int counter = 0;  // this just counts how many different framestacks contribute to the slice..
     for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
 	for(map<float, FrameStack*>::iterator fit=(*it).second.begin(); fit != (*it).second.end(); fit++){
-	  if((*fit).second->readToRGB(dest, xpos, ypos, dest_width, dest_height, slice_no, maxLevel, bias, scale, colors, bg_sub, raw)){
+	  	  if((*fit).second->readToRGB(dest, xpos, ypos, dest_width, dest_height, 
+					      slice_no, chinfo, raw)){
+		    //	  	  if((*fit).second->readToRGB(dest, xpos, ypos, dest_width, dest_height, slice_no, maxLevel, bias, scale, colors, bg_sub, raw)){
 		counter++;
 	    }
 	}

@@ -39,8 +39,8 @@ using namespace std;
 float td_bg::bg(int x, int y){
   int xb = (x - x_m/2) / x_m;
   int yb = (y - y_m/2) / y_m;
-  //  cout << "td_bg::bg : " << x << "," << y << "  xb,yb: " << xb << "," << yb << "  x_m,y_m : " << x_m << "," << y_m << endl;
-  // as long as x and y are not negatvie, then the smallest value we'll get here will
+
+  // as long as x and y are not negative, then the smallest value we'll get here will
   // be -0.5, which will be rouned to 0. So this should be a safe way of finding the appropriate
   // points from which to interpolate.
   
@@ -52,8 +52,6 @@ float td_bg::bg(int x, int y){
   xb = xb < bgw - 1 ? xb : bgw - 2;
   yb = yb < bgh - 1 ? yb : bgh - 2;
   int pb = yb * bgw + xb;
-
-  //cout << "\t" << "xb,yb" << xb << "," << yb << "  pb: " << pb << endl;
 
   float bot = background[pb] + ((float)(x - bg_pos[pb].x) / (float)x_m) * (background[pb+1] - background[pb]);
   float top = background[pb + bgw] + ((float)(x - bg_pos[pb+bgw].x) / (float)x_m) * (background[pb+bgw+1] - background[pb+bgw]);
@@ -97,11 +95,6 @@ Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type
     int* headerInt = new int[numInt];   // don't use sizeof(int), as the size on this machine doesn't really matter
     float* headerFloat = new float[numFloat];
 
-    ////////////////
-    ////// 
-    //cout << "Frame constructor trying to work out differences: size_t " << sizeof(size_t)
-    //	 << "  off_t " << sizeof(off_t) << "  std::ios::pos_type " << sizeof(std::ios::pos_type) << endl;
-
     in->seekg(readPos);
     in->read((char*)headerInt, numInt * 4);    // but this fails if int is of a different size.
     in->read((char*)headerFloat, numFloat * 4); // and again this is dependant on various things..
@@ -131,8 +124,6 @@ Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type
     excitationWavelength = headerFloat[10];
     emissionWavelength = headerFloat[11];
     
-    //cout << "readPos : " << readPos << "  framePos : " << framePos << "  z : " << z << endl;
-
     delete headerInt;
     delete headerFloat;
 
@@ -186,28 +177,33 @@ float Frame::exposure(){
     return(exposureTime);
 }
 
-bool Frame::readToRGB(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
-		      unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, float maxLevel, 
-		      float bias, float scale, float r, float g, float b, bool bg_sub, float* raw){
-    // note that the dest has to be already initialised
-    // we are only going to add to it..
-    
-  //cout << "Frame readToRGB : excite : " << excitationWavelength << " : " << photoSensor << endl;
-
-    if(width > pWidth || height > pHeight || source_y >= pHeight || source_x >= pWidth){
-	cerr << "Frame::readToRGB inappropriate coordinates : " << source_x << "\t" << source_y << "\t" << width << "\t" << height << endl;
-	return(false);
-    }
-    
-    // at this point call the appropriate function to read ..
-    if(isReal && bno == 4){
-	return(readToRGB_r(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, maxLevel, bias, scale, r, g, b, raw));
-    }
-    if(!isReal && bno == 2){
-        return(readToRGB_s(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w,  maxLevel, bias, scale, r, g, b, bg_sub, raw));
-    }
-    cerr << "Frame::readToRGB unsupported data file type" << endl;
+bool Frame::readToRGB(float* dest, unsigned int source_x, unsigned int source_y, 
+		      unsigned int width, unsigned int height, 
+		      unsigned int dest_x, unsigned int dest_y, 
+		      unsigned int dest_w, channel_info chinfo,
+		      float* raw)
+//		      float maxLevel, 
+//		      float bias, float scale, float r, float g, float b, bool bg_sub, float* raw){
+{
+  // note that the dest has to be already initialised
+  // we are only going to add to it..
+  
+  if(width > pWidth || height > pHeight || source_y >= pHeight || source_x >= pWidth){
+    cerr << "Frame::readToRGB inappropriate coordinates : " << source_x << "\t" << source_y << "\t" << width << "\t" << height << endl;
     return(false);
+  }
+  channelInfo = chinfo;
+  // at this point call the appropriate function to read ..
+  if(isReal && bno == 4){
+    return(readToRGB_r(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, chinfo, raw));
+    //maxLevel, bias, scale, r, g, b, raw));
+  }
+  if(!isReal && bno == 2){
+    return(readToRGB_s(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w,  chinfo, raw));
+    //		       maxLevel, bias, scale, r, g, b, bg_sub, raw));
+  }
+  cerr << "Frame::readToRGB unsupported data file type" << endl;
+  return(false);
 }
 
 //bool Frame::readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
@@ -239,173 +235,171 @@ bool Frame::readToFloat(float* dest, unsigned int source_x, unsigned int source_
 }
 
 
-bool Frame::readToRGB_r(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
-			unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, float maxLevel, float bias, float scale, float r, float g, float b, float* raw){
-    cerr << "Frame::readToRGB unsupported data file type" << endl;
-    return(false);
+bool Frame::readToRGB_r(float* dest, unsigned int source_x, unsigned int source_y, 
+			unsigned int width, unsigned int height, 
+			unsigned int dest_x, unsigned int dest_y, 
+			unsigned int dest_w, channel_info chinfo,
+			float* raw){
+  //			float maxLevel, float bias, float scale, float r, float g, float b, float* raw){
+  cerr << "Frame::readToRGB unsupported data file type" << endl;
+  return(false);
 }
 
-bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
-			unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, float maxLevel, 
-			float bias, float scale, float r, float g, float b, bool bg_sub, float* raw){
+bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_y, 
+			unsigned int width, unsigned int height, 
+			unsigned int dest_x, unsigned int dest_y, 
+			unsigned int dest_w, channel_info chinfo,
+			float* raw){
+  //			float maxLevel, 
+  //			float bias, float scale, float r, float g, float b, bool bg_sub, float* raw){
     // 1. First make an appropriately sized buffer
     // 2. Seek to the appropriate position, and read into the buffer (necessary to do full width, but the height can ofcourse be done separately)
     // 3. Go through all values in the read position, do the transformation and 
-    
-//    cout << "Frame::readToRGB_s source_x : " << source_x << "  source_y " << source_y << "  width " << width << "  height " << height
-//	 << "  dest_x " << dest_x << "  dest_y " << dest_y << "  dest_w " << dest_w << "  maxLevel " << maxLevel << "  bias " << bias << "  scale  " << scale << endl;
-    
-//  bg_sub = false;
 
-   // if(bg_sub && !background.x_m){
-//      cout << "Frame::readToRGB_s background subtraction requested: creating background object" << endl;
-//      setBackground(16, 16, 0.2);
-//    }
+  // The commented section refers to the use of a two dimensional background subtraction
+  // if(bg_sub && !background.x_m){
+  //      cout << "Frame::readToRGB_s background subtraction requested: creating background object" << endl;
+  //      setBackground(16, 16, 0.2);
+  //    }
 
-  if(bg_sub && !threeDBackground){
+  if(chinfo.bg_subtract && !threeDBackground){
     cerr << "Frame::readToRGB_s background subtraction requested, but no background object" << endl;
     exit(1);
   }
 
   cout << "Frame::readToRGB_s wave: " << excitationWavelength << "  photoS : " << photoSensor << "  photoS_m " << phSensor_m << endl;
-    unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
-    std::ios::pos_type startPos = frameOffset + (std::ios::pos_type)(pWidth * 2 * source_y);
-    //cout << "size of size_t : " << sizeof(size_t) << " startPos : " << startPos 
-    //	 << "  frameOffset : " << (uint)frameOffset << " : pwidth " << pWidth << "  source_y " << source_y << endl;
-    in->seekg(startPos);
-    in->read((char*)buffer, pWidth * height * 2);
-    if(in->fail()){
-	delete buffer;
-	cerr << "Frame::readToRGB_s unable to read from offset " << startPos << "\tfor " << pWidth * height * 2 << "\tbytes" << endl;
-	in->clear();
-	return(false);
-    }
-    if(isBigEndian){
-	swapBytes((char*)buffer, pWidth * height, 2);
-    }
-
-    unsigned short* source;
-    float* dst;
-    float bg;  // background estimate
-    float v;  // the value we calculate.. 
-    if(raw){
-        for(unsigned int yp = 0; yp < height; yp++){
-	//	    cout << "\treading line " << yp << endl;
-	    source = buffer + yp * pWidth + source_x;
-	    dst = dest + (dest_y * dest_w + yp * dest_w + dest_x) * 3 ; // then increment the counters appopriately.. 
-	    for(unsigned int xp = 0; xp < width; xp++){
-		// work out the appropriate position..
-		// and perform the transformation..
-		//float sv = float(*source);
-		*raw = float(*source)/maxLevel;
-		bg = bg_sub ? threeDBackground->bg(xp, yp, zp) : 0;
-		//		bg = bg_sub ? background.bg(xp, yp) : 0;
-		//v = bias + scale * phSensor_m * (float)(*source) / maxLevel;
-		//v = bias + scale * (float)(*source) / (maxLevel * phSensor_m);
-		v = bias + scale * ((float)*source - (bg * maxLevel) )/maxLevel;
-		//		v = bias + scale * (phSensor_m * float(*source) - (bg * maxLevel) )/maxLevel;
-		//uv = bias + scale * (float(*source) / phSensor_m - (bg * maxLevel) )/maxLevel;
-		
-//float v = bias + scale * (*raw);
-		//float v = bias + scale * (float(*source)/maxLevel);
-		++raw;
-		if(v > 0){
-		    dst[0] += v * r;
-		    dst[1] += v * g;
-		    dst[2] += v * b;
-		}
-		dst += 3;
-		++source;
-	    }
-	}
-    }else{
-	for(unsigned int yp = 0; yp < height; yp++){
-	    source = buffer + yp * pWidth + source_x;
-	    dst = dest + (dest_y * dest_w + yp * dest_w + dest_x) * 3 ; // then increment the counters appopriately.. 
-	    for(unsigned int xp = 0; xp < width; xp++){
-		// work out the appropriate position..
-		// and perform the transformation..
-		//float sv = float(*source);
-	      //	        bg = bg_sub ? background.bg(xp, yp) : 0;
-		bg = bg_sub ? threeDBackground->bg(xp, yp, zp) : 0;
-		//		v = bias + scale * ( phSensor_m * float(*source) - (bg * maxLevel) )/maxLevel;
-		v = bias + scale * (float(*source) - (bg * maxLevel) )/(maxLevel);
-		//		float v = bias + scale * (float(*source)/maxLevel);
-		if(v > 0){
-		    dst[0] += v * r;
-		    dst[1] += v * g;
-		    dst[2] += v * b;
-		}
-		dst += 3;
-		++source;
-	    }
-	}
-    }
+  unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
+  std::ios::pos_type startPos = frameOffset + (std::ios::pos_type)(pWidth * 2 * source_y);
+  in->seekg(startPos);
+  in->read((char*)buffer, pWidth * height * 2);
+  if(in->fail()){
     delete buffer;
-    // at which point we seem to have done everything required..
-    return(true);
+    cerr << "Frame::readToRGB_s unable to read from offset " << startPos << "\tfor " << pWidth * height * 2 << "\tbytes" << endl;
+    in->clear();
+    return(false);
+  }
+  if(isBigEndian){
+    swapBytes((char*)buffer, pWidth * height, 2);
+  }
+  
+  unsigned short* source;
+  float* dst;
+  float bg;  // background estimate
+  float v;  // the value we calculate.. 
+
+
+  // Use a function pointer to distinguish the different variants of functions
+  
+  float (Frame::*convertFunction)(unsigned short*, float, float, float, float, float*, unsigned int, unsigned int) = 0;
+  convertFunction = raw ? &Frame::convert_s_raw : &Frame::convert_s;
+  convertFunction = chinfo.contrast ? &Frame::convert_s_contrast : convertFunction;
+  
+  for(unsigned int yp = 0; yp < height; yp++){
+    source = buffer + yp * pWidth + source_x;
+    dst = dest + (dest_y * dest_w + yp * dest_w + dest_x) * 3 ; // then increment the counters appopriately.. 
+    for(unsigned int xp = 0; xp < width; xp++){
+      bg = chinfo.bg_subtract ? chinfo.maxLevel * threeDBackground->bg(xp, yp, zp) : 0;
+
+      // variants on how to use the data provided
+      //	*raw = (float(*source) - bg)/maxLevel;
+      //		bg = bg_sub ? background.bg(xp, yp) : 0;
+      //v = bias + scale * phSensor_m * (float)(*source) / maxLevel;
+      //v = bias + scale * (float)(*source) / (maxLevel * phSensor_m);
+      
+      v = (*this.*convertFunction)(source, bg, chinfo.bias, chinfo.scale, chinfo.maxLevel, raw, xp, yp);
+      
+      //v = bias + scale * ((float)*source - bg) / maxLevel;
+      
+      //	v = bias + scale * ((float)*source - (bg * maxLevel) )/maxLevel;
+      //		v = bias + scale * (phSensor_m * float(*source) - (bg * maxLevel) )/maxLevel;
+      //uv = bias + scale * (float(*source) / phSensor_m - (bg * maxLevel) )/maxLevel;
+      if(raw)
+	++raw;
+      if(v > 0){
+	dst[0] += v * chinfo.color.r;
+	dst[1] += v * chinfo.color.g;
+	dst[2] += v * chinfo.color.b;
+      }
+      dst += 3;
+      ++source;
+    }
+  }
+  delete buffer;
+  // at which point we seem to have done everything required..
+  return(true);
 }
+
 
 //bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
 //		  unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
 //		  bool bg_sub, float maxLevel){
-bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
+
+bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int source_y, 
+			  unsigned int width, unsigned int height, 
 			  unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
 			  float maxLevel){
-    // 1. First make an appropriately sized buffer
-    // 2. Seek to the appropriate position, and read into the buffer (necessary to do full width, but the height can ofcourse be done separately)
-    // 3. Go through all values in the read position, do the transformation and 
-    
-  //    cout << "\tFrame::readToFloat_s source_x : " << source_x << "  source_y " << source_y << "  width " << width << "  height " << height
-  //	 << "  dest_x " << dest_x << "  dest_y " << dest_y << "  dest_w " << dest_w << "  maxLevel " << maxLevel << endl;
-    
-//   bg_sub = false;
-//   if(bg_sub && !background.x_m){
-//     cout << "Frame::readToFloat_s background subtraction requested: creating background object" << endl;
-//     setBackground(16, 16, 0.2);
-//   }
+  // 1. First make an appropriately sized buffer
+  // 2. Seek to the appropriate position, and read into the buffer (necessary to do full width, but the height can ofcourse be done separately)
+  // 3. Go through all values in the read position, do the transformation and 
+  
+  if(channelInfo.bg_subtract && !threeDBackground){
+    cerr << "Frame::readToRGB_s background subtraction requested, but no background object" << endl;
+    exit(1);
+  }
+  
+  // The contrast function can't handle a single X-line (which is frequently asked for)
+  // The below is a hack for this that does create incorrect behaviour (in that it shifts)
+  // the values by one vertical position. It works, since the Frame::to_float_contrast function
+  // ends up incrementing the starting position by 1 line if the relative y position is 0.
+  // This is not a good answer, but the best that I can think of which won't take rather too
+  // much time to implement. However, do be careful.
+  unsigned int buffer_height = height;
+  if(channelInfo.contrast && height == 1)
+    buffer_height = 2;
+  if(channelInfo.contrast && height == 1 && source_y == (pHeight - 1) )
+    source_y--;
 
-//   if(!bg_sub){
-//     cout << "Frame::readToFloat_s without background subtraction" << endl;
-//   }
-
-    unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
-    std::ios::pos_type startPos = frameOffset + (std::ios::pos_type)(pWidth * 2 * source_y);
-    in->seekg(startPos);
-    in->read((char*)buffer, pWidth * height * 2);
-    if(in->fail()){
-	delete buffer;
-	cerr << "Frame::readToFloat_s unable to read from offset " << startPos << "\tfor " << pWidth * height * 2 << "\tbytes" << endl;
-	in->clear();
-	return(false);
-    }
-    if(isBigEndian){
-	swapBytes((char*)buffer, pWidth * height, 2);
-    }
-
-    unsigned short* source;
-    float* dst;
-    float bg = 0;
-    for(unsigned int yp = 0; yp < height; yp++){
-	source = buffer + yp * pWidth + source_x;
-	dst = dest + (dest_y * dest_w + yp * dest_w + dest_x); // then increment the counters appopriately.. 
-	for(unsigned int xp = 0; xp < width; xp++){
-	    // work out the appropriate position..
-	    // and perform the transformation..
-	    //float sv = float(*source);
-	    //bg = bg_sub ? background.bg(xp, yp) : 0;
-	    //    cout << float(*source) << " - " << bg << " = " << float(*source) - bg << endl;
-	    *dst = float(*source) / maxLevel;
-	    //*dst = (float(*source) - bg)/maxLevel;
-	    *dst = *dst < 0 ? 0 : *dst;
-	    ++dst;
-	    ++source;
-	}
-    }
-    
+  unsigned short* buffer = new unsigned short[pWidth * buffer_height];   // which has to be 
+  std::ios::pos_type startPos = frameOffset + (std::ios::pos_type)(pWidth * 2 * source_y);
+  in->seekg(startPos);
+  in->read((char*)buffer, pWidth * buffer_height * 2);
+  if(in->fail()){
     delete buffer;
-    // at which point we seem to have done everything required..
-    return(true);
+    cerr << "Frame::readToFloat_s unable to read from offset " << startPos << "\tfor " << pWidth * height * 2 << "\tbytes" << endl;
+    in->clear();
+	return(false);
+  }
+  if(isBigEndian){
+    swapBytes((char*)buffer, pWidth * height, 2);
+  }
+  
+  unsigned short* source;
+  float* dst;
+  float bg = 0;
+  
+  float (Frame::*convertFunction)(unsigned short*, float, float, unsigned int, unsigned int) = 0;
+  convertFunction = channelInfo.contrast ? &Frame::to_float_contrast : &Frame::to_float;
+  
+  for(unsigned int yp = 0; yp < height; yp++){
+    source = buffer + yp * pWidth + source_x;
+    dst = dest + (dest_y * dest_w + yp * dest_w + dest_x); // then increment the counters appopriately.. 
+    for(unsigned int xp = 0; xp < width; xp++){
+      bg = channelInfo.bg_subtract ? channelInfo.maxLevel * threeDBackground->bg(xp, yp, zp) : 0;
+      //bg = bg_sub ? background.bg(xp, yp) : 0;
+
+      //      *dst = float(*source) / maxLevel;
+      //*dst = (float(*source) - bg)/maxLevel;
+      *dst = (*this.*convertFunction)(source, bg, channelInfo.maxLevel, xp, yp);
+
+      *dst = *dst < 0 ? 0 : *dst;
+      ++dst;
+      ++source;
+    }
+  }
+  
+  delete buffer;
+  // at which point we seem to have done everything required..
+  return(true);
 }
 
 void Frame::swapBytes(char* data, unsigned int wn, unsigned int ws){    // swaps in place

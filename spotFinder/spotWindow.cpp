@@ -70,6 +70,10 @@ SpotWindow::SpotWindow(int Width, int Height, int Depth, QWidget* parent, const 
     connect(blobMapperWidget, SIGNAL(findNuclearPerimeters(int, float)), this, SIGNAL(mapBlobs(int, float)) );
     connect(blobMapperWidget, SIGNAL(findStuff(int, float, int, int, int, float)), this, SIGNAL(mapBlobs(int, float, int, int, int, float)) );
 
+    cavityBallWidget = new CavityBallInputWidget(this);
+    connect(cavityBallWidget, SIGNAL(mapCavities(int, int, int, int, float, float)),
+	    this, SIGNAL(mapCavities(int, int, int, int, float, float)) );
+
     setWidget = new SetWidget("Find Sets", this);
     connect(setWidget, SIGNAL(findSets(int, int, int, float)), this, SIGNAL(findSets(int, int, int, float)) );
 
@@ -108,6 +112,7 @@ SpotWindow::SpotWindow(int Width, int Height, int Depth, QWidget* parent, const 
     vbox->addWidget(nucleusWidget);
     vbox->addWidget(contrastWidget);
     vbox->addWidget(blobMapperWidget);
+    vbox->addWidget(cavityBallWidget);
     vbox->addWidget(setWidget);
     vbox->addWidget(spotDensityWidget);
     vbox->addWidget(blurWidget);
@@ -213,6 +218,7 @@ void SpotWindow::setChannels(vector<QString> Channels){
     setWidget->setChannels(Channels);
     blurWidget->setChannels(Channels);
     cout << "\t\t\tstuff OK " << endl;
+    cavityBallWidget->setChannels(Channels);
 }
 
 void SpotWindow::setNormalisations(vector<float*> areas, int width, int height){

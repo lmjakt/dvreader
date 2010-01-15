@@ -84,6 +84,7 @@ vector<vector<float> > ImageAnalyser::x_line(int y_pos, int z_pos){
     vector<float> channels = data->channels();
     vector<vector<float> > lines(channels.size());
     float* line = new float[l];
+    memset((void*)line, 0, l * sizeof(float));
     cout << "ImageAnalyser::x_line pos : " << y_pos << ", " << z_pos << "  length : " << l << endl;
     for(uint i=0; i < channels.size(); i++){
 	cout << "doing thing for channel : " << i << "  wavelength : " << channels[i] << endl;
@@ -172,6 +173,7 @@ vector<vector<float> > ImageAnalyser::mip_xline(int ypos){
     vector<float> channels = data->channels();
     vector<vector<float> > lines(channels.size());
     float* line = new float[l];
+    memset((void*)line, 0, sizeof(float));
     for(uint i=0; i < channels.size(); i++){
 	lines[i].resize(l);
 	if(!data->readToFloatPro(line, 0, l, ypos, 1, i)){    /// bit bad since we are not setting up stuff well here..
@@ -190,6 +192,7 @@ vector<vector<float> > ImageAnalyser::y_line(int x_pos, int z_pos){
     vector<float> channels = data->channels();
     vector<vector<float> > lines(channels.size());
     float* line = new float[l];
+    memset((void*)line, 0, l * sizeof(float));
     cout << "ImageAnalyser::y_line : " << x_pos << ", " << z_pos << "  length : " << l << endl;
     for(uint i=0; i < channels.size(); i++){
 	// anyway, let's copy the line ..
@@ -213,6 +216,7 @@ vector<vector<float> > ImageAnalyser::mip_yline(int xpos){
     vector<float> channels = data->channels();
     vector<vector<float> > lines(channels.size());
     float* line = new float[l];
+    memset((void*)line, 0, l * sizeof(float));
     for(uint i=0; i < channels.size(); i++){
 	lines[i].resize(l);
 	if(!data->readToFloatPro(line, xpos, 1, 0, l, i)){    /// bit bad since we are not setting up stuff well here..
@@ -248,7 +252,7 @@ bool ImageAnalyser::simpleLine(float* line, int xb, int yb, int zb, int l, Dimen
 	case YDIM :   // first check if we can read it from the cache, if not delete area cache and make a new one
 //	    cout << "simpleLine YDIM " << endl;
 	    if(!( ok = area_cache->line(line, xb, yb, zb, l, YDIM, wi))){   // this should set the resulting value of ok .. 
-//		cout << "\t\tneed to make a new cache " << endl;
+		cout << "\t\tneed to make a new cache " << endl;
 		float* newCache = new float[area_cache_width * data->pheight()];
 		memset((void*)newCache, 0, sizeof(float) * area_cache_width * data->pheight());
 		int x = (xb + area_cache_width) > data->pwidth() ? data->pwidth() - area_cache_width : xb;

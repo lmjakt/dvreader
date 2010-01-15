@@ -1,5 +1,6 @@
+# change debug to release and recompile when working
 TEMPLATE        = app
-CONFIG          += qt opengl release  thread
+CONFIG          += qt opengl debug thread
 QT		+= qt3support 
 CONFIG          += console
 LIBS		+= -lrt
@@ -37,6 +38,7 @@ HEADERS		= \
 		spotFinder/spotMapper/nearestNeighborMapper.h \
 		spotFinder/spotMapper/spotPerimeterMapper.h \
 		spotFinder/cell.h \
+		spotFinder/channelSelector.h \
 		maskPainter.h \
 		pointViewer/pointViewWidget.h \
 		button/arrowButton.h \
@@ -75,6 +77,11 @@ HEADERS		= \
 		image/background.h \
 		image/backgroundWidget.h \
 		image/backgroundWindow.h \
+		image/rectangle.h \
+		cavity/cavityBall.h \
+		cavity/cavityBallInputWidget.h \
+		cavity/cavityMapper.h \
+		cavity/ballMap.h \
 		distanceMapper/compareController.h \
 		distanceMapper/distanceMapper.h \
 		distanceMapper/distanceViewer.h \
@@ -117,6 +124,7 @@ SOURCES		= \
 		spotFinder/spotMapper/nearestNeighborMapper.cpp \
 		spotFinder/spotMapper/spotPerimeterMapper.cpp \
 		spotFinder/cell.cpp \
+		spotFinder/channelSelector.cpp \
 		maskPainter.cpp \
 		pointViewer/pointViewWidget.cpp \
 		button/arrowButton.cpp \
@@ -153,6 +161,9 @@ SOURCES		= \
 		image/background.cpp \
 		image/backgroundWidget.cpp \
 		image/backgroundWindow.cpp \
+		cavity/cavityBall.cpp \
+		cavity/cavityBallInputWidget.cpp \
+		cavity/cavityMapper.cpp \
 		distanceMapper/compareController.cpp \
 		distanceMapper/distanceMapper.cpp \
 		distanceMapper/distanceViewer.cpp \

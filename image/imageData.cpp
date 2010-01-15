@@ -66,6 +66,10 @@ bool ImageData::point(float& p, int xp, int yp, int zp, unsigned int wi){
     return(ok);
 }
 
+bool ImageData::point(float& p, pos& pt, unsigned int wi){
+  return( point(p, pt.x, pt.y, pt.z, wi) );
+}
+
 void ImageData::readData(int x, int y, int z, uint wi){
     if( rc_width != cache_width || rc_height != cache_height || rc_depth != cache_depth || !(volume->hasData()) )
 	makeCache();

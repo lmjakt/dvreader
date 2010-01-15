@@ -4,17 +4,18 @@
 // a small functor that converts from linear to volume coordinates
 
 #include <iostream>
+#include "../dataStructs.h"
 
 class CoordConverter
 {
  private:
-    unsigned long w, h, d;
-    unsigned long s;
+    o_set w, h, d;
+    o_set s;
  public:
     CoordConverter(int width, int height, int depth){
-	w = (unsigned long)width;
-	h = (unsigned long)height;
-	d = (unsigned long)depth;
+	w = (o_set)width;
+	h = (o_set)height;
+	d = (o_set)depth;
 	s = w * h * d;
     }
     CoordConverter(unsigned long width, unsigned long height, unsigned long depth){

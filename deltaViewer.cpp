@@ -55,11 +55,14 @@
 #include "image/blobMapper.h"   // probably move this to somewhere else.. 
 #include "image/imageData.h"
 #include "image/coordConverter.h"
+#include "cavity/cavityMapper.h"
 
+////////// temporary for checking what it looks like.. 
+#include "cavity/cavityBall.h"
+#include "image/background.h"
 
 //#include "pointViewer/pointViewWidget.h"
 
-using namespace std;
 
 const int redrawWait = 5;
 const int maxMag = 20;
@@ -68,37 +71,37 @@ const float maxLevel = 4096;    // max for a 12 bit unsigned camera.. (but after
 
 
 void ChannelOffset::changeOffset(int offsetDirection){
-        switch(offsetDirection){
-	case XPLUS :
-	    xo++;
-	    break;
-	case XMINUS :
-	    xo--;
-	    xo = xo < 0 ? 0 : xo;
-	    break;
-	case YPLUS :
-	    yo++;
-	    break;
-	case YMINUS :
-	    yo--;
-	    yo = yo < 0 ? 0 : yo;
-	    break;
-	case ZPLUS :
-	    zo++;
-	    break;
-	case ZMINUS :
-	    zo--;
-	    //zo = zo < 0 ? 0 : zo;
-	    break;
-	case XYRESET :
-	    xo = yo = 0;
-	    break;
-	case ZRESET :
-	    zo = 0;
-	    break;
-	default :
-	    cerr << "unknown offset id : " << endl;
-    }
+  switch(offsetDirection){
+  case XPLUS :
+    xo++;
+    break;
+  case XMINUS :
+    xo--;
+    xo = xo < 0 ? 0 : xo;
+    break;
+  case YPLUS :
+    yo++;
+    break;
+  case YMINUS :
+    yo--;
+    yo = yo < 0 ? 0 : yo;
+    break;
+  case ZPLUS :
+    zo++;
+    break;
+  case ZMINUS :
+    zo--;
+    //zo = zo < 0 ? 0 : zo;
+    break;
+  case XYRESET :
+    xo = yo = 0;
+    break;
+  case ZRESET :
+    zo = 0;
+    break;
+  default :
+    cerr << "unknown offset id : " << endl;
+  }
 }
 
 DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, QWidget* parent, const char* name)
@@ -106,8 +109,8 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 {
   lastMaximumValue = -1;
   animate = false;
-
-//   // before anything else, let's try to have a look at the font and see if we can get something
+  
+  //   // before anything else, let's try to have a look at the font and see if we can get something
 //   // reasonable
 //   setContentsMargins(1, 1, 1, 1);
 //   QFont widgetFont = font();
@@ -202,6 +205,8 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   connect(spotWindow, SIGNAL(mapBlobs(int, float)), this, SLOT(mapBlobs(int, float)) );
   connect(spotWindow, SIGNAL(mapBlobs(int, float, int, int, int, float)),
 	  this, SLOT(mapBlobs(int, float, int, int, int, float)) );
+  connect(spotWindow, SIGNAL(mapCavities(int, int, int, int, float, float)),
+	  this, SLOT(mapCavities(int, int, int, int, float, float)) );
   connect(spotWindow, SIGNAL(findSets(int, int, int, float)), this, SLOT(findSets(int, int, int, float)) );
   connect(spotWindow, SIGNAL(setUseProjection(bool)), this, SLOT(setSpotsUseProjection(bool)) );
   connect(spotWindow, SIGNAL(findSpotDensity(int, double, double)), this, SLOT(determineSpotDensities(int, double, double)) );
@@ -613,6 +618,13 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   glViewer->show();
   projection->show();
 
+  //  Temporary, remove along with includes of background and cavityBall
+  // ImageData* idata = new ImageData(fileSet, 1);
+  // map<o_set, CavityBall*> cavityMap; 
+  // CavityBall* cBall = new CavityBall(idata, new Background(idata, 8, 8, 4, 20), cavityMap,
+  // 				     (unsigned int)1, 8, 8, 6, 632, 322, 21,
+  // 				     0.08, 100.0);
+  // aux_points = cBall->points();
 }
 
 void DeltaViewer::offSetChanged(int id){
@@ -779,13 +791,26 @@ void DeltaViewer::setImage(int slice){
     sectionSpin->setValue(slice);
     sectionSpin->blockSignals(false);
 
+    // This depends on the order of the colorChoosers and hence is not particularly a good thing
+    vector<channel_info> chinfo;
+    for(uint i=0; i < colorChoosers.size(); ++i){
+      if(i >= scales.size() || i >= biases.size()){
+	cerr << "DeltaViewer::setImage colorChoosers.size is larger than scales.size or biases.size()" << endl;
+	exit(1);
+      }
+      float r, g, b;
+      colorChoosers[i]->color(&r, &g, &b);
+      chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
+				     useComponents->isChecked(), colorChoosers[i]->subtractColor()) );
+    }
+
     // this should be set somewhere else, but for now..
     // and since I need to give a vector of a colour map rather than a map.. 
-    vector<color_map> cv;
-    for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
-      //	cout << "color map wave length = " << (*it).first << "  color " << (*it).second.r << "," << (*it).second.g << "," << (*it).second.b << endl;
-	cv.push_back((*it).second);
-    }
+    // vector<color_map> cv;
+    // for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
+    //   //	cout << "color map wave length = " << (*it).first << "  color " << (*it).second.r << "," << (*it).second.g << "," << (*it).second.b << endl;
+    // 	cv.push_back((*it).second);
+    // }
 
     // but more importantly do something to actually update the image.. 
     float* data = new float[textureSize * textureSize * 3];
@@ -811,9 +836,11 @@ void DeltaViewer::setImage(int slice){
 	    memset((void*)data, 0, textureSize * textureSize * 3 * sizeof(float));
 	
 	    //	    cout << "calling fileset reatToRGB with " << xb << "," << yb << " : " << tw << "x" << th << endl;
-	    if(fileSet->readToRGB(data, xb, yb, tw, th, currentSliceNo, maxLevel, biases, scales, cv, useComponents->isChecked(), raw)){
+	    if(fileSet->readToRGB(data, xb, yb, tw, th, currentSliceNo, chinfo, raw)){
+	      //	    if(fileSet->readToRGB(data, xb, yb, tw, th, currentSliceNo, maxLevel, biases, scales, cv, useComponents->isChecked(), raw)){
 		textureCounter++;
 		paintBlobs(data, xb, yb, currentSliceNo, tw, th);
+		paint(data, aux_points, Rectangle(xb, yb, tw, th), currentSliceNo, color_map(0.1, 0.1, 0.1) );
 //		for(set<BlobMapperWidget*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
 //		    paintBlobs(data, xb, yb, currentSliceNo, tw, th, (*it));
 		glViewer->setImage(data, tw, th, colCounter, rowCounter);
@@ -842,16 +869,27 @@ void DeltaViewer::setImage(int slice){
 bool DeltaViewer::readToRGB(float* dest, int xb, int yb, unsigned int tw, unsigned int th, unsigned int slice_no){
     // this is a bit redundant with the above function and we should probably rewrite the above function to use this 
     // one..
-    
+    // This function is called from PerimeterWindow ??  
     if(slice_no >= (uint)fileSet->sectionNo()){
 	return(false);
     }
     // this is damn ugly..
-    vector<color_map> cv;
-    for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
-	cv.push_back((*it).second);
+    vector<channel_info> chinfo;
+    for(uint i=0; i < colorChoosers.size(); ++i){
+      if(i >= scales.size() || i >= biases.size()){
+	cerr << "DeltaViewer::setImage colorChoosers.size is larger than scales.size or biases.size()" << endl;
+	exit(1);
+      }
+      float r, g, b;
+      colorChoosers[i]->color(&r, &g, &b);
+      chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
+				     useComponents->isChecked(), colorChoosers[i]->subtractColor()) );
     }
-    return(fileSet->readToRGB(dest, (uint)xb, (uint)yb, tw, th, slice_no, maxLevel, biases, scales, cv, useComponents->isChecked(), 0) );
+    // vector<color_map> cv;
+    // for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
+    // 	cv.push_back((*it).second);
+    // }
+    return(fileSet->readToRGB(dest, (uint)xb, (uint)yb, tw, th, slice_no, chinfo, 0) );
     
 }
 
@@ -1317,6 +1355,22 @@ void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h,
     }
 }
 
+void DeltaViewer::paint(float* area, std::vector<o_set> points, Rectangle rect, int z, color_map cm){
+  CoordConverter cc(fileSet->pwidth(), fileSet->pheight(), fileSet->sectionNo());
+  
+  int px, py, pz;
+  int offset;
+  for(vector<o_set>::iterator it=points.begin(); it != points.end(); ++it){
+    cc.vol(*it, px, py, pz);
+    if(pz == z && rect.contains(px, py)){
+      offset = 3 * ( (py - rect.y) * rect.width + (px - rect.x) );
+      area[ offset ] += cm.r;
+      area[ offset + 1] += cm.g;
+      area[ offset + 2] += cm.b;
+    }
+  }
+}
+
 void DeltaViewer::exportPeaks(){
     // first check if we have some peaks worth exporting
     if(!spotsWidgets.size())
@@ -1741,8 +1795,6 @@ void DeltaViewer::displayImage(){
 }
 
 void DeltaViewer::calculateDistribution(){
-    cout << "DeltaViewer::calculateDistribution function currently out of order" << endl;
-    // return;
     if(!raw){
 	cerr << "DeltaViewer::calculateDistribution raw is 0" << endl;
 	return;
@@ -2249,6 +2301,12 @@ void DeltaViewer::mapBlobs(int wi, float minValue, int xw, int yw, int zw, float
     blobManager->addBlobMapper(bm, fInfo, fName.latin1(), wiColor(wi));
 }
 
+void DeltaViewer::mapCavities(int wi, int xr, int yr, int zr, float P, float DP){
+  // create mapper is enough to start the thing:
+  CavityMapper* cmapper = new CavityMapper(new ImageData(fileSet, 1), (uint)wi,
+					   xr, yr, zr, P, DP);
+  // That actually should start the whole edifice running. 
+}
 
 void DeltaViewer::findSets(int wi, int minSize, int maxSize, float minValue){
     cout << "DeltaViewer FindSets " << endl;

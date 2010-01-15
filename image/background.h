@@ -1,3 +1,6 @@
+#ifndef BACKGROUND_H
+#define BACKGROUND_H
+
 //Copyright Notice
 /*
     dvReader deltavision image viewer and analysis tool
@@ -40,15 +43,15 @@
 // it in it's destructor. A reference to an object might be preferrable, but, user beware is
 // easier to implement.
 
-struct pos {
-    int x, y, z;
-    pos(){
-	x=y=z=0;
-    }
-    pos(int X, int Y, int Z){
-	x=X; y=Y; z=Z;
-    }
-};
+/* struct pos { */
+/*     int x, y, z; */
+/*     pos(){ */
+/* 	x=y=z=0; */
+/*     } */
+/*     pos(int X, int Y, int Z){ */
+/* 	x=X; y=Y; z=Z; */
+/*     } */
+/* }; */
 
 class Background {
     public :
@@ -57,6 +60,7 @@ class Background {
     ~Background();
     void setBackground(unsigned int waveindex);
     float bg(int x, int y, int z);
+    float bg(pos p);
     void setParameters(int xw, int yw, int zw, float pcnt);
     void setParameters(backgroundPars bgp);
     
@@ -80,4 +84,4 @@ class Background {
     
 };
 
-
+#endif

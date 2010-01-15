@@ -29,6 +29,8 @@
 #include <vector>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include "../dataStructs.h"
 
 class Background;
 
@@ -102,11 +104,18 @@ class Frame {
     }
 
     // and functions to read data from the file.
-
+    // These are horrible functions as they take far too many arguments that define how to read the data in
+    // I should replace these with a pointer to some sort of data structure that is owned by the DeltaViewer
+    // object, and which manipulates this when anything needs to be done. But maybe that can wait a bit.
+    
     // the destination is a rectangular array, of width x height. fill data from source into the appropriate positions.. 
-    bool readToRGB(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
-		   unsigned int dest_x, unsigned int dest_y, unsigned int dest_w,  float maxLevel, 
-		   float bias, float scale, float r, float g, float b, bool bg_sub, float* raw=0); 
+    bool readToRGB(float* dest, unsigned int source_x, unsigned int source_y, 
+		   unsigned int width, unsigned int height, 
+		   unsigned int dest_x, unsigned int dest_y, 
+		   unsigned int dest_w, channel_info chinfo, 
+		   float* raw=0);
+    //		   float maxLevel, 
+    //		   float bias, float scale, float r, float g, float b, bool bg_sub, float* raw=0); 
 
 
     //    bool readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
@@ -121,7 +130,7 @@ class Frame {
 
     private :
 	
-	unsigned int pWidth;
+    unsigned int pWidth;
     unsigned int pHeight;     // pixel parameters
     
     std::ifstream* in;        // the file from which we will be reading
@@ -152,15 +161,24 @@ class Frame {
     // a background object
     td_bg background; 
     Background* threeDBackground;
+    channel_info channelInfo; // set by the readToRGB function.
 
     // assume float information..
-    bool readToRGB_r(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
-		     unsigned int dest_x, unsigned int dest_y, unsigned int dest_w,  float maxLevel, 
-		     float bias, float scale, float r, float g, float b, float* raw=0); 
+    bool readToRGB_r(float* dest, unsigned int source_x, unsigned int source_y, 
+		     unsigned int width, unsigned int height, 
+		     unsigned int dest_x, unsigned int dest_y, 
+		     unsigned int dest_w, channel_info chinfo,
+		     float* raw=0);
+    //		     float maxLevel, 
+    //		     float bias, float scale, float r, float g, float b, float* raw=0); 
     // assume short information in file 
-    bool readToRGB_s(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
-		     unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, float maxLevel, 
-		     float bias, float scale, float r, float g, float b, bool bg_sub, float* raw=0);
+    bool readToRGB_s(float* dest, unsigned int source_x, unsigned int source_y, 
+		     unsigned int width, unsigned int height, 
+		     unsigned int dest_x, unsigned int dest_y, 
+		     unsigned int dest_w, channel_info chinfo,
+		     float* raw=0);
+    //		     float maxLevel, 
+    //		     float bias, float scale, float r, float g, float b, bool bg_sub, float* raw=0);
 
     //    bool readToFloat_s(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
     //	       unsigned int dest_x, unsigned int dest_y, unsigned int dest_w,  
@@ -174,6 +192,38 @@ class Frame {
 
     bool setBackground(int xm, int ym, float qntile);   // xm, ym and qntile need to be settable.
 
+    // functions that can be used to convert the raw 2 byte numbers to the relevant numbers.
+    float convert_s(unsigned short* source, float bg, float bias, float scale, 
+		    float maxLevel, float* raw, unsigned int xp, unsigned int yp){
+      return( bias + scale * ((float)*source - bg) / maxLevel );
+    }
+    float convert_s_raw(unsigned short* source, float bg, float bias, float scale, 
+			float maxLevel, float* raw, unsigned int xp, unsigned int yp){
+      *raw = (float(*source) - bg) / maxLevel;
+      return( bias + scale * ((float)*source - bg) / maxLevel );
+    }
+    float convert_s_contrast(unsigned short* source, float bg, float bias, float scale, 
+			     float maxLevel, float* raw, unsigned int xp, unsigned int yp){
+      source = xp > 0 ? source : source + 1;
+      source = yp > 0 ? source : source + pWidth; // hack that causes incorrect behaviour at edges.
+      int ct1 = abs( *(source - 1) - (*source) );
+      int ct2 = abs( *(source - pWidth) - (*source) );
+      int ct3 = abs( *(source - pWidth - 1) - (*source) );
+      ct1 = ct1 > ct2 ? ct1 : ct2;
+      ct1 = ct1 > ct3 ? ct1 : ct3;
+      if(raw)
+	(*raw) = float(ct1) / maxLevel;
+      return(bias + scale * float(ct1)/maxLevel);
+    }
+    
+    float to_float(unsigned short* source, float bg, 
+		   float maxLevel, unsigned int xp, unsigned int yp){
+      return( (float(*source) - bg) / maxLevel );
+    }
+    float to_float_contrast(unsigned short* source, float bg, 
+			    float maxLevel, unsigned int xp, unsigned int yp){
+      return( convert_s_contrast(source, bg, 0, 1.0, maxLevel, 0, xp, yp) );
+    }
 };
     
 #endif
