@@ -4,6 +4,7 @@
 #include "../image/background.h"
 #include "../image/imageData.h"
 #include "../image/volumeMask.h"
+#include "../image/volumeMap.h"
 #include "../dataStructs.h"
 #include "ballMap.h"
 #include <map>
@@ -55,23 +56,31 @@ class CavityBall
 {
 
  public:
-  CavityBall(ImageData* id, Background* bg, BallMap* bmap,
+  CavityBall(ImageData* id, Background* bg, VolumeMap<CavityBall*>* bmap,
 	     unsigned int waveIndex,
 	     int xr, int yr, int zr,
-	     int x, int y, int z,
+	     //	     int x, int y, int z,
 	     float maxP, float maxDirP);
 
   ~CavityBall();
+  void findCavity(int x, int y , int z);
+  void findCavity(int x, int y, int z, 
+		  std::vector<pos>& surf, std::vector<pos>& vol);
+  void makeBall();
   void printBallStats();
   std::vector<o_set> points(){
     return(members);
+  }
+  void ballPoints(std::vector<pos>& surf, std::vector<pos>& vol){
+    surf = surface;
+    vol = volume;
   }
 
  private:
   ImageData* image;
   Background* background;
 
-  BallMap* ballMap;
+  VolumeMap<CavityBall*>* ballMap;
   //  std::map<o_set, CavityBall*>* ballMap;
   std::vector<o_set> members;
 
@@ -82,19 +91,19 @@ class CavityBall
   float maxDirPenalty;
   float maxPenalty;
   int xi, yi, zi;     // the initial positions
-  int xc, yc, zc;     // the current position
+  int recurseCount;
+  //int xc, yc, zc;     // the current position
   unsigned int wi;
   int width, height, depth; // the dimensions of the image.
 
   int xRadius, yRadius, zRadius;
 
   void init();
-  void makeBall();
   void fillBall(std::set<pos>& tsurf);
   VolumeMask* makeMask(std::set<pos>& tsurf);
   VolumeMask* makeMask(std::vector<pos>& tsurf);
   void fillMask(VolumeMask* mask, int x, int y, int z);
-  void expand(pos p, pos dp, dirPenalty dirP);
+  void expand(pos p, pos dp);
   bool isSurface(VolumeMask* mask, int x, int y, int z);
 
   o_set oset(pos& p){

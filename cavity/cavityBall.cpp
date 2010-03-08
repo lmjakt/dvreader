@@ -6,10 +6,10 @@
 
 using namespace std;
 
-CavityBall::CavityBall(ImageData* id, Background* bg, BallMap* bmap,
+CavityBall::CavityBall(ImageData* id, Background* bg, VolumeMap<CavityBall*>* bmap,
 		       unsigned int waveIndex,
 		       int xr, int yr, int zr,
-		       int x, int y, int z,
+		       //		       int x, int y, int z,
 		       float maxP, float maxDirP)
 {
   //  cout << "cavity ball constructor" << endl;
@@ -18,7 +18,9 @@ CavityBall::CavityBall(ImageData* id, Background* bg, BallMap* bmap,
   background = bg;
   ballMap = bmap;
   wi = waveIndex;
-  xi = x; yi = y; zi = z;
+  xi = yi = zi = 0;
+  //  xi = x; yi = y; zi = z;
+  recurseCount = 0;
   xRadius = xr;
   yRadius = yr;
   zRadius = zr;
@@ -27,18 +29,36 @@ CavityBall::CavityBall(ImageData* id, Background* bg, BallMap* bmap,
   maxDirPenalty=maxDirP;
 
   //cout << "cavity ball constructor calling init()" << endl;
-  init();
+  // init();
   //cout << "cavity ball constructor done" << endl;
-  if(members.size()){
-    cout << "\tballMap size : " << ballMap->size() << "\t";
-    printBallStats();
-  }
+  // if(members.size()){
+  //   cout << "\tballMap size : " << ballMap->mapSize() << "\t";
+  //   printBallStats();
+  // }
 }
 
 
 CavityBall::~CavityBall(){
   // Don't delete image or background as these ought to be shared by
   // the cavity balls (anything else would be terrible).
+}
+
+void CavityBall::findCavity(int x, int y, int z){
+  xi = x;
+  yi = y;
+  zi = z;
+  makeBall();
+  init();
+}
+
+void CavityBall::findCavity(int x, int y, int z,
+			    std::vector<pos>& surf, std::vector<pos>& vol){
+  xi = x;
+  yi = y;
+  zi = z;
+  surface = surf;
+  volume = vol;
+  init();
 }
 
 void CavityBall::printBallStats(){
@@ -68,16 +88,15 @@ void CavityBall::printBallStats(){
        << ymin << "->" << ymax << "),("
        << zmin << "->" << zmax << ")" << endl;
 }
-       
 
 void CavityBall::init(){
-  CavityBall* check = ballMap->ball(zi * width * height + yi * width + xi);
+  CavityBall* check = ballMap->value(zi * width * height + yi * width + xi);
 
-  cout << xi << "," << yi << "," << zi << "  : " << ballMap->size() << "  check: " << check << endl;
-  if(ballMap->ball(zi * width * height + yi * width + xi))
+  //cout << xi << "," << yi << "," << zi << "  : " << ballMap->mapSize() << "  check: " << check << endl;
+  if(ballMap->value(zi * width * height + yi * width + xi))
      return;
 
-  makeBall();  
+  //  makeBall();
   // check the penalty for all of the volume points;
   pos origin(xi, yi, zi);
   float penalty = 0;
@@ -97,7 +116,7 @@ void CavityBall::init(){
       inBound = false;
       break;
     }
-    if( ballMap->ball(oset(cp)) ){
+    if( ballMap->value(oset(cp)) ){
       inBound = false;
       break;
     }
@@ -105,7 +124,7 @@ void CavityBall::init(){
   //cout << "End of looking for an origin for the ball: penalty : " << penalty << endl;
   // if we end up out of bounds, return without doing anything.
   if(!inBound || tooHigh){
-    cout << "!inBound || tooHight" << endl;
+    //    cout << "!inBound || tooHight" << endl;
     return;
   }
   
@@ -129,10 +148,8 @@ void CavityBall::init(){
     ballMap->insert(oset(cp), this);
     members.push_back(oset(cp));
   }
-  dirPenalty dPenalty;
-  cout << "calling expand" << endl;
-  expand(origin, pos(0, 0, 0), dPenalty);
-  cout << "expand returned" << endl;
+  //  dirPenalty dPenalty;
+  expand(origin, pos(0, 0, 0));
   printBallStats();
 }
 
@@ -264,8 +281,8 @@ void CavityBall::fillMask(VolumeMask* mask, int x, int y, int z){
   fillMask(mask, x, y, z+1);
 }
 
-void CavityBall::expand(pos p, pos dp, dirPenalty dirP){
-  cout << "expand pos : " << dp << "\t" << p << " --> " << p + dp << endl;
+void CavityBall::expand(pos p, pos dp){
+  //cout << "expand pos : " << endl; //<< dp << "\t" << p << " --> " << p + dp << endl;
   p = p + dp;
   if(dp.x || dp.y || dp.z){
     // evaluate the position here, and decide whether to return or not
@@ -296,27 +313,27 @@ void CavityBall::expand(pos p, pos dp, dirPenalty dirP){
       }
       //cout << "\t" << v << endl;
       if(v > maxPenalty){
-	cout << "value above maxPenalty : " << v << " > " << maxPenalty << "  : " << cp << endl;
+	//cout << "value above maxPenalty : " << v << " > " << maxPenalty << "  : " << cp << endl;
 	doReturn = true;
 	continue;
       }
-      CavityBall* ball = ballMap->ball(oset( cp ));
+      CavityBall* ball = ballMap->value(oset( cp ));
       //cout << "\tball: " << ball << endl;
       if(ball){
 	if(ball != this){
 	  doReturn = true;
-	  cout << "neighbouring another ball, don't continue" << endl;
+	  //	  cout << "neighbouring another ball, don't continue" << endl;
 	}
 	continue;
       }
-      cout << "\tinserting" << endl;
+      //      cout << "\tinserting" << endl;
       ballMap->insert(oset(cp), this);
       members.push_back( oset(cp) );
       //newPoints.push_back(v);
       penalty += v;
       ++count;
     }
-    cout << "\tcount : " << count << endl;
+    //    cout << "\tcount : " << count << endl;
     if(!count)
       return;
 
@@ -331,20 +348,25 @@ void CavityBall::expand(pos p, pos dp, dirPenalty dirP){
     // //    if( (penalty / (float)count) > maxPenalty || dirP.penalty(dp.x, dp.y, dp.z) > maxDirPenalty)
     // // doReturn = true;
     if(doReturn){
-      cout << "Returning after expanding to " << members.size() << "  map : " << ballMap->size() << "  pos: " << cp << endl;
+      //      cout << "Returning after expanding to " << members.size() << "  map : " << ballMap->mapSize() << "  pos: " << cp << endl;
       return;
     }
   }
-  cout << "\texpanding daughters: " << endl;
+  //  cout << "\texpanding daughters: " << endl;
   for(int dx=-1; dx < 2; dx += 2){
     for(int dy=-1; dy < 2; dy += 2){
       for(int dz=-1; dz < 2; dz += 2){
-	cout << "calling expand : " << dx << "," << dy << "," << dz << " + " << p << endl;
-	expand(p, pos(dx, dy, dz), dirP);
+	//cout << "calling expand : " << dx << "," << dy << "," << dz << " + " << p << endl;
+	++recurseCount;
+	if(members.size() > 1500000){
+	  cout << "Returning since members too big: " << members.size() << "  recurseCount " << recurseCount << endl;
+	  return;
+	}
+	expand(p, pos(dx, dy, dz));
       }
     }
   }
-  cout << "Finished expansion" << endl;
+  //  cout << "Finished expansion" << endl;
   return;
 }
 

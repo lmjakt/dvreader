@@ -70,49 +70,49 @@
 using namespace std;
 
 enum OffsetDirection { 
-    XPLUS, XMINUS, YPLUS, YMINUS, ZPLUS, ZMINUS, XYRESET, ZRESET
+  XPLUS, XMINUS, YPLUS, YMINUS, ZPLUS, ZMINUS, XYRESET, ZRESET
 };
 
 class ChannelOffset {
-    int xo, yo, zo;
-    int wl;   // the wavelength..
-    
-    public :
-	ChannelOffset(int w){
-	wl = w;
-	xo = yo = zo = 0;
-    }
-    ChannelOffset(){
-	wl = xo = yo = zo = 0;
-    }
-    void changeOffset(int offsetDirection);   // use a switch and the above offset directions..
-    int x(){ return(xo); }
-    int y(){ return(yo); }
-    int z(){ return(zo); }
-    int w(){ return(wl); }
+  int xo, yo, zo;
+  int wl;   // the wavelength..
+  
+ public :
+  ChannelOffset(int w){
+    wl = w;
+    xo = yo = zo = 0;
+  }
+  ChannelOffset(){
+    wl = xo = yo = zo = 0;
+  }
+  void changeOffset(int offsetDirection);   // use a switch and the above offset directions..
+  int x(){ return(xo); }
+  int y(){ return(yo); }
+  int z(){ return(zo); }
+  int w(){ return(wl); }
 };
 
 class DeltaViewer : public QWidget 
 {
   Q_OBJECT
-
+    
     public :
-    DeltaViewer(map<string, string> opt_commands, const char* ifName=0,  QWidget* parent=0, const char* name=0);
+  DeltaViewer(map<string, string> opt_commands, const char* ifName=0,  QWidget* parent=0, const char* name=0);
   ~DeltaViewer(){
-      delete imageAnalyser;
-      delete reader;
+    delete imageAnalyser;
+    delete reader;
   }
   bool readToRGB(float* dest, int xb, int yb, unsigned int tw, unsigned int th, unsigned int slice_no);
   bool readToRGBPro(float* dest, int xb, int yb, unsigned int tw, unsigned int th);
   void int_color(int i, float& r, float& g, float& b);
-
-  private :
-    void setRanges(QString text);  // take a word or a line or something and set the parameters.. 
+  
+ private :
+  void setRanges(QString text);  // take a word or a line or something and set the parameters.. 
   QString readRanges();
   
   
   private slots :
-    void nextImage();
+  void nextImage();
   void previousImage();
   void firstImage();
   void lastImage();
@@ -127,8 +127,8 @@ class DeltaViewer : public QWidget
   void paintBlobs(float* area, int xo, int yo, int z, int w, int h, bool isProjection=false);
   void paintBlobs(float* area, int xo, int yo, int z, int w, int h, 
 		  BlobMapperWidget* blb, bool isProjection);
-  void paint(float* area, std::vector<o_set> points, Rectangle rect, int z, color_map cm);
-
+  void paint(float* area, std::vector<std::vector<o_set> >& points, Rectangle rect, int z, color_map cm);
+  
   void exportPeaks();  // write the peaks to a file in a reasonable manner.. 
   void paintNuclei(float* area, int px, int py, int w, int h);  // and this checks if there are any nuclei to be painted.. (but a bit more tricky)
   void paintParameterData(float* area, int px, int py, int w, int h);
@@ -148,19 +148,19 @@ class DeltaViewer : public QWidget
   void pasteRanges();   // paste all ranges to the distChoosers.. 
   void saveRanges();    // save ranges to a file.. 
   void readRangesFromFile();
-
+  
   void setWaveColors(int wi, float r, float g, float b);
   void setWaveColors();   // basically just for init.. 
   //void findObjects(int wl);
-//  void clearObjects();
+  //  void clearObjects();
   
   void addMergedChannel();
-
+  
   void newMagnification(float mag);
   void newOffsets(int xo, int yo);  // new x and y offsets from the glImage.. 
   void newMousePosition(int xp, int yp); // the current mouse position.. but not the signal..
   void newProMousePosition(int xp, int yp);
-
+  
   void setSlices(int xpos, int ypos);
   void increment_x_z_slice(int delta);
   //void increment_y_z_slice(int delta);
@@ -180,7 +180,7 @@ class DeltaViewer : public QWidget
   void findBlobs(std::string& params);
   void determineSpotDensities(int r, double sigma, double order);  // use a gaussian blur model to give densities.. 
   void blur(std::set<uint> channels, int r, double sigma, double order); // make blurred intensity map for the indicated things
-
+  
   void makeModel(int xBegin, int Width, int yBegin, int Height, int zBegin, int Depth, set<int> channels);
   void recalculateSpotVolumes();
   void findNuclearPerimeters(int wi, float minValue);
@@ -190,50 +190,50 @@ class DeltaViewer : public QWidget
   
   void mapCavities(int wi, int xr, int yr, int zr, float P, float DP);
   void findSets(int wi, int minSize, int maxSize, float minValue);
-
+  
   //  void setSpotsToSpotMapper();
-
+  
   void newLine(int x1, int xy1, int x2, int y2);
-
+  
   void peakColorsChanged();
   void peakRepTypeChanged();   // just wrappers that call paintProjection for now anyway.. 
   void nuclearColorsChanged();
-
-//  void peakColorsChanged(int wl, float r, float g, float b);
-//  void peakRepTypeChanged(DropRepresentation dr);   // just wrappers that call paintProjection for now anyway.. 
-//  void nuclearColorsChanged(int wl, float r, float g, float b);
-
-
+  
+  //  void peakColorsChanged(int wl, float r, float g, float b);
+  //  void peakRepTypeChanged(DropRepresentation dr);   // just wrappers that call paintProjection for now anyway.. 
+  //  void nuclearColorsChanged(int wl, float r, float g, float b);
+  
+  
   void paramDataRangeChanged();
   void paramDataColorChanged();
   void paramDataRangeChanged(float lowt, float hight);
   void paramDataColorChanged(int wl, float r, float g, float b);
-
+  
   void setBackgroundPars(std::map<fluorInfo, backgroundPars> bgPars);
-
-  private :
-      /// Move this later, bull
+  
+ private :
+  /// Move this later, bull
   BlobMapperWidgetManager* blobManager;
   BackgroundWindow* backgroundWindow;   
-  vector<o_set> aux_points;   // for quick checks of various functions.
-//      set<BlobMapperWidget*> blobs;
+  vector<vector<o_set> > aux_points;   // for quick checks of various functions.
+  //      set<BlobMapperWidget*> blobs;
   
   QString fName;
   DVReader* reader;
   FileSet* fileSet;
   ImageAnalyser* imageAnalyser;
   std::vector<raw_data*> projection_data;   // data for a projection ..   we need one projection for each panel..
-
+  
   std::vector<float> projection_means;
   std::vector<float> projection_stds;  // use these as a substitute for the real ones. They'll be a bit higher, but maybe that's ok.
-
+  
   GLImage* glViewer;
   GLImage* projection;
   GLImage* x_zView;
   OverlapWindow* overlapWindow;   // for looking at overlaps.. 
   PerimeterWindow* perimeterWindow;  // for looking at predictions of perimeters.. 
   SpotMapperWindow* spotMapperWindow;  // for mapping spots to stuff.. 
-
+  
   map<int, color_map> colormap;   // using the indices.. 
   vector<color_map> colorSet;     // an extended set of colours.. 
   int textureSize;
@@ -244,7 +244,7 @@ class DeltaViewer : public QWidget
   vector<bool> additive;   // additive or subtractive things.. 
   view_area currentView;   // the area that we are currently interestet in.. 
   view_area completeArea;  // the complete area covered by the thingy.. in the stuff.
-
+  
   SpotWindow* spotWindow;
   map<int, SpotsWidget*> spotsWidgets;  // little widgets containing information about 3D spots..
   map<ColorChooser*, vector<Nucleus> > nuclearModels;   // predictions of models.. (so they can be drawn on the thingy).
@@ -252,8 +252,8 @@ class DeltaViewer : public QWidget
   bool spotsUseProjection;
   PointViewWidget* modelViewer;   // view models of selected regions.. 
   ClusterWindow* dropClusterWindow;  // clusters of individidual drops.. 
-//  FlatView* flatView;             // a flatttened view of things.. 
-//  PlotWidget* linePlotter;
+  //  FlatView* flatView;             // a flatttened view of things.. 
+  //  PlotWidget* linePlotter;
   //GLImage* y_zView;
   // we'll need to know which slices we are currently holding so that we can update the
   // slice viewers if we change the way the colors are interpreted..
@@ -265,11 +265,11 @@ class DeltaViewer : public QWidget
   DistChooser* objectSums;
   std::vector<ColorChooser*> colorChoosers;  // although maybe a map would be appropriate for these two.. oh well. think
                                              // about it later.. 
-
+  
   // stuff for dealing with spots that have been found.. 
   TabWidget* spotChooserTabs;
   std::map<int, DistChooser*> spotDistributions;  // update when stuff happens.. 
-
+  
   QTimer* timer;
   bool animate;
   //QSpinBox* magbox;  // setting the magnification.. 
@@ -292,11 +292,11 @@ class DeltaViewer : public QWidget
   
   // so we can add stuff..
   QVBoxLayout* colorBox;
-
+  
   // peaks and stuff..
   std::map<int, linearPeaks> peaks;    // where the int represents the channel used in the peak.. 
   float* completeProjection(unsigned int waveIndex);  // return a float representation of the projection  (0 if not successful).
-
+  
 };
 
 #endif

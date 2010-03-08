@@ -10,7 +10,7 @@ BlobMapper::BlobMapper(ImageData* ia, int xw, int yw, int zw, float pcnt)
     image = ia;
     image->dims(width, height, depth);
     cout << "Made a new BlobMapper and an image thingy with dims : " << width << "x" << height << "x" << depth << endl;
-    blobMap = new VolumeMap(width, height, depth);
+    blobMap = new VolumeMap<blob*>(width, height, depth);
     uninterpol_up_to_date = false;
     background = new Background(image, xw, yw, zw, pcnt);
 }

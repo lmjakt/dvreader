@@ -142,9 +142,9 @@ void Background::setBackground(){
 	for(uint by=0; by < bh; ++by){
 	    for(uint bx=0; bx < bw; ++bx){
 		background[ bz * (bh * bw) + by * bw + bx ] = getb(bx, by, bz);
-		bg_pos[bz * (bh * bw) + by * bw + bx ] = pos( ((bx+1) * x_m ) - x_m/2,
-							      ((by+1) * y_m ) - y_m/2,
-							      ((bz+1) * z_m ) - z_m/2 );
+		bg_pos[bz * (bh * bw) + by * bw + bx ] = pos( (bx * x_m ) + x_m/2,
+							      (by * y_m ) + y_m/2,
+							      (bz * z_m ) + z_m/2 );
 	    }
 	}
     }
@@ -178,7 +178,7 @@ float Background::getb(int bx, int by, int bz){
 // 	 << bx << " : " << x_b << "->" << x_e 
 // 	 << "  y: " << by << " : " << y_b << "->" << y_e
 // 	 << "  z: " << bz << " : " << z_b << "->" << z_e << endl; 
-    if(!vl){
+    if(!vl || vl < 0){
 	cerr << "Background::getb, empty cube specified, returning 0";
 	return(0);
     }

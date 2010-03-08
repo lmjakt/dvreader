@@ -3,9 +3,10 @@
 
 #include "../dataStructs.h"
 #include "cavityBall.h"
-#include "ballMap.h"
+//#include "ballMap.h"
 #include "../image/background.h"
 #include "../image/imageData.h"
+#include "../image/volumeMap.h"
 #include <vector>
 #include <map>
 
@@ -20,7 +21,9 @@ class CavityMapper
   std::vector< std::vector<o_set> > ballMembers();
 
  private:
-  BallMap* ballMap;
+  VolumeMap<CavityBall*>* ballMap;
+  std::vector<CavityBall*> balls;
+  //  BallMap* ballMap;
   //  std::map<o_set, CavityBall*> ballMap;
   ImageData* image;
   Background* background;

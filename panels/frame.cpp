@@ -257,15 +257,17 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
     // 3. Go through all values in the read position, do the transformation and 
 
   // The commented section refers to the use of a two dimensional background subtraction
-  // if(bg_sub && !background.x_m){
-  //      cout << "Frame::readToRGB_s background subtraction requested: creating background object" << endl;
-  //      setBackground(16, 16, 0.2);
-  //    }
-
-  if(chinfo.bg_subtract && !threeDBackground){
-    cerr << "Frame::readToRGB_s background subtraction requested, but no background object" << endl;
-    exit(1);
+  if(chinfo.bg_subtract && !background.x_m){
+       cout << "Frame::readToRGB_s background subtraction requested: creating background object" << endl;
+       channelInfo.bg_subtract = false;
+       setBackground(16, 16, 0.2);
+       channelInfo.bg_subtract = true;
   }
+
+  // if(chinfo.bg_subtract && !threeDBackground){
+  //   cerr << "Frame::readToRGB_s background subtraction requested, but no background object" << endl;
+  //   exit(1);
+  // }
 
   cout << "Frame::readToRGB_s wave: " << excitationWavelength << "  photoS : " << photoSensor << "  photoS_m " << phSensor_m << endl;
   unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
@@ -298,17 +300,19 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
     source = buffer + yp * pWidth + source_x;
     dst = dest + (dest_y * dest_w + yp * dest_w + dest_x) * 3 ; // then increment the counters appopriately.. 
     for(unsigned int xp = 0; xp < width; xp++){
-      bg = chinfo.bg_subtract ? chinfo.maxLevel * threeDBackground->bg(xp, yp, zp) : 0;
+      //bg = chinfo.bg_subtract ? chinfo.maxLevel * threeDBackground->bg(xp, yp, zp) : 0;
+      bg = chinfo.bg_subtract ? chinfo.maxLevel * background.bg(xp, yp) : 0;
 
       // variants on how to use the data provided
       //	*raw = (float(*source) - bg)/maxLevel;
-      //		bg = bg_sub ? background.bg(xp, yp) : 0;
       //v = bias + scale * phSensor_m * (float)(*source) / maxLevel;
-      //v = bias + scale * (float)(*source) / (maxLevel * phSensor_m);
+      //v = bias + scale * (float)(*source) / (maxLevel * phSensorm);
       
       v = (*this.*convertFunction)(source, bg, chinfo.bias, chinfo.scale, chinfo.maxLevel, raw, xp, yp);
-      
-      //v = bias + scale * ((float)*source - bg) / maxLevel;
+
+      //      v = v * phSensor_m;
+ 
+     //v = bias + scale * ((float)*source - bg) / maxLevel;
       
       //	v = bias + scale * ((float)*source - (bg * maxLevel) )/maxLevel;
       //		v = bias + scale * (phSensor_m * float(*source) - (bg * maxLevel) )/maxLevel;
@@ -342,7 +346,8 @@ bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int sourc
   // 2. Seek to the appropriate position, and read into the buffer (necessary to do full width, but the height can ofcourse be done separately)
   // 3. Go through all values in the read position, do the transformation and 
   
-  if(channelInfo.bg_subtract && !threeDBackground){
+  if(channelInfo.bg_subtract && !background.x_m){
+    //  if(channelInfo.bg_subtract && !threeDBackground){
     cerr << "Frame::readToRGB_s background subtraction requested, but no background object" << endl;
     exit(1);
   }
@@ -384,8 +389,8 @@ bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int sourc
     source = buffer + yp * pWidth + source_x;
     dst = dest + (dest_y * dest_w + yp * dest_w + dest_x); // then increment the counters appopriately.. 
     for(unsigned int xp = 0; xp < width; xp++){
-      bg = channelInfo.bg_subtract ? channelInfo.maxLevel * threeDBackground->bg(xp, yp, zp) : 0;
-      //bg = bg_sub ? background.bg(xp, yp) : 0;
+      //bg = channelInfo.bg_subtract ? channelInfo.maxLevel * threeDBackground->bg(xp, yp, zp) : 0;
+      bg = channelInfo.bg_subtract ? background.bg(xp, yp) : 0;
 
       //      *dst = float(*source) / maxLevel;
       //*dst = (float(*source) - bg)/maxLevel;
@@ -451,7 +456,8 @@ bool Frame::setBackground(int xm, int ym, float qntile){
 	rect.reserve(xm * ym);
 	for(int dy=0; dy < ym && (dy + by * ym) < pHeight; ++dy){
 	  for(int dx=0; dx < xm && (dx + bx * xm) < pWidth; ++dx){
-	    rect.push_back(phSensor_m * buffer[ (dy + by * ym) * pWidth + (dx + bx * xm)]);
+	    rect.push_back(buffer[ (dy + by * ym) * pWidth + (dx + bx * xm)]);
+	    //	    rect.push_back(phSensor_m * buffer[ (dy + by * ym) * pWidth + (dx + bx * xm)]);
 	  }
 	}
 	sort(rect.begin(), rect.end());

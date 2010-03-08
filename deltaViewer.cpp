@@ -800,8 +800,10 @@ void DeltaViewer::setImage(int slice){
       }
       float r, g, b;
       colorChoosers[i]->color(&r, &g, &b);
+      //      chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
+      //				     useComponents->isChecked(), colorChoosers[i]->subtractColor()) );
       chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
-				     useComponents->isChecked(), colorChoosers[i]->subtractColor()) );
+				     colorChoosers[i]->includeInMerger(), colorChoosers[i]->subtractColor()) );
     }
 
     // this should be set somewhere else, but for now..
@@ -1355,18 +1357,24 @@ void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h,
     }
 }
 
-void DeltaViewer::paint(float* area, std::vector<o_set> points, Rectangle rect, int z, color_map cm){
+void DeltaViewer::paint(float* area, std::vector<std::vector<o_set> >& points, Rectangle rect, int z, color_map cm){
   CoordConverter cc(fileSet->pwidth(), fileSet->pheight(), fileSet->sectionNo());
   
   int px, py, pz;
   int offset;
-  for(vector<o_set>::iterator it=points.begin(); it != points.end(); ++it){
-    cc.vol(*it, px, py, pz);
-    if(pz == z && rect.contains(px, py)){
-      offset = 3 * ( (py - rect.y) * rect.width + (px - rect.x) );
-      area[ offset ] += cm.r;
-      area[ offset + 1] += cm.g;
-      area[ offset + 2] += cm.b;
+  float r, g, b;
+  int counter = 0;
+  for(vector<vector<o_set> >::iterator ht=points.begin(); ht != points.end(); ++ht){
+    int_color(counter++, r, g, b);
+    r *= 0.2; g *= 0.2; b *= 0.2;
+    for(vector<o_set>::iterator it=(*ht).begin(); it != (*ht).end(); ++it){
+      cc.vol(*it, px, py, pz);
+      if(pz == z && rect.contains(px, py)){
+	offset = 3 * ( (py - rect.y) * rect.width + (px - rect.x) );
+	area[ offset ] += r;
+	area[ offset + 1] += g;
+	area[ offset + 2] += b;
+      }
     }
   }
 }
@@ -1840,13 +1848,17 @@ void DeltaViewer::updateDistToggled(bool on){
 
 void DeltaViewer::useComponentsToggled(bool on){
   //    cout << "useComponents currently unavailable" << endl;
-  if(!backgroundWindow){
-    backgroundWindow = new BackgroundWindow( fileSet->channelInfo() );
-    connect(backgroundWindow, SIGNAL(setBackgroundPars(std::map<fluorInfo, backgroundPars>)),
-	    this, SLOT(setBackgroundPars(std::map<fluorInfo, backgroundPars>)) );
-    backgroundWindow->show();
-    return;
-  }
+
+  // Reverting to a 2D background subtraction for now as we are having
+  // trouble with the 3D one. (Temporarily)
+  
+  // if(!backgroundWindow){
+  //   backgroundWindow = new BackgroundWindow( fileSet->channelInfo() );
+  //   connect(backgroundWindow, SIGNAL(setBackgroundPars(std::map<fluorInfo, backgroundPars>)),
+  // 	    this, SLOT(setBackgroundPars(std::map<fluorInfo, backgroundPars>)) );
+  //   backgroundWindow->show();
+  //   return;
+  // }
 
   on = on;
   setImage(currentSliceNo);
@@ -2306,6 +2318,8 @@ void DeltaViewer::mapCavities(int wi, int xr, int yr, int zr, float P, float DP)
   CavityMapper* cmapper = new CavityMapper(new ImageData(fileSet, 1), (uint)wi,
 					   xr, yr, zr, P, DP);
   // That actually should start the whole edifice running. 
+  aux_points = cmapper->ballMembers();  // though this will be horribly slow!! 
+  ////// MEMORY LEAK IF WE DON'T DELETE CMAPPER !! OR DO SOMETHING USEFUL WITH IT
 }
 
 void DeltaViewer::findSets(int wi, int minSize, int maxSize, float minValue){

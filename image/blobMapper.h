@@ -83,7 +83,7 @@ class BlobMapper
 
     BlobMapperInfo bmInfo;
 //    std::map<off_set, blob*> blobMap;
-    VolumeMap* blobMap;
+    VolumeMap<blob*>* blobMap;
     Background* background;
     unsigned int map_id;
     std::set<blob*> blobs;

@@ -63,11 +63,9 @@ struct pos {
   friend bool operator ==(const pos& a, const pos& b){
     return( a.z == b.z && a.y == b.y && a.x == b.x);
   }
-  pos operator +(pos a){
-    a.x += x;
-    a.y += y;
-    a.z += z;
-    return(a);
+  friend pos operator +(const pos& a, const pos& b){
+    pos c(a.x + b.x, a.y + b.y, a.z + b.z);
+    return(c);
   }
   pos operator -(pos a){
     a.x = x - a.x;

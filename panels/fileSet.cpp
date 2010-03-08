@@ -382,11 +382,13 @@ bool FileSet::readToRGB(float* dest, float xpos, float ypos, float dest_width,
   // so should try getting rid of it.. 
     // the trickiest part is working out which framestack should contribute to each of these. However, maybe I don't have to do this
     // here.
-    
+  
+  //**************************************
+  // Temporarily remove this to use 2 d background subtraction.
   // If bg_sub is true, but we don't have any backgrounds, then set up the backgrounds
-  if(chinfo[0].bg_subtract && !backgrounds.size()){
-    initBackgrounds();
-  }
+  //  if(chinfo[0].bg_subtract && !backgrounds.size()){
+  // initBackgrounds();
+  //}
 
     // given that each framestack knows it's bordering frame stacks I can just ask them to work it out themselves..
     int counter = 0;  // this just counts how many different framestacks contribute to the slice..
@@ -409,9 +411,10 @@ bool FileSet::readToRGB(float* dest, unsigned int xpos, unsigned int ypos,
 //float maxLevel, vector<float> bias, vector<float> scale, 
 //			vector<color_map> colors, bool bg_sub, raw_data* raw){
   // given that each framestack knows it's bordering frame stacks I can just ask them to work it out themselves..
-  if(chinfo[0].bg_subtract && !backgrounds.size()){
-    initBackgrounds();
-  }
+  //****************** remove the below to use 2D background
+  //  if(chinfo[0].bg_subtract && !backgrounds.size()){
+  //  initBackgrounds();
+  //}
   
     int counter = 0;  // this just counts how many different framestacks contribute to the slice..
     for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
