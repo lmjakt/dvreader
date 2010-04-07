@@ -145,7 +145,7 @@ bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source
     bool read;
     // the above is a bit ugly, but it makes the following a little less ugly. 
     for(map<fluorInfo, Frame*>::iterator it = frames.begin(); it != frames.end(); it++){
-      if( !(chinfo[i].color.r + chinfo[i].color.g + chinfo[i].color.b) && !raw ){
+      if( !chinfo[i].include || (!(chinfo[i].color.r + chinfo[i].color.g + chinfo[i].color.b) && !raw) ){
 	//      if( !(colors[i].r + colors[i].g + colors[i].b) && !raw ){
 	++i;
 	continue;
@@ -189,4 +189,20 @@ bool FrameSet::readToFloat(float* dest, unsigned int source_x, unsigned int sour
     }
     //    return((*it).second->readToFloat(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, bg_sub, maxLevel));
     return((*it).second->readToFloat(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, maxLevel));
+}
+
+bool FrameSet::readToShort(unsigned short* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
+			   unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
+			   unsigned int waveIndex){
+  if(waveIndex >= fInfo.size()){
+    cerr << "FrameSet::readToShort waveIndex is too large : " << waveIndex << endl;
+    return(false);
+  }
+  map<fluorInfo, Frame*>::iterator it = frames.find(fInfo[waveIndex]);
+  if(it == frames.end()){
+    cerr << "FrameSet::readToShort unknown wavelength : " << waveIndex << endl;
+    return(false);
+  }
+  //    return((*it).second->readToFloat(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, bg_sub, maxLevel));
+  return((*it).second->readToShort(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w));
 }

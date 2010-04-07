@@ -62,10 +62,10 @@ float Background::bg(int x, int y, int z){
 	cerr << "Background::bg point outsde area: " << x << "," << y << "," << z << endl;
 	return(0);
     }
-    // this is why I don't like unsigned ints.
-    int xb = ((int)x - (int)x_m/2) / (int)x_m;
-    int yb = ((int)y - (int)y_m/2) / (int)y_m;
-    int zb = ((int)z - (int)z_m/2) / (int)z_m;
+
+    int xb = (x - (int)x_m/2) / (int)x_m;
+    int yb = (y - (int)y_m/2) / (int)y_m;
+    int zb = (z - (int)z_m/2) / (int)z_m;
     
     // if x cannot be negative, then, x - x_m/2 >= -x_m/2
     // this means that the smallest number will be -0.5, which

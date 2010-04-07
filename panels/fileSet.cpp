@@ -494,6 +494,20 @@ bool FileSet::readToFloat(float* dest, int xb, int yb, int zb, int pw, int ph, i
     return(gotSomething);
 }	
 
+bool FileSet::readToShort(unsigned short* dest, int xb, int yb, unsigned int slice, int pw, int ph, unsigned int waveIndex){
+  bool gotSomething = false;
+  map<float, map<float, FrameStack*> >::iterator ot;
+  map<float, FrameStack*>::iterator it;
+  for(ot = frames.begin(); ot != frames.end(); ot++){
+    for(it = (*ot).second.begin(); it != (*ot).second.end(); it++){
+      if((*it).second->readToShort(dest, xb, pw, yb, ph, slice, waveIndex)){
+	gotSomething = true;
+      }
+    }
+  }
+  return(gotSomething);
+}
+
 void FileSet::borders(int& left, int& right, int& bottom, int& top){
     bool gotSomething = false;
     map<float, map<float, FrameStack*> >::iterator ot;

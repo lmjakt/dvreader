@@ -193,13 +193,16 @@ class FrameStack {
     bool mip_projection(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height,
 			float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0);
 
-
+    // the below function is used when determining the position of the frame stack
+    // do not use it for other purposes.
     bool readToFloat(float* dest, unsigned int xb, unsigned int iwidth, unsigned int yb, 
-		     unsigned int iheight, unsigned int secNo, unsigned int waveIndex, float maxLevel);   // simply read the appropriate pixels in.. 
+    		     unsigned int iheight, unsigned int secNo, unsigned int waveIndex, float maxLevel);   // simply read the appropriate pixels in.. 
 
     bool readToFloat(float* dest, int xb, int iwidth, int yb, 
 		     int iheight, int zb, int idepth,  unsigned int waveIndex, float maxLevel);   // simply read the appropriate pixels into a volume.. 
-
+    bool readToShort(unsigned short* dest,unsigned int xb, unsigned int iwidth, unsigned int yb, 
+		     unsigned int iheight, unsigned int secNo, unsigned int waveIndex);
+      
     bool readToFloatPro(float* dest, unsigned int xb, unsigned int iwidth, unsigned int yb, 
 			unsigned int iheight, unsigned int wave);   // simply read the appropriate pixels in.. 
 

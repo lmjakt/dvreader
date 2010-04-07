@@ -324,21 +324,25 @@ struct color_map {
 };
 
 struct channel_info {
+  fluorInfo finfo;
   color_map color;
   float maxLevel;
   float bias;
   float scale;
   bool bg_subtract;
   bool contrast;
+  bool include;
   channel_info(){
     maxLevel = 4096;
     bias = 0;
     scale = 1.0;
+    include = true;
     bg_subtract = contrast = false;
   }
   channel_info(color_map cm, float ml, float b, float s, bool bgs, bool cnt){
     color = cm; maxLevel = ml; bias = b; scale = s; 
     bg_subtract = bgs; contrast = cnt;
+    include = true;
   }
 };
 

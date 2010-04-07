@@ -56,6 +56,7 @@
 #include "image/imageData.h"
 #include "image/coordConverter.h"
 #include "cavity/cavityMapper.h"
+#include "imageBuilder/imageBuilderWidget.h"
 
 ////////// temporary for checking what it looks like.. 
 #include "cavity/cavityBall.h"
@@ -156,8 +157,11 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 
 
   textureSize = 1024;      // the size of the textures that we are going to be painting to.. 
-  texColNo = 1 + fileSet->pwidth() / textureSize;   // one extra since it is unlikely that we will see an absolute fit
-  texRowNo = 1 + fileSet->pheight() / textureSize;
+  texColNo = fileSet->pwidth() / textureSize;   
+  texRowNo = fileSet->pheight() / textureSize;
+  // Add one if not an even fit.
+  texColNo = (fileSet->pwidth() % textureSize) ? 1 + texColNo : texColNo;
+  texRowNo = (fileSet->pheight() % textureSize) ? 1 + texRowNo : texRowNo;
 
   spotMapperWindow = new SpotMapperWindow(this, fileSet->pwidth(), fileSet->pheight(), fileSet->sectionNo(), textureSize);
   spotMapperWindow->resize(1100, 1100);
@@ -317,6 +321,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 
   // a label to show the current section no..
   sectionSpin = new QSpinBox(0, fileSet->sectionNo(), 1, this, "sectionSpin");
+  sectionSpin->setWrapping(true);
   connect(sectionSpin, SIGNAL(valueChanged(int)), this, SLOT(setImage(int)) );
   sectionNo = new QLabel("Section", this, "sectionNo");
   sectionNo->setAlignment(Qt::DockLeft|Qt::DockBottom);
@@ -349,31 +354,6 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   objectSums = new DistChooser("Object Intensities", 100);
   objectSums->resize(300, 200);
 
-  vector<QColor> colors;   // for assigning colors..
-  colors.push_back(QColor(0, 0, 255));
-  colors.push_back(QColor(0, 255, 0));
-  colors.push_back(QColor(255, 0, 0));
-  colors.push_back(QColor(0, 255, 255));
-  colors.push_back(QColor(255, 255, 0));
-  colors.push_back(QColor(255, 0, 255));
-  colors.push_back(QColor(255, 255, 255));
-  colors.push_back(QColor(0, 0, 0));       // .. stupid combinations.
-
-  /// ok, so this is ugly, but anyway, let's make a vector of color_map as well...
-  colorSet.push_back(color_map(0, 0, 1.0));
-  colorSet.push_back(color_map(0, 1.0, 0));
-  colorSet.push_back(color_map(1.0, 0, 0));
-  colorSet.push_back(color_map(0, 1.0, 1.0));
-  colorSet.push_back(color_map(1.0, 0, 1.0));
-  colorSet.push_back(color_map(1.0, 0, 0.0));
-  colorSet.push_back(color_map(0.3, 0.5, 0.8));
-  colorSet.push_back(color_map(0.56, 1.0, 0.9));
-  colorSet.push_back(color_map(0.88, 0.72, 1.0));
-  colorSet.push_back(color_map(1.0, 0.3, 0.88));
-  colorSet.push_back(color_map(1.0, 0.66, 0.0));
-  // at some point make a better way of doing this.. ok lah.. 
-
-
   // make a tabwidget to hold the choosers..
   chooserTabs = new TabWidget();  // don't show.. 
   connect(chooserTabs, SIGNAL(copyRanges()), this, SLOT(copyRanges()) );
@@ -387,25 +367,29 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   
   // ok, a little magic to chose appropriate colours. basically try to make the bluest colours for
   // the shortest wawelength..
-  uint colorCounter = 0;
+
+  /// a vector of color_map that is maintained
+  colorSet.push_back(color_map(0, 0, 1.0));
+  colorSet.push_back(color_map(0, 1.0, 0));
+  colorSet.push_back(color_map(1.0, 0, 0));
+  colorSet.push_back(color_map(0, 1.0, 1.0));
+  colorSet.push_back(color_map(1.0, 0, 1.0));
+  colorSet.push_back(color_map(1.0, 0, 0.0));
+  colorSet.push_back(color_map(0.3, 0.5, 0.8));
+  colorSet.push_back(color_map(0.56, 1.0, 0.9));
+  colorSet.push_back(color_map(0.88, 0.72, 1.0));
+  colorSet.push_back(color_map(1.0, 0.3, 0.88));
+  colorSet.push_back(color_map(1.0, 0.66, 0.0));  
+
+  /// override if -c specified by the user
+  /// which might do strange things with strange files.
+  if(opt_commands.count("colorFile"))
+    colorSet = readColors(opt_commands["colorFile"]);
+  
   for(uint i=0; i < fileSet->channelNo(); i++){
-      if(colors.size() > colorCounter){
-	  cout << "constructor reader channelNo " << i << "  inserting into colormap " << fileSet->channel(i) << endl;
-	  colormap.insert(make_pair(fileSet->channel(i), color_map(colors[colorCounter])));  // the default..
-      }else{
-	  colormap.insert(make_pair(fileSet->channel(i), color_map(0, 0, 0)));  // the default..
-      }
-      colorCounter++;
+    cout << "constructor reader channelNo " << i << "  inserting into colormap " << fileSet->channel(i) << endl;
+    colormap.insert(make_pair(fileSet->channel(i), colorSet[i % colorSet.size()]));  // the default..
   }
-//   map<int, QColor>::iterator it;
-//   int count = 0;
-//   for(it = colormap.begin(); it != colormap.end(); it++){  // 
-//     if(count < colors.size()){
-//       //colormap[(*it).first] = colors[count];
-//       (*it).second = colors[count];
-//     }
-//     count++;
-//   }
 
   channelOffsets = new Q3ButtonGroup(1, Qt::Horizontal, "channel", this);
   // make one DistChooser for each channel ..
@@ -496,6 +480,10 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   ///////////  Initialise blobManager to 0, then if we need it make it and 
   blobManager=0;
   backgroundWindow = 0;
+
+  // Make an imagebuilderwidget and stick it at the bottom..
+
+  ImageBuilderWidget* imageBuilder = new ImageBuilderWidget(fileSet, collect_channel_info(), this);
 
   QVBoxLayout* box = new QVBoxLayout(this);
   box->setSpacing(1);
@@ -594,8 +582,11 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   offSetBox->addWidget(channelOffsets);
   box->addWidget(updateDist);
   box->addWidget(useComponents);
-  box->addStretch();
 
+  box->addWidget(imageBuilder);
+
+  box->addStretch();
+  
   // and having done all of that lets set the projection..
   
   // and lets set the projection..
@@ -610,7 +601,10 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
       }
       if(opt_commands.count("find_blobs"))
 	  findBlobs(opt_commands["find_blobs"]);
-      exit(0);
+      if(opt_commands.count("die") && opt_commands["die"] == "yes")
+	exit(0);
+      if(opt_commands.count("rangeFile"))
+	readRangesFromFile(QString(opt_commands["rangeFile"].c_str()));
   }
 
 
@@ -782,9 +776,11 @@ void DeltaViewer::lastImage(){
 }
 
 void DeltaViewer::setImage(int slice){
-    if(slice >= fileSet->sectionNo() || slice < 0){
+    if(slice >= fileSet->sectionNo())
 	slice = 0;
-    }
+    if(slice < 0)
+      slice = fileSet->sectionNo() - 1;
+
     currentSliceNo = slice;
 
     sectionSpin->blockSignals(true);
@@ -1909,7 +1905,7 @@ void DeltaViewer::newProMousePosition(int xp, int yp){
 }
 
 void DeltaViewer::changeRanges(float mn, float mx){
-    mn = mn; mx = mx; // since we don't know which distChooser brought us to this location, we might as 
+  mn = mn; mx = mx; // since we don't know which distChooser brought us to this location, we might as 
   // well update all of the values. This is wasteful, but it is simpler..
   vector<float> bFactors(choosers.size());
   vector<float> sFactors(choosers.size());
@@ -1986,6 +1982,28 @@ QString DeltaViewer::readRanges(){
   return(ranges);
 }
 
+
+vector<channel_info> DeltaViewer::collect_channel_info(){
+  vector<channel_info> chinfo;
+  cout << "DeltaViewer::collect_channel_info() size of colorChoosers : " << colorChoosers.size() << endl;
+  cout << "size of scales : " << scales.size() << endl;
+  for(uint i=0; i < colorChoosers.size(); ++i){
+    if(i >= scales.size() || i >= biases.size()){
+      cerr << "DeltaViewer::setImage colorChoosers.size is larger than scales.size or biases.size()" << endl;
+      exit(1);
+    }
+    float r, g, b;
+    colorChoosers[i]->color(&r, &g, &b);
+    cout << i << " color : " << r << "," << g << "," << b << endl;
+    //      chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
+    //				     useComponents->isChecked(), colorChoosers[i]->subtractColor()) );
+    chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
+				   colorChoosers[i]->includeInMerger(), colorChoosers[i]->subtractColor()) );
+    cout << "pushed back" << endl;
+  }
+  return(chinfo);
+}
+
 void DeltaViewer::copyRanges(){
     cout << "copyRanges function " << endl;
     QString ranges = readRanges();
@@ -2016,6 +2034,10 @@ void DeltaViewer::readRangesFromFile(){
   if(fileName.isNull()){
     return;
   }
+  readRangesFromFile(fileName);
+}
+
+void DeltaViewer::readRangesFromFile(QString fileName){
   QString ranges;
   QTextStream wts(&ranges, QIODevice::WriteOnly);
   QFile file(fileName);
@@ -2053,6 +2075,18 @@ void DeltaViewer::setRanges(QString text){
   }
   changeRanges(0.0, 1.0);   // this is called in order to change the ranges for the image.. 
 }  
+
+vector<color_map> DeltaViewer::readColors(string fname){
+  cout << "DeltaViewer::readColors filename : " << fname << endl;
+  ifstream in(fname.c_str());
+  vector<color_map> cm;
+  if(!in)
+    return(cm);
+  float r, g, b;
+  while(in >> r >> g >> b)
+    cm.push_back(color_map(r, g, b));
+  return(cm);
+}
 
 void DeltaViewer::pasteRanges(){
     cout << "paste Ranges function " << endl;

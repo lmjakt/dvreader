@@ -1057,8 +1057,9 @@ float* FrameStack::make_mip_projection(unsigned int wi, float maxLevel, vector<f
     return(proj);
 }
 
+
 bool FrameStack::readToFloat(float* dest, unsigned int xb, unsigned int iwidth, unsigned int yb, unsigned int iheight, unsigned int secNo, unsigned int waveIndex, float maxLevel){
-  cout << "FrameStackk::readToFloat" << endl;
+  //  cout << "FrameStackk::readToFloat" << endl;
     if(secNo >= sections.size()){
 	cerr << "FrameStack::readToFloat secNo (" << secNo << ") is larger than sections size : " << sections.size() << endl;
 	return(false);
@@ -1087,12 +1088,31 @@ bool FrameStack::readToFloat(float* dest, int xb, int iwidth, int yb,
     bool ok = true;
     for(int zp=zb; zp < zb + idepth; ++zp){
       if(!sections[zp]->readToFloat(dst, source_x, source_y, subWidth, subHeight, dest_x, dest_y, iwidth, maxIntensity, waveIndex)){
-	    ok = false;
-//	    cout << "-//\\-" << endl;
-	}
-	dst += iwidth * iheight;
+	ok = false;
+	//	    cout << "-//\\-" << endl;
+      }
+      dst += iwidth * iheight;
     }
     return(ok);    
+}
+
+bool FrameStack::readToShort(unsigned short* dest,unsigned int xb, unsigned int iwidth, unsigned int yb, 
+			     unsigned int iheight, unsigned int secNo, unsigned int waveIndex){
+
+  if(secNo >= sections.size()){
+    cerr << "FrameStack::readToShort secNo (" << secNo << ") is larger than sections size : " << sections.size() << endl;
+    return(false);
+  }
+  
+  int dest_x, source_x, dest_y, source_y;      // though these are supposed to be unsigned.. 
+  unsigned int subWidth, subHeight;   // the local coordinates of an overlap for dest and source respectively..
+  if(!globalToLocal(xb, yb, iwidth, iheight, dest_x, source_x, dest_y, source_y, subWidth, subHeight)){
+    return(false);   // this just means that there is no overlap and there is nothing more for us to do here..
+  }
+  
+  
+  return(sections[secNo]->readToShort(dest, (unsigned int)source_x, (unsigned int)source_y, subWidth, subHeight, 
+				      (unsigned int)dest_x, (unsigned int)dest_y, iwidth, waveIndex));
 }
 
 void FrameStack::normalise_y(float* values, unsigned int w, unsigned int h){

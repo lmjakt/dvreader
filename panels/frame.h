@@ -124,6 +124,9 @@ class Frame {
     bool readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
 		     unsigned int dest_x, unsigned int dest_y, unsigned int dest_w,  
 		     float maxLevel); 
+
+    bool readToShort(unsigned short* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
+		     unsigned int dest_x, unsigned int dest_y, unsigned int dest_w);
     // NOTE the constructor will make a number of assumptions about the structure of the extended header. If these are not met, then 
     // it will set some flag to indicate failure.. 
     void setBackground(Background* bg, int z_pos);

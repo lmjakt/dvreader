@@ -234,7 +234,53 @@ bool Frame::readToFloat(float* dest, unsigned int source_x, unsigned int source_
     return(false);
 }
 
+bool Frame::readToShort(unsigned short* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
+			unsigned int dest_x, unsigned int dest_y, unsigned int dest_w){
 
+  if(width > pWidth || height > pHeight || source_y >= pHeight || source_x >= pWidth){
+    cerr << "Frame::readToRGB inappropriate coordinates : " << source_x << "\t" 
+	 << source_y << "\t" << width << "\t" << height << endl;
+    return(false);
+  }
+  if(bno != 2){
+    cerr << "Frame::readToShort unable to read to short since raw format is not short" << endl;
+    return(false);
+  }
+  unsigned short* buffer = dest + (dest_y * dest_w);
+  bool sepBuffer = false;
+  if(width != dest_w || width != pWidth){
+    buffer = new unsigned short[pWidth * height];   // which has to be 
+    sepBuffer = true;
+  }
+  std::ios::pos_type startPos = frameOffset + (std::ios::pos_type)(pWidth * 2 * source_y);
+  in->seekg(startPos);
+  in->read((char*)buffer, pWidth * height * 2);
+  if(in->fail()){
+    if(sepBuffer)
+      delete buffer;
+    cerr << "Frame::readToShort unable to read from offset : "
+	 << startPos << " for " << pWidth * height * 2 << " bytes" << endl;
+    in->clear();
+    return(false);
+  }
+  if(isBigEndian)
+    swapBytes((char*)buffer, pWidth * height, 2);
+  if(!sepBuffer)
+    return(true);
+  
+  // if sepBuffer we need to copy from buffer to destination
+  // this needs to be done line by line.. but we can use memcpy
+  unsigned short* dst = dest + (dest_y * dest_w * 2);
+  unsigned short* source = buffer;
+  for(unsigned int yp=0; yp < height; ++yp){
+    memcpy((void*)dst, (const void*)source, width*2);
+    dst += dest_w;
+    source += width;
+  }
+  delete buffer;
+  return(true);
+
+}
 bool Frame::readToRGB_r(float* dest, unsigned int source_x, unsigned int source_y, 
 			unsigned int width, unsigned int height, 
 			unsigned int dest_x, unsigned int dest_y, 
@@ -252,16 +298,16 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
 			float* raw){
   //			float maxLevel, 
   //			float bias, float scale, float r, float g, float b, bool bg_sub, float* raw){
-    // 1. First make an appropriately sized buffer
-    // 2. Seek to the appropriate position, and read into the buffer (necessary to do full width, but the height can ofcourse be done separately)
-    // 3. Go through all values in the read position, do the transformation and 
+  // 1. First make an appropriately sized buffer
+  // 2. Seek to the appropriate position, and read into the buffer (necessary to do full width, but the height can ofcourse be done separately)
+  // 3. Go through all values in the read position, do the transformation and 
 
   // The commented section refers to the use of a two dimensional background subtraction
   if(chinfo.bg_subtract && !background.x_m){
-       cout << "Frame::readToRGB_s background subtraction requested: creating background object" << endl;
-       channelInfo.bg_subtract = false;
-       setBackground(16, 16, 0.2);
-       channelInfo.bg_subtract = true;
+    cout << "Frame::readToRGB_s background subtraction requested: creating background object" << endl;
+    channelInfo.bg_subtract = false;
+    setBackground(16, 16, 0.2);
+    channelInfo.bg_subtract = true;
   }
 
   // if(chinfo.bg_subtract && !threeDBackground){
@@ -312,7 +358,7 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
 
       //      v = v * phSensor_m;
  
-     //v = bias + scale * ((float)*source - bg) / maxLevel;
+      //v = bias + scale * ((float)*source - bg) / maxLevel;
       
       //	v = bias + scale * ((float)*source - (bg * maxLevel) )/maxLevel;
       //		v = bias + scale * (phSensor_m * float(*source) - (bg * maxLevel) )/maxLevel;

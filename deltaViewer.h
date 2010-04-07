@@ -97,7 +97,7 @@ class DeltaViewer : public QWidget
   Q_OBJECT
     
     public :
-  DeltaViewer(map<string, string> opt_commands, const char* ifName=0,  QWidget* parent=0, const char* name=0);
+  DeltaViewer(std::map<std::string, std::string> opt_commands, const char* ifName=0,  QWidget* parent=0, const char* name=0);
   ~DeltaViewer(){
     delete imageAnalyser;
     delete reader;
@@ -109,7 +109,8 @@ class DeltaViewer : public QWidget
  private :
   void setRanges(QString text);  // take a word or a line or something and set the parameters.. 
   QString readRanges();
-  
+  std::vector<color_map> readColors(std::string fname);
+  std::vector<channel_info> collect_channel_info();
   
   private slots :
   void nextImage();
@@ -148,7 +149,8 @@ class DeltaViewer : public QWidget
   void pasteRanges();   // paste all ranges to the distChoosers.. 
   void saveRanges();    // save ranges to a file.. 
   void readRangesFromFile();
-  
+  void readRangesFromFile(QString fileName);
+
   void setWaveColors(int wi, float r, float g, float b);
   void setWaveColors();   // basically just for init.. 
   //void findObjects(int wl);

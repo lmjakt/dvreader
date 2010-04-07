@@ -56,7 +56,9 @@ DistChooser::DistChooser(string sName, int ds, QWidget* parent, const char* name
   minTValue = 0;
   maxTValue = 1;
   lowT = 0;
-  highT = 1;     // default, select whole range.. 
+  highT = 1;     // default, select whole range..
+  min = Min = 0;
+  max = Max = 1;
   isZoomed = false;
   counts.resize(divs);          // initialises the vectors to a count of 0 if I remember correctly. 
   //logCounts.resize(divs);

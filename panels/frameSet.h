@@ -81,6 +81,9 @@ class FrameSet {
     bool readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
 		   unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
 		     float maxLevel, unsigned int waveIndex);
+    bool readToShort(unsigned short* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
+		     unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
+		     unsigned int waveIndex);
     //    bool readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
     //		   unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
     //		     bool bg_sub, float maxLevel, unsigned int waveIndex);

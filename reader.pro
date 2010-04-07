@@ -88,8 +88,11 @@ HEADERS		= \
 		distanceMapper/pointDrawer.h \
 		distanceMapper/objectComparer.h \
 		customWidgets/fSpinBox.h \
+		customWidgets/clineEdit.h \
 		abstract/space.h \
-		tiff/tiffReader.h 
+		tiff/tiffReader.h \
+		imageBuilder/imageBuilder.h \
+		imageBuilder/imageBuilderWidget.h
 SOURCES		= \
 		dvReader.cpp \
 		deltaViewer.cpp \
@@ -172,6 +175,8 @@ SOURCES		= \
 		customWidgets/fSpinBox.cpp \
 		abstract/space.cpp \
 		tiff/tiffReader.cpp \
+		imageBuilder/imageBuilder.cpp \
+		imageBuilder/imageBuilderWidget.cpp \
 		main.cpp
 TARGET		= reader
 

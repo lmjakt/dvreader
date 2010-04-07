@@ -86,6 +86,7 @@ class FileSet {
     bool mip_projection(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height,
 			float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0);
     bool readToFloat(float* dest, int xb, int yb, int zb, int pw, int ph, int pd, unsigned int waveIndex);  // reads a block of voxels into destination.. 
+    bool readToShort(unsigned short* dest, int xb, int yb, unsigned int slice, int pw, int ph, unsigned int waveIndex); 
     bool readToFloatPro(float* dest, int xb, int iwidth, int yb, int iheight, int wave);     // the projection (but checks to make sure no negativ values).. 
     // wave in readtofloatPro is waveindex (and it is checked, but nothing happens if too large) 
     // we then also need a whole load of accessor functions to allow us to make sense of the data
@@ -111,6 +112,9 @@ class FileSet {
     }
     int pheight(){
 	return(ph);
+    }
+    unsigned long plength(){
+      return( (unsigned long)pw * (unsigned long)ph);
     }
     void borders(int& left, int& right, int& bottom, int& top);
     int sectionNo(){
