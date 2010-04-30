@@ -57,6 +57,7 @@
 #include "image/coordConverter.h"
 #include "cavity/cavityMapper.h"
 #include "imageBuilder/imageBuilderWidget.h"
+#include "panels/overlapEditorWindow.h"
 
 ////////// temporary for checking what it looks like.. 
 #include "cavity/cavityBall.h"
@@ -138,6 +139,10 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   imageAnalyser = new ImageAnalyser(fileSet);
   // at which point we can make and show the overlapviewer..
   overlapWindow = new OverlapWindow(fileSet->overlaps());
+  olapEditor = new OverlapEditorWindow();
+  olapEditor->resize(1024, 1024);
+  olapEditor->setInfo(fileSet->panelInfo());
+  olapEditor->show();
   //overlapWindow->resize(1200, 12000);
   if(fileSet->overlaps().size())
       overlapWindow->show();

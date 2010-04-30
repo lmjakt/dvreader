@@ -67,6 +67,8 @@
 #include "image/backgroundWindow.h"
 #include "image/rectangle.h"
 
+class OverlapEditorWindow;
+
 using namespace std;
 
 enum OffsetDirection { 
@@ -233,6 +235,7 @@ class DeltaViewer : public QWidget
   GLImage* projection;
   GLImage* x_zView;
   OverlapWindow* overlapWindow;   // for looking at overlaps.. 
+  OverlapEditorWindow* olapEditor;
   PerimeterWindow* perimeterWindow;  // for looking at predictions of perimeters.. 
   SpotMapperWindow* spotMapperWindow;  // for mapping spots to stuff.. 
   

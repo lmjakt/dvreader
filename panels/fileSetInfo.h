@@ -37,6 +37,9 @@ const int maxPixelNo = 5000000;   // allow panels to contain up to 5 megapixels.
 
 typedef unsigned int uint;
 
+// these structs do not take ownership of any data. Hence they do not delete anything
+// when deleted.
+
 struct FrameInfo {
     unsigned int waveNo;
     float** projection;
@@ -61,6 +64,7 @@ struct FrameInfo {
 	xp = x;
 	yp = y;
     }
+    ~FrameInfo(){}
 };
 
 struct FileSetInfo {
@@ -74,10 +78,14 @@ struct FileSetInfo {
 	height = h;
 	stackNo = 0;
     }
+    ~FileSetInfo(){}
     FileSetInfo(const char* fname);  // read from a file ? 
     FrameInfo* getStack(float x, float y);  // returns a FrameInfo pointer or 0 on failure
     void addFrameInfo(FrameInfo* finfo, float x, float y); // add one .. 
     bool writeInfo(const char* fname);   // write stuff to this file.. 
+    void dims(int& w, int& h);
+    int image_width();
+    int image_height();
 
     std::map<float, std::map<float, FrameInfo*> > stacks;
     std::vector<int> waveLengths;

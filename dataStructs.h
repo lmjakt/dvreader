@@ -330,6 +330,7 @@ struct channel_info {
   float bias;
   float scale;
   bool bg_subtract;
+  backgroundPars bgPar;
   bool contrast;
   bool include;
   channel_info(){

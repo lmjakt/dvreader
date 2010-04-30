@@ -27,10 +27,12 @@
 
 #include "frameStack.h"
 #include "../dataStructs.h"
+#include "fileSetInfo.h"
 //#include "../image/background.h"
 #include <map>
 #include <vector>
 #include <string>
+
 
 /////////// the following introduces circular dependancies 
 class Background;
@@ -144,6 +146,9 @@ class FileSet {
     std::set<fluorInfo> channelInfo(){
       return(flInfo);
     }
+    FileSetInfo* panelInfo(){
+      return(stackInfo);
+    }
 
     private :
 
@@ -170,11 +175,12 @@ class FileSet {
     unsigned int wave_no;      // the wavelengths that we'll be using.. 
     std::vector<int> waves;       // just so I can sort it.. 
     std::vector<overlap_data*> overlapData;  // somewhere to hide overlap data.. 
+    FileSetInfo* stackInfo;   // holds the projection and so forth. Use for adjusting the projection data.
 
     float frameWidth, frameHeight;
     int pixelHeight, pixelWidth;  // this refers to the frame dimensions and should be the same for all frames.. 
     float maxIntensity;           //
-    const char* fileName;               // set this at the first time we add a frame.. -- but default to 0 so we know if its been set
+    char* fileName;               // set this at the first time we add a frame.. -- but default to 0 so we know if its been set
 
     float x, y;   // the beginning of the area covered (the lowest values by default)..
     float w, h;   // the width and height of the total area..

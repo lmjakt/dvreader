@@ -54,75 +54,63 @@ static GLuint texName;  // for the texture
 static GLuint extraTex; // an extra texture.. 
 static GLuint thirdOne;
 static GLuint fourthOne;
-//static GLfloat backgroundTexture[1024][1024][3];   // don't think I can use the variables above ?
-//static GLubyte backgroundTexture[1024][1024][4];   // don't think I can use the variables above ?
-/// anyway, change to GLfloat later and stuff like that.. 
-
-// void makeCheckImage(){
-//     int i, j, c;
-//     for(i=0; i < backgroundHeight; i++){
-// 	for(j=0; j < backgroundWidth; j++){
-// 	    c = ((((i&0x8) == 0) ^ ((j&0x8)) == 0)) * 1; // black or white ?
-// 	    backgroundTexture[i][j][0] = (GLfloat) c;
-// 	    backgroundTexture[i][j][1] = (GLfloat) c;
-// 	    backgroundTexture[i][j][2] = (GLfloat) c;
-// 	    //backgroundTexture[i][j][3] = (GLfloat) 255;
-// 	}
-//     }
-// }
-
 
 GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texSize, GLfloat aspRatio, QWidget* parent, const char* name )
+{
+  // just calling the other constructor as done below causes segmentation faults (texturs gets overwritten with something)
+  //  GLImage(width, height, texSize, texSize, aspRatio, parent, name);
+  setMouseTracking(true);
+  xo = yo = buttonPressed = 0;
+  xscale = yscale = 1;
+  aspectRatio = aspRatio;
+  
+  twidth = width;
+  theight = height;
+  textureWidth = texSize;
+  textureHeight = texSize;
+  textures = 0;   // reassign when initialising.. 
+  
+  xCross = yCross = 0.0;
+  drawCross = false;
+  
+  // width and height are used to work out the backgroundHeight and backgroundWidth...
+  // In fact it seems that backgroundWidth and imageWidth are never different from textureWidth
+  // and I should remove them.
+ 
+  backgroundWidth = imageWidth = texSize; //backgroundHeight = textureSize;
+  backgroundHeight = imageHeight = texSize;
+  setFocusPolicy(Qt::ClickFocus);
+  setAttribute(Qt::WA_NoSystemBackground);
+  
+  cout << "\n\n\nEnd of the GLImage constructor and textures is " << textures << endl;
+}
+
+GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texWidth, 
+		 unsigned int texHeight, GLfloat aspRatio, QWidget* parent, const char* name )
     : QGLWidget( parent, name )
 {
-//    xRot = yRot = zRot = 0.0;		// default object rotation
-    //    scaleFactor = 1.0;
-    // biasFactor = 0.0;
-    //   object = 0;
     setMouseTracking(true);
     xo = yo = buttonPressed = 0;
     xscale = yscale = 1;
     aspectRatio = aspRatio;
-//    rowSkip = 0;
-//    pixelSkip = 0;
-    //imageData = 0;
-//    rgb_image = 0;    // as these are only pointers, we should probably amalgate them into one, and then just cast.. 
-//    extra_image = 0;
-//    useRGB = false;   // ugly,, as I said, should change this.. 
 
     twidth = width;
     theight = height;
-    textureSize = texSize;
+    textureWidth = texWidth;
+    textureHeight = texHeight;
     textures = 0;   // reassign when initialising.. 
-    //   imageWidth = width;
-    //imageHeight = height;   // need for resizeGL function in order to work out the appropriate frustum (well should probably use ortho.. but)
 
     xCross = yCross = 0.0;
     drawCross = false;
 
     // width and height are used to work out the backgroundHeight and backgroundWidth...
-//     backgroundWidth = backgroundHeight = 1;
-//     // work out seperatly
-//     while(backgroundWidth < width){
-// 	backgroundWidth *= 2;
-//     }
-//     while(backgroundHeight < height){
-// 	backgroundHeight *= 2;
-//     }
-//     cout << "width    is     = " << width << " and  " << height << endl;
-//     cout << "backbroundHeight = " << backgroundHeight << "  and  bg width " << backgroundWidth << endl;
 
-//     /// which is ok. Now what we want to do is to check if this is sensible or not.
-//     /// allow for up to 2048 pixels by 2048....
-//     if(backgroundWidth * backgroundHeight > (2048 * 2048)){
-// 	cerr << "Texture with " << backgroundWidth << " * " <<  backgroundHeight << "  pixels is probably a bit too large to handle .. " << endl;
-// 	exit(1);
-//     }
-    backgroundWidth = backgroundHeight = textureSize;
-    imageWidth = imageHeight = textureSize;
-//    backgroundTexture = new GLfloat[backgroundHeight * backgroundWidth * 3];  //ok.. let's use memset to make that .. grey ? 
+    backgroundWidth = imageWidth = textureWidth; //backgroundHeight = textureSize;
+    backgroundHeight = imageHeight = textureHeight;
     setFocusPolicy(Qt::ClickFocus);
     setAttribute(Qt::WA_NoSystemBackground);
+
+    cout << "\n\n\nEnd of the GLImage constructor and textures is " << textures << endl;
 }
 
 /*!
@@ -142,7 +130,7 @@ void GLImage::setImage(float* data, int x, int y, int col, int row){
 	cerr << "GLImage::setImage row or height is too large row : " << row << "  col : " << col << endl;
 	return;
     }
-    if(x > textureSize || y > textureSize){
+    if(x > textureWidth || y > textureHeight){
 	cerr << "GLImage::setImage x or y seems to be too large  x :" << x << "  y : " << y  << endl;
 	return;
     }
@@ -150,7 +138,7 @@ void GLImage::setImage(float* data, int x, int y, int col, int row){
 
     int texPos = row * twidth + col;
     
-//    cout << "GLImage setting data to " << texPos << "th texture with coords " << x << ", " << y << "  and : " << col << "  row " << endl;
+    //    cout << "GLImage setting data to " << texPos << "th texture with coords " << x << ", " << y << "  and : " << col << "  row " << row << endl;
 
     makeCurrent();
     glBindTexture(GL_TEXTURE_2D, textures[texPos]);
@@ -158,58 +146,23 @@ void GLImage::setImage(float* data, int x, int y, int col, int row){
 
 }
 
-void GLImage::setImage(){
-//     if(rgb_image){
-// 	memcpy(extra_image, rgb_image, x * y * 3 * sizeof(float));
-// //	extra_image = rgb_image;
-//     }else{
-// 	extra_image = new float[x * y * 3];
-// //	memcpy(extra_image, rgb_image, x * y * 3 * sizeof(float));
-//     }
-    
-//     gl_mod_buffer(extra_image, extra_image, x, y, 0.0);
-
-//     rgb_image = data;
-//     imageWidth = x;    
-    
-// //     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-// //     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-// //     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-// //     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    
-// //     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, backgroundWidth, backgroundHeight, 0, GL_RGB, GL_FLOAT, backgroundTexture);
-
-//     imageHeight = y;
-//   // it may be that all we need to do is the following..
-
-/////////////////////////// important stuff follows from here.. I think.. 
-
-//     makeCurrent();
-//     for(uint i=0; i < theight; i++){
-// 	for(uint j=0; j < twidth; j++){
-// 	    glBindTexture(GL_TEXTURE_2D, textures[i * twidth + j]);
-// 	    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, textureSize, textureSize, GL_RGB, GL_FLOAT, backgroundImage);
-// 	}
-//     }
-
-//     makeCurrent();
-//     glBindTexture(GL_TEXTURE_2D, texName);
-//     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, x, y, GL_RGB, GL_FLOAT, rgb_image); 
-
-//     glBindTexture(GL_TEXTURE_2D, extraTex);
-//     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, x, y, GL_RGB, GL_FLOAT, extra_image); 
-    
-//     glBindTexture(GL_TEXTURE_2D, thirdOne);
-//     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, x, y, GL_RGB, GL_FLOAT, rgb_image); 
-    
-//     glBindTexture(GL_TEXTURE_2D, fourthOne);
-//     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, x, y, GL_RGB, GL_FLOAT, extra_image); 
-    
-
-
-//     useRGB = true;   
+// maps a large image across the set of textures.
+void GLImage::setBigImage(float* data, int source_x, int source_y,
+		       		       int width, int height)
+{
+  if(width <= 0 || height <= 0)
+    return;
+  int panelCount = 0;
+  for(int y=0; y < theight; ++y){
+    for(int x=0; x < twidth; ++x){
+      if(mapImageToTexture(data, source_x, source_y, width, height, 
+			   x * textureWidth, y * textureHeight, textures[y * twidth + x])
+	 )
+	panelCount++;
+    }
+  }
+  cout << "\n\n\n\n\npanelCount : " << panelCount << "\n\n\n" <<  endl;
 }
-
 
 void GLImage::gl_mod_buffer(float* destination, float* source, GLint w, GLint h, GLfloat param){
     makeCurrent();
@@ -226,6 +179,72 @@ void GLImage::gl_mod_buffer(float* destination, float* source, GLint w, GLint h,
 //    glPixelTransferf(GL_RED_SCALE, 1.0);
     cout << "called glread pixels.. " << endl;
     // is it that simple ? 
+}
+
+bool GLImage::mapImageToTexture(float* image_data, int source_x, int source_y,
+				int source_w, int source_h, int tex_x, int tex_y, GLuint texture)
+{
+  // Check the below inequalities again. My head is too thick at the moment
+  if( !((source_x < tex_x + textureWidth) && 
+	(source_x + source_w >= tex_x) && 
+	(source_y < tex_y + textureWidth) && 
+	(source_y + source_h) >= tex_y)){
+    cout << "mapImageToTexture no overlap found" << endl;
+    return(false);
+  }
+  
+  // define the following variables
+  // s_bx, t_bx : source and texture begin points
+  // cp_w, cp_h : cp width and heights.
+  // and then same in the y direction.
+
+  int s_bx = tex_x > source_x ? tex_x - source_x : 0;
+  int t_bx = tex_x >= source_x ? 0 : source_x - tex_x;
+ 
+  int s_by = tex_y > source_y ? tex_y - source_y : 0;
+  int t_by = tex_y >= source_x ? 0 : source_y - tex_y;
+  
+  // the maximum width and height that we can copy to and from 
+  int max_w = textureWidth < source_w ? textureWidth : source_w;
+  int max_h = textureHeight < source_h ? textureWidth : source_h;
+
+  int cp_w = (tex_x + textureWidth) > (source_x + source_w) ? 
+    (1 + (source_x + source_w) - tex_x) : ((tex_x + textureWidth) - source_x);
+  cp_w = cp_w > max_w ? max_w : cp_w;
+
+  int cp_h = (tex_y + textureHeight) > (source_y + source_h) ?
+    (1 + (source_y + source_h) - tex_y) : (1 + (tex_y + textureHeight) - source_y);
+  cp_h = cp_h > max_h ? max_h : cp_h;
+
+  if(cp_w <= 0 || cp_h <= 0){
+    cerr << "GLImage::mapImageToTexture cp_w or cp_h less than 0: " << cp_w << "," << cp_h << endl;
+    return(false);
+  }
+  if(t_bx < 0 || t_by < 0 || s_bx < 0 || s_by < 0){
+    cerr << "GLImage::mapImageToTexture negative coordinates given : "
+	 << t_bx << "," << t_by << "  : " << s_bx << "," << s_by << endl;
+    return(false);
+  }
+  float* texture_data = new float[ 3 * cp_h * cp_w];
+  // we are using an RGB triplet, so we need to multiply by three everywhere.. 
+  if(cp_w == textureWidth && cp_w == source_w){
+    memcpy((void*)(texture_data),
+	   (void*)(image_data + (3 * s_by * source_w)),
+	   sizeof(float) * 3 * cp_w * cp_h);
+  }else{
+    for(int dy=0; dy < cp_h; ++dy){
+      memcpy((void*)(texture_data + (3 * dy * cp_w )),
+	     (void*)(image_data + (3 * ((dy + s_by) * source_w + s_bx) ) ),
+	     sizeof(float) * 3 * cp_w);
+    }
+  }
+  // if we get here then 
+  makeCurrent();
+  glBindTexture(GL_TEXTURE_2D, texture);
+  cout << "calling glTexSubImage2D with " << t_bx << "," << t_by << "," << cp_w << "," << cp_h << endl;
+  glTexSubImage2D(GL_TEXTURE_2D, 0, t_bx, t_by, cp_w, cp_h, GL_RGB, GL_FLOAT, texture_data);
+  delete(texture_data);
+  return(true);
 }
 
 void GLImage::setMagnification(float m){
@@ -428,10 +447,10 @@ void GLImage::paintGL(){
 
     GLfloat x = (GLfloat)backgroundWidth / (GLfloat)imageWidth;
     GLfloat y1 = -aspectRatio;
-    GLfloat y2 = 2.0 * (aspectRatio * (GLfloat)backgroundHeight / (GLfloat)imageHeight) - aspectRatio;
+    GLfloat y2 = (textureHeight / textureWidth) * 2.0 * (aspectRatio * (GLfloat)backgroundHeight / (GLfloat)imageHeight) - aspectRatio;
 
     GLfloat h = y2 - y1;
-
+    
     if(drawCross){
 //	cout << "drawing cross I hope " << endl;
 	glLineWidth(1.0);
@@ -454,7 +473,6 @@ void GLImage::paintGL(){
 	    
 	    // ok do the loop here to put all the stuff into appropriate places.. 
 	    glBindTexture(GL_TEXTURE_2D, texture);
-//	    glBindTexture(GL_TEXTURE_2D, texName);
 	    glBegin(GL_QUADS);
 	    
 	    GLfloat xoo = j * 2 * x;
@@ -468,51 +486,6 @@ void GLImage::paintGL(){
 	    glEnd();
 	}
     }
-
-
-    //   glEnable(GL_TEXTURE_2D);
-    // glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-//     glBindTexture(GL_TEXTURE_2D, extraTex);
-//     glBegin(GL_QUADS);
-
-//     glTexCoord2f(0, 0); glVertex3f((x + xo) * xscale, (y1 + yo) * xscale, 0);
-//     glTexCoord2f(0, 1.0); glVertex3f((x + xo) * xscale, (y2 + yo) * xscale, 0);
-//     glTexCoord2f(1.0, 1.0); glVertex3f((3 * x + xo) * xscale, (y2 + yo) * xscale, 0);
-//     glTexCoord2f(1.0, 0); glVertex3f((3 * x + xo) * xscale, (y1 + yo) * xscale, 0);
-    
-//     glEnd();
-
-// //    glEnable(GL_TEXTURE_2D);
-// //    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-//     glBindTexture(GL_TEXTURE_2D, thirdOne);
-//     glBegin(GL_QUADS);
-
-//     glTexCoord2f(0, 0); glVertex3f((-x + xo) * xscale, (h + y1 + yo) * xscale, 0);
-//     glTexCoord2f(0, 1.0); glVertex3f((-x + xo) * xscale, (h + y2 + yo) * xscale, 0);
-//     glTexCoord2f(1.0, 1.0); glVertex3f((x + xo) * xscale, (h + y2 + yo) * xscale, 0);
-//     glTexCoord2f(1.0, 0); glVertex3f((x + xo) * xscale, (h + y1 + yo) * xscale, 0);
-    
-//     glEnd();
-
-// //    glEnable(GL_TEXTURE_2D);
-// //    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-//     glBindTexture(GL_TEXTURE_2D, fourthOne);
-//     glBegin(GL_QUADS);
-
-//     glTexCoord2f(0, 0); glVertex3f((x + xo) * xscale, (h + y1 + yo) * xscale, 0);
-//     glTexCoord2f(0, 1.0); glVertex3f((x + xo) * xscale, (h + y2 + yo) * xscale, 0);
-//     glTexCoord2f(1.0, 1.0); glVertex3f((3 * x + xo) * xscale, (h + y2 + yo) * xscale, 0);
-//     glTexCoord2f(1.0, 0); glVertex3f((3 * x + xo) * xscale, (h + y1 + yo) * xscale, 0);
-    
-//     glEnd();
-
-//     if(glIsEnabled(GL_LIGHTING)){
-// 	cout << "lighting is enabled, bugger, that " << endl;
-//     }
-//     glDisable(GL_LIGHTING);
-    // if draw cross, then work out the positions, and draw some lines in the same pos as the crosses...
-
-
     glFlush();
     glDisable(GL_TEXTURE_2D);
     
@@ -553,11 +526,11 @@ void GLImage::initializeGL()
 //////////////////////////////////
 
 //////////////////////////// generate twidth & theight textures.. 
-    
+  cout << "beginning of initializeGL and textures has a value of : " << textures << endl;
     if(textures){
 	delete textures;
     }
-    backgroundImage = make_background(textureSize);
+    backgroundImage = make_background(textureWidth, textureHeight);
 
     glClearColor(0.0, 0.0, 0.0, 0.0);
     glShadeModel(GL_FLAT);
@@ -600,16 +573,10 @@ void GLImage::initializeGL()
 
 void GLImage::resizeGL( int w, int h )
 {
-    //glViewport( 0, 0, imageWidth, (GLint)((GLfloat)imageWidth * aspectRatio)); // which should be ok. 
-
     glViewport(0, 0, w, h);  // but then we have to change the width of the frustum or the orthogonal to ensure it is alright
 
-//    glViewport( 0, 0, backgroundWidth, backgroundHeight);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-//    gluPerspective(60.0, (GLfloat) w/ (GLfloat) h, 1.0, 30.0);
-    //glFrustum(-1.0, 1.0, -aspectRatio, aspectRatio, 1.0, 30.0);   // 
-//    glFrustum(-1.0, 1.0, -aspectRatio, aspectRatio, 1.0, 30.0);   // 
 
     // if the viewport is smaller than the actual image as defined by the imageWidth and aspectRatio, then we want to 
     // make sure that the ortho is smaller such that the frame we use is bigger than the viewport..
@@ -618,16 +585,10 @@ void GLImage::resizeGL( int w, int h )
     GLfloat x1 = -1.0;
     GLfloat x2 = x1 + 2.0 * (GLfloat)w/(GLfloat)backgroundWidth;
     GLfloat y1 = -aspectRatio;
-    GLfloat y2 = y1 + 2.0 * aspectRatio * (GLfloat)h/((GLfloat)imageWidth * aspectRatio);
+    GLfloat y2 = (y1 + 2.0 * aspectRatio * (GLfloat)h/((GLfloat)imageWidth * aspectRatio));
 
-//    GLfloat mh = (GLfloat)h/(GLfloat)(imageWidth);
-
-    //glOrtho(-mw, +mw, -mh, +mh, 1.0, 30.0);
 
     glOrtho(x1, x2, y1, y2, 1.0, 30.0);
-//    glOrtho(x1, x2, y1, y2, 0.1, 30.0);
-//    glOrtho(-1.0, 1.0, -aspectRatio, aspectRatio, 1.0, 30.0);
-    
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     glTranslatef(0.0, 0.0, -4.0);   
@@ -635,14 +596,14 @@ void GLImage::resizeGL( int w, int h )
 
 
 
-float* GLImage::make_background(unsigned int width){
+float* GLImage::make_background(unsigned int width, unsigned int height){
     // makes a nicely coloured background image
     // with distinct corners and edges.. 
-    if(!width){
+    if(!width || !height){
 	return(0);
     }
-    float* bg = new float[width * width * 3];
-    for(uint y=0; y < width; y++){
+    float* bg = new float[width * height * 3];
+    for(uint y=0; y < height; y++){
 	for(uint x=0; x < width; x++){
 	    bg[(y * width + x) * 3] = 0.5;
 	    bg[1 + (y * width + x) * 3] = float(x)/float(width);

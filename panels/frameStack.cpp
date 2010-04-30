@@ -157,44 +157,43 @@ bool FrameStack::addFrame(Frame* frame){
 }
 
 void FrameStack::finalise(float maxLevel, FrameInfo* frameData){
-//void FrameStack::finalise(float maxLevel, float** projectionData){
-    sections.resize(0);
-    for(map<float, FrameSet*>::iterator it=sectionMap.begin(); it != sectionMap.end(); it++){
-	sections.push_back((*it).second);
-    }
-    finalised = true;   // but it would be better to actually check if we have all the slices.. 
-    if(frameData){   // if it has been read in from a file...
-	// if we already have a frameInformation then we should delete that .. 
-	
-	/// BUT, we don't know who made the frameInformation.. - so we don't actually know..
-	/// this shouldn't really happen, but it is a potential memory leak. bummer. bad design. 
-
-	frameInformation = frameData;
-	pixelX = frameInformation->xp;
-	pixelY = frameInformation->yp;
-	
-	leftBorder = pixelX > leftBorder ? pixelX : leftBorder;
-	rightBorder = pixelX + int(pWidth) < rightBorder ? pixelX + pWidth : rightBorder;
-	topBorder = pixelY + int(pHeight) < topBorder ? pixelY + pHeight : topBorder;
-	bottomBorder = pixelY > bottomBorder ? pixelY : bottomBorder;
-
-	//cout << "\t\tpixelX : " << pixelX << "\tpixelY : " << pixelY << endl;
-	
-	cout << "FrameStack::finalise projection data has been read in from a file" << endl;
-	projection = frameInformation->projection;   // though we may not need to know the projection .. 
-	/// currently many pieces of code refer to projection directly, we should try to remove this in the future. 
-	return;
-    }
-    // first initialise the projection
-    projection = new float*[fwaves.size()];
-    // resize the contrast data ..
-    contrasts.resize(fwaves.size());
-    for(uint i=0; i < fwaves.size(); i++){
-	projection[i] = make_mip_projection(i, maxLevel, contrasts[i]);
-//	projection[i] = make_mip_projection(fwaves[i], maxLevel, contrasts[i]);
-    }
-    frameInformation = new FrameInfo(fwaves.size(), projection, x, y, pixelX, pixelY, pWidth, pHeight);
-
+  sections.resize(0);
+  for(map<float, FrameSet*>::iterator it=sectionMap.begin(); it != sectionMap.end(); it++){
+    sections.push_back((*it).second);
+  }
+  finalised = true;   // but it would be better to actually check if we have all the slices.. 
+  if(frameData){   // if it has been read in from a file...
+    // if we already have a frameInformation then we should delete that .. 
+    
+    /// BUT, we don't know who made the frameInformation.. - so we don't actually know..
+    /// this shouldn't really happen, but it is a potential memory leak. bummer. bad design. 
+    
+    frameInformation = frameData;
+    pixelX = frameInformation->xp;
+    pixelY = frameInformation->yp;
+    
+    leftBorder = pixelX > leftBorder ? pixelX : leftBorder;
+    rightBorder = pixelX + int(pWidth) < rightBorder ? pixelX + pWidth : rightBorder;
+    topBorder = pixelY + int(pHeight) < topBorder ? pixelY + pHeight : topBorder;
+    bottomBorder = pixelY > bottomBorder ? pixelY : bottomBorder;
+    
+    //cout << "\t\tpixelX : " << pixelX << "\tpixelY : " << pixelY << endl;
+    
+    //    cout << "FrameStack::finalise projection data has been read in from a file" << endl;
+    projection = frameInformation->projection;   // though we may not need to know the projection .. 
+    /// currently many pieces of code refer to projection directly, we should try to remove this in the future. 
+    return;
+  }
+  // first initialise the projection
+  projection = new float*[fwaves.size()];
+  // resize the contrast data ..
+  contrasts.resize(fwaves.size());
+  for(uint i=0; i < fwaves.size(); i++){
+    projection[i] = make_mip_projection(i, maxLevel, contrasts[i]);
+    //	projection[i] = make_mip_projection(fwaves[i], maxLevel, contrasts[i]);
+  }
+  frameInformation = new FrameInfo(fwaves.size(), projection, x, y, pixelX, pixelY, pWidth, pHeight);
+  
 }
 
 void FrameStack::printFrames(){
@@ -291,42 +290,16 @@ int FrameStack::setBorder(int pos, POSITION n){
 }
 
 vector<overlap_data*> FrameStack::adjustNeighbourPositions(unsigned int secNo, unsigned int rolloff, int instep, int window, int px, int py){
-    ///////////// IMPORTANT NOTE //////////
-    ////////////  THE WAVELENGTH ISN'T ACTUALLY USED. ALL THE WAVELENGTHS ARE SCANNED IN THE findNeighbourOffset function that gets called
-    ///////////   from here. We should remove this to avoid any confusion... 
 
-
-//    cout << "FrameStack::adjustNeighbourPositions wavelegnth " << wavelength << endl;
-    float minCorr = 0.5;
+    cout << "FrameStack::adjustNeighbourPositions wavelegnth " << endl;
+    float minCorr = 0.95;
     vector<overlap_data*> overlaps;
-
-    // first work out the waveIndex as we want to use a different function//
-//     int waveIndex = 0;
-//     for(uint i=0; i < fwaves.size(); i++){
-// 	if(fwaves[i] == wavelength){
-// 	    waveIndex = i;
-// 	}
-//     }
-//     cout << "FrameStack::adjustNeighbourPositions waveIndex is : " << waveIndex << endl;
-    
+  
     if(neighboursAdjusted){  // don't do more than once.. 
 	return(overlaps);
     }
     neighboursAdjusted = true;
-//    overlap_data* olapData = new overlap_data();
-//    if(secNo >= sections.size()){
-//	cerr << "FrameStack::adjustNeighbourPositions secNo is larger than sections.size() : " << secNo << endl;
-//	return overlaps;
-//    }
-//    if(!sections[secNo]->hasWavelength(wavelength)){
-//	cerr << "FrameStack::adjustNeighbourPositions : unknown wavelength " << wavelength << endl;
-//	return overlaps;
-//    }
-    
-//    if(!rightNeighbour && !topNeighbour){
-//	cerr << "FrameStack::adjustNeighbourPositions: No appropriate neigbhours defined returning to where I came from" << endl;
-//	return overlaps;
-//    }
+
     if(window >= (instep-1) || window < 0){    // instep is given as the number of lines inside of the rolloff.. 
 	window = instep -1 ;
     }
@@ -339,7 +312,6 @@ vector<overlap_data*> FrameStack::adjustNeighbourPositions(unsigned int secNo, u
     int margin = 50;
 
     if(rightNeighbour && !rightNeighbour->adjustedNeighbours()){   // then we may change the position of the right neighbour.. 
-//    if(rightNeighbour && !(rightNeighbour->isPositionAdjusted())){   // then we may change the position of the right neighbour.. 
 //	cout << "lx : " << lx << "  neighbour xpos : " << rightNeighbour->x_pos() << "\t  dx " << dx << endl;
 	int gx = (rightNeighbour->left() + right()) / 2;
 //	int gx = pixelX + pWidth - rolloff - instep - window;
@@ -362,6 +334,12 @@ vector<overlap_data*> FrameStack::adjustNeighbourPositions(unsigned int secNo, u
 	    return(overlaps);
 	}
 
+	cout << "Adjusting right Neighbour" << endl;
+	cout << "\tpixelX : " << pixelX << "\tpixelY " << pixelY << endl
+	     << "\tleft() : " << left() << "\tright() " << right() << endl
+	     << "\tright neighbour->left() : " << rightNeighbour->left() << endl
+	     << "\tgx: " << gx << "  nlix : " << nlix << " tlix: " << tlix << endl
+	     << "\twindow : " << window << endl;
 	// let's check the function to see what happens when we use an imageFuncObject instead..
 	int areaH = gy2 - gy1;
 	int areaW = window * 2 + 1;
@@ -382,28 +360,6 @@ vector<overlap_data*> FrameStack::adjustNeighbourPositions(unsigned int secNo, u
 	    vector<overlap_data*> olaps = rightNeighbour->adjustNeighbourPositions(secNo, rolloff, instep, window, px+1, py);
 	    overlaps.insert(overlaps.end(), olaps.begin(), olaps.end());
 	}
-
-// 	if(rightNeighbour->readToFloatPro(neighborArea, nlix, areaW, ny1, areaH, waveIndex)
-// 	   &&
-// 	   readToFloatPro(thisArea, tlix, areaW, y1, areaH, waveIndex))
-
-// //	if(rightNeighbour->readToFloat(neighborArea, nlix, areaW, ny1, areaH, secNo, wavelength, 1.0)
-// //	   &&
-// //	   readToFloat(thisArea, tlix, areaW, y1, areaH, secNo, wavelength, 1.0))
-
-// 	{
-// 	    offsets off = iFunc.findOffsets(thisArea, neighborArea, areaW, areaH);
-// 	    overlaps.push_back(new overlap_data(x, y, rightNeighbour->x_pos(), rightNeighbour->y_pos(), px, py, px + 1, py, areaW, areaH, off.dx, off.dy, thisArea, neighborArea, off));
-// 	    if(off.corr > minCorr){
-// 		rightNeighbour->adjustPosition(off.dx, off.dy, RIGHT, off.corr);
-// 		vector<overlap_data*> olaps = rightNeighbour->adjustNeighbourPositions(secNo, wavelength, rolloff, instep, window, px+1, py);
-// 		overlaps.insert(overlaps.end(), olaps.begin(), olaps.end());
-// 	    }
-// 	}else{
-// 	    cerr << "FrameStack::adjustNeighbour unable to read into areas for checking right overlap" << endl;
-// 	    delete neighborArea;
-// 	    delete thisArea;
-// 	}
     }    
     
     if(topNeighbour && !topNeighbour->adjustedNeighbours()){
@@ -448,34 +404,9 @@ vector<overlap_data*> FrameStack::adjustNeighbourPositions(unsigned int secNo, u
 	    vector<overlap_data*> olaps = topNeighbour->adjustNeighbourPositions(secNo, rolloff, instep, window, px, py+1);
 	    overlaps.insert(overlaps.end(), olaps.begin(), olaps.end());
 	}
-	
-// 	if(topNeighbour->readToFloatPro(neighborArea, nx1, areaW, nyb, areaH, waveIndex)
-// 	   &&
-// 	   readToFloatPro(thisArea, x1, areaW, yb, areaH, waveIndex))
-// //	if(topNeighbour->readToFloat(neighborArea, nx1, areaW, nyb, areaH, secNo, wavelength, 1.0)
-// //	   &&
-// //	   readToFloat(thisArea, x1, areaW, yb, areaH, secNo, wavelength, 1.0))
-// 	{
-// 	    offsets off = iFunc.findOffsets(thisArea, neighborArea, areaW, areaH);
-// 	    cout << "\tTOP neighbor iFunc offset : dx " << off.dx << "  dy : " << off.dy << "   correlation : " << off.corr << "  --> " << off.norm_corr << endl;
-// 	    overlaps.push_back(new overlap_data(x, y, topNeighbour->x_pos(), topNeighbour->y_pos(), px, py, px, py+1, areaW, areaH, off.dx, off.dy, thisArea, neighborArea, off));
-// 	    if(off.corr > minCorr){
-// 		topNeighbour->adjustPosition(off.dx, off.dy, TOP, off.corr);
-// 		vector<overlap_data*> olaps = topNeighbour->adjustNeighbourPositions(secNo, wavelength, rolloff, instep, window, px, py+1);
-// 		overlaps.insert(overlaps.end(), olaps.begin(), olaps.end());
-// 	    }
-// 	}else{
-// 	    delete neighborArea;
-// 	    delete thisArea;
-// 	}
-	
     }
     if(leftNeighbour && !leftNeighbour->adjustedNeighbours()){
-//    if(leftNeighbour && !(leftNeighbour->isPositionAdjusted())){
-	
 	int gx = (left() + leftNeighbour->right())/2;
-	
-//	int gx = left() + rolloff + instep - window;
 	int x1 = gx - left();
 	int nx1 = gx - leftNeighbour->left();
 	int gy1 = pixelY + rolloff + margin;
@@ -511,25 +442,6 @@ vector<overlap_data*> FrameStack::adjustNeighbourPositions(unsigned int secNo, u
 	    vector<overlap_data*> olaps = leftNeighbour->adjustNeighbourPositions(secNo, rolloff, instep, window, px-1, py);
 	    overlaps.insert(overlaps.end(), olaps.begin(), olaps.end());
 	}
-
-// 	if(leftNeighbour->readToFloatPro(neighborArea, nx1, areaW, ny1, areaH, waveIndex)
-// 	   &&
-// 	   readToFloatPro(thisArea, x1, areaW, y1, areaH, waveIndex))
-// //	if(leftNeighbour->readToFloat(neighborArea, nx1, areaW, ny1, areaH, secNo, wavelength, 1.0)
-// //	   &&
-// //	   readToFloat(thisArea, x1, areaW, y1, areaH, secNo, wavelength, 1.0))
-// 	{
-// 	    offsets off = iFunc.findOffsets(thisArea, neighborArea, areaW, areaH);
-// 	    overlaps.push_back(new overlap_data(x, y, leftNeighbour->x_pos(), leftNeighbour->y_pos(), px, py, px-1, py, areaW, areaH, off.dx, off.dy, thisArea, neighborArea, off));
-// 	    if(off.corr > minCorr){
-// 		leftNeighbour->adjustPosition(off.dx, off.dy, LEFT, off.corr);
-// 		vector<overlap_data*> olaps = leftNeighbour->adjustNeighbourPositions(secNo, wavelength, rolloff, instep, window, px-1, py);
-// 		overlaps.insert(overlaps.end(), olaps.begin(), olaps.end());
-// 	    }
-// 	}else{
-// 	    delete neighborArea;
-// 	    delete thisArea;
-// 	}
     }
     
     if(bottomNeighbour && !bottomNeighbour->adjustedNeighbours()){
@@ -571,33 +483,14 @@ vector<overlap_data*> FrameStack::adjustNeighbourPositions(unsigned int secNo, u
 	cout << "BOTTOMNEIGHBOUR" << endl;
 	offsets off = findNeighbourOffset(bottomNeighbour, neighbourArea, nx1, ny1, thisArea, x1, y1, areaW, areaH);
 	cout << "\tadjustNeighbours off dx " << off.dx << "\toff dy " << off.dy << "\toff corr " << off.corr << endl;
-	overlaps.push_back(new overlap_data(x, y, bottomNeighbour->x_pos(), bottomNeighbour->y_pos(), px, py, px, py-1, areaW, areaH, off.dx, off.dy, thisArea, neighbourArea, off));
+	overlaps.push_back(new overlap_data(x, y, bottomNeighbour->x_pos(), bottomNeighbour->y_pos(), 
+					    px, py, px, py-1, areaW, areaH, off.dx, off.dy, thisArea, neighbourArea, off));
 	if(off.corr > minCorr){
 	    bottomNeighbour->adjustPosition(off.dx, off.dy, BOTTOM, off.corr);
 	    vector<overlap_data*> olaps = bottomNeighbour->adjustNeighbourPositions(secNo, rolloff, instep, window, px, py-1);
 	    overlaps.insert(overlaps.end(), olaps.begin(), olaps.end());
 	}
-
-// 	if(bottomNeighbour->readToFloatPro(neighbourArea, nx1, areaW, ny1, areaH, waveIndex)
-// 	   &&
-// 	   readToFloatPro(thisArea, x1, areaW, y1, areaH, waveIndex))
-// //	if(bottomNeighbour->readToFloat(neighbourArea, nx1, areaW, ny1, areaH, secNo, wavelength, 1.0)
-// //	   &&
-// //	   readToFloat(thisArea, x1, areaW, y1, areaH, secNo, wavelength, 1.0))
-// 	{
-// 	    offsets off = iFunc.findOffsets(thisArea, neighbourArea, areaW, areaH);
-// 	    overlaps.push_back(new overlap_data(x, y, bottomNeighbour->x_pos(), bottomNeighbour->y_pos(), px, py, px, py-1, areaW, areaH, off.dx, off.dy, thisArea, neighbourArea, off));
-// 	    if(off.corr > minCorr){
-// 		bottomNeighbour->adjustPosition(off.dx, off.dy, BOTTOM, off.corr);
-// 		vector<overlap_data*> olaps = bottomNeighbour->adjustNeighbourPositions(secNo, wavelength, rolloff, instep, window, px, py-1);
-// 		overlaps.insert(overlaps.end(), olaps.begin(), olaps.end());
-// 	    }
-// 	}else{
-// 	    delete neighbourArea;
-// 	    delete thisArea;
-//	}
     }
-    
     return(overlaps);
 }
 
@@ -627,7 +520,8 @@ offsets FrameStack::findNeighbourOffset(FrameStack* neighbour, float* neighbourA
     float* tempArea = new float[areaW * areaH];
     int maxIndex = -1;   // if it never gets set then we should rescue it..  
 //    cout << "findNeighbourOffset " << endl;
-    for(int i=1; i < wave_no; ++i){
+    //for(int i=1; i < 2; ++i){
+    for(int i=0; i < wave_no; ++i){
 	if(neighbour->readToFloatPro(n_tempArea, nx1, areaW, ny1, areaH, i)
 	   && readToFloatPro(tempArea, x1, areaW, y1, areaH, i))
 	{
@@ -733,11 +627,6 @@ bool FrameStack::readToRGB(float* dest, int xpos, int ypos,
 			   unsigned int dest_width, unsigned int dest_height, 
 			   unsigned int slice_no, vector<channel_info> chinfo,
 			   raw_data* raw){
-  //			   float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, bool bg_sub, raw_data* raw){
-//     if(pixelX == -1 && pixelY == -1){
-// 	cerr << "FrameStack::readToRGB (int version) pixel positions undefined " << endl;
-// 	return(false);
-//     }
     if(slice_no >= sections.size()){
 	cerr << "FrameStack::readToRGB (int version) slice no is too large : " << slice_no << endl;
 	return(false);
@@ -745,51 +634,8 @@ bool FrameStack::readToRGB(float* dest, int xpos, int ypos,
     int dest_x, source_x, dest_y, source_y;
     unsigned int subWidth, subHeight;
     // check if it overlaps with the border positions..
-        if(globalToLocal(xpos, ypos, dest_width, dest_height, dest_x, source_x, dest_y, source_y, subWidth, subHeight)){
-//     if(
-// 	(xpos < rightBorder && xpos + int(dest_width) > leftBorder)  // overlap in horizontal direction 
-// 	&&
-// 	(ypos < topBorder && ypos + int(dest_height) > bottomBorder)  // overlap in vertical plane ?
-// 	){
-	
-// 	// then first work out which pixels to take from here, and which pixels to put them to.. 
-// 	int dest_x = leftBorder >= xpos ? leftBorder - xpos : 0;
-// 	int source_x = leftBorder >= xpos ? leftBorder - pixelX : xpos - pixelX;
-// 	int dest_y = bottomBorder >= ypos ? bottomBorder - ypos : 0;
-// 	int source_y = bottomBorder >= ypos ? bottomBorder - pixelY : ypos - pixelY;
-
-
-// 	if(source_x < 0){
-// 	    dest_x -= source_x;
-// 	    source_x = 0;
-// 	}
-// 	if(source_y < 0){
-// 	    dest_y -= source_y;
-// 	    source_y = 0;
-// 	}
-
-// 	// and then work out the width and height that we'll be taking out of this.. 
-// 	unsigned int subWidth = rightBorder <= xpos + int(dest_width) ? (rightBorder - pixelX) - source_x : (xpos + dest_width) - leftBorder;
-// 	unsigned int subHeight = topBorder <= ypos + int(dest_width) ? (topBorder - pixelY) - source_y : (ypos + dest_height) - bottomBorder;
-
-
-	// because borders are inclusive..
-	//subWidth++;
-	//subHeight++;
-
-	// and print out these numbers to see if they make much sense.. 
-// 	cout << "FrameStack::readToRGB (int version) \n"
-// 	     << "\trequest : " << xpos << ", " << ypos << " --> " << xpos + dest_width << ", " << ypos + dest_height 
-// 	     << "  border positions " << leftBorder << ", " << bottomBorder << " --> " << rightBorder << ", " << topBorder << endl
-// 	     << "\tinternal positions  dest : " << dest_x << ", " << dest_y << "     source : " << source_x << ", " << source_y << endl
-// 	     << "\t\tpixel position: " << pixelX << "," << pixelY <<  "    dims : " << subWidth << ", " << subHeight << endl;
-	
-// 	cout << "\n call Function with " << source_x << ", " << source_y << ", " << subWidth  << ", " << subHeight << ", " << dest_x << ", " << dest_y << ", " << dest_width << endl;
-//	cout << "Recorded Z position : " << sections[slice_no]->z_pos() << endl;
-
-
-	return(sections[slice_no]->readToRGB(dest, source_x, source_y, subWidth, subHeight, dest_x, dest_y, dest_width, chinfo, raw));
-	//	return(sections[slice_no]->readToRGB(dest, source_x, source_y, subWidth, subHeight, dest_x, dest_y, dest_width, maxLevel, bias, scale, colors, bg_sub, raw));
+    if(globalToLocal(xpos, ypos, dest_width, dest_height, dest_x, source_x, dest_y, source_y, subWidth, subHeight)){
+      return(sections[slice_no]->readToRGB(dest, source_x, source_y, subWidth, subHeight, dest_x, dest_y, dest_width, chinfo, raw));
     }
     return(false);
 }
@@ -916,13 +762,13 @@ bool FrameStack::mip_projection(float* dest, float xpos, float ypos, float dest_
 bool FrameStack::mip_projection(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height,
 				float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, raw_data* raw){
     if(!projection){
-	cout << "FrameStack::mip_projection projection is 0 so making new projection " << endl;
+      //	cout << "FrameStack::mip_projection projection is 0 so making new projection " << endl;
 	finalise(maxLevel);
     }
 
-     cout << "FrameStack::mip_projection : request :" << xpos << ", " << ypos << "  width, height : " << dest_width << ", " << dest_height
- 	 << " source : " << pixelX << ", " << pixelY << "  leftBorder : " << leftBorder << "  rightBorder : " << rightBorder << "  topBorder "
- 	 << topBorder << "  bottomBorder " << bottomBorder << endl;
+    //     cout << "FrameStack::mip_projection : request :" << xpos << ", " << ypos << "  width, height : " << dest_width << ", " << dest_height
+    //	 << " source : " << pixelX << ", " << pixelY << "  leftBorder : " << leftBorder << "  rightBorder : " << rightBorder << "  topBorder "
+    //	 << topBorder << "  bottomBorder " << bottomBorder << endl;
 
     int dest_x, source_x, dest_y, source_y;
     unsigned int subWidth, subHeight;
@@ -951,7 +797,7 @@ bool FrameStack::mip_projection(float* dest, int xpos, int ypos, unsigned int de
 // 	unsigned int subHeight = topBorder <= ypos + int(dest_width) ? (topBorder - pixelY) - source_y : (ypos + dest_height) - bottomBorder;
 	// and then just map from our projections ..
 	float v;
-	cout << "\toverlap found , dest_pos : " << dest_x << ", " << dest_y << "  source : " << source_x << ", " << source_y << "  dimensions : " << subWidth << ", " << subHeight << endl;
+	//	cout << "\toverlap found , dest_pos : " << dest_x << ", " << dest_y << "  source : " << source_x << ", " << source_y << "  dimensions : " << subWidth << ", " << subHeight << endl;
 	for(uint wi=0; wi < fwaves.size(); ++wi){
 	    for(uint hp=0; hp < subHeight; ++hp){
 		float* dst = dest + ((dest_y + hp) * dest_width + dest_x) * 3;   // dest is an rgb triplet..
@@ -1206,7 +1052,7 @@ void FrameStack::adjustPosition(int dx, int dy, POSITION n, float setAdjustmentF
 
     // we might have to change the boundary positions, as these will change for the 
     // things on the edges.. 
-    //
+    // 
     // leftBoundary cannot be less than pixelX and so on..
     if(leftBorder < pixelX){
 	leftBorder = pixelX;
@@ -1221,12 +1067,8 @@ void FrameStack::adjustPosition(int dx, int dy, POSITION n, float setAdjustmentF
 	topBorder = pixelY + pHeight;
     }
 
-//    cout << "\tleftBorder : " << leftBorder << "\trightBorder : " << rightBorder << "\tbottomBorder : " << bottomBorder << "\ttopBorder : " << topBorder << endl;
-
-    // so this is real messy, but .. let's see how it works.. 
-
-    // we only spread the adjustment in rows as there may be too many differences between rows depending on the order 
-
+    // consider also setting the left, right, top and bottom borders where appropriate.
+    // after having done things to neighbours.
     switch(n){
 	case RIGHT :
 	    if(rightNeighbour && !(rightNeighbour->isPositionAdjusted())){
@@ -1256,16 +1098,6 @@ void FrameStack::adjustPosition(int dx, int dy, POSITION n, float setAdjustmentF
 	positionAdjusted = setAdjustmentFlag;
     }
 
-//     if(topNeighbour){
-// 	topNeighbour->adjustPosition(dx, dy);
-//     }
-//     if(rightNeighbour){
-// 	rightNeighbour->adjustPosition(dx, dy);
-//     }
-
-//     x += dx;
-//     y += dy;
-//     cout << y << endl;
 }
 
 
@@ -1353,7 +1185,9 @@ float FrameStack::meanValue(float* v, unsigned int l){
     return(sum / float(l));
 }
 
-bool FrameStack::globalToLocal(int xpos, int ypos, int dest_width, int dest_height, int& dest_x, int& source_x, int& dest_y, int& source_y, unsigned int& subWidth, unsigned int& subHeight){
+bool FrameStack::globalToLocal(int xpos, int ypos, int dest_width, int dest_height, 
+			       int& dest_x, int& source_x, int& dest_y, int& source_y, 
+			       unsigned int& subWidth, unsigned int& subHeight){
     if(
 	(xpos < rightBorder && xpos + int(dest_width) > leftBorder)  // overlap in horizontal direction 
 	&&
@@ -1375,7 +1209,7 @@ bool FrameStack::globalToLocal(int xpos, int ypos, int dest_width, int dest_heig
 	    dest_y -= source_y;
 	    source_y = 0;
 	}
-	
+
 //	cout << "globalToLocal :: \n" << xpos << ", " << ypos << ", " << dest_width << ", " << dest_height << "\n-->  "
 //	     << "  " << dest_x <<  ", " << source_x << ", " << dest_y << ", " << source_y << ", " << endl;
 	
@@ -1383,6 +1217,9 @@ bool FrameStack::globalToLocal(int xpos, int ypos, int dest_width, int dest_heig
 	subWidth = rightBorder <= xpos + int(dest_width) ? (rightBorder - pixelX) - source_x : (dest_width - dest_x);
 	subHeight = topBorder <= ypos + int(dest_height) ? (topBorder - pixelY) - source_y : (dest_height - dest_y);
 
+	//	cout << "globalToLocal :: " << "xpos " << xpos << " leftBorder " << leftBorder << "  pixelPos " << pixelX << "," << pixelY
+	//   << "   dest_x " << dest_x << "  source_x " << source_x << "  subWidth " << subWidth << endl;
+	
 	// I can't think of a better way of putting this.. but there should be.
 	// We also have to make sure that we don't overstep the size of the destination buffer.. 
 

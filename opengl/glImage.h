@@ -40,12 +40,15 @@ class GLImage : public QGLWidget
 public:
 
     GLImage(unsigned int width, unsigned int height, unsigned int texSize,  GLfloat aspRatio=1.0, QWidget* parent=0, const char* name=0 );
+    GLImage(unsigned int width, unsigned int height, unsigned int texWidth,  unsigned int texHeight,
+	    GLfloat aspRatio=1.0, QWidget* parent=0, const char* name=0 );
     ~GLImage();
 
 public slots:
 
  void setImage(float* data, int x, int y, int col, int row);           // using an rgb coordinate system.. 
- void setImage();   //sets the backround image using something or other ..  
+ void setBigImage(float* data, int source_x, int source_y, 
+	       int width, int height);
  void setMagnification(float m);
  void resetMagnification(){
      xscale = 1.0;
@@ -77,13 +80,17 @@ protected:
 private:
     
     void gl_mod_buffer(float* destination, float* source, GLint w, GLint h, GLfloat param);  // try to use gldrawpixels and glreadpixels to modify a data set
-    float* make_background(unsigned int width);   // make a  square of some sort .. 
+    float* make_background(unsigned int width, unsigned int height);   // make a  square of some sort .. 
+    bool mapImageToTexture(float* image_data, int source_x, int source_y,
+			   int source_w, int source_h, int tex_x, int tex_y, GLuint texture);
 
     //    bool animation;
     //    GLuint object;
     GLuint* textures;
     GLint twidth, theight;   // the number of textures, not the
-    GLint textureSize;     // the size of the texture.. 
+    //    GLint textureSize;     // the size of the texture.. 
+    GLint textureWidth;
+    GLint textureHeight;
     std::vector<float*> images;   // the images that we want to map to the different areas.. 
     float* backgroundImage;       // a single image that we can use to set things up.. 
     
@@ -96,8 +103,12 @@ private:
 //    float* rgb_image;          // image in floats.. somewhat different.. 
 //    float* extra_image;
 //    bool useRGB;               // whether or not we use RGB..would probably be better to replace with a state variable. enum.. 
+
+    // It seems that the below are always equal to textureWidth and textureHeight, 
+    // so I should probably get rid of them.
     GLint imageWidth, imageHeight;
     GLint backgroundWidth, backgroundHeight;
+
     GLfloat xCross, yCross;   // draw a cross at these position if something is true..
     bool drawCross;           // 
     //   GLfloat* backgroundTexture;

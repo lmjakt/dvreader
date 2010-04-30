@@ -19,7 +19,7 @@ class ImageBuilderWidget: public QWidget
   Q_OBJECT
  public:
   enum Task {
-    SLICE, PROJECT, SET, REPORT
+    SLICE, PROJECT, SET, REPORT, BG_ADD, BG_SUB, RESET_RGB, ADD_MCP
   };
   
   ImageBuilderWidget(FileSet* fs, std::vector<channel_info> ch, QWidget* parent=0);
@@ -39,6 +39,9 @@ class ImageBuilderWidget: public QWidget
   void setParameter(std::vector<QString> words);
   void makeSlice(std::vector<QString> words);
   void makeProjection(std::vector<QString> words);
+  void addBackground(std::vector<QString> words);
+  void subBackground(std::vector<QString> words);
+  void addMCP(std::vector<QString> words);
   
   std::vector<float> getFloats(std::vector<QString>& words, unsigned int offset);
   std::vector<int> getInts(std::vector<QString>& words, unsigned int offset);

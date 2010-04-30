@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include "../dataStructs.h"
+#include "../datastructs/a_pos.h"
 
 class Background;
 
@@ -38,16 +39,17 @@ typedef unsigned int uint;
 
 // a small background struct. Only to be used by the Frame Class. Not to be passed around.
 
-// background can do with a pos struct (area_pos = a_pos)
-struct a_pos {
-  int x, y;
-  a_pos(){
-    x = y = 0;
-  }
-  a_pos(int X, int Y){
-    x = X; y = Y;
-  }
-};
+// now defined in ../datastructs/a_pos.h
+/* // background can do with a pos struct (area_pos = a_pos) */
+/* struct a_pos { */
+/*   int x, y; */
+/*   a_pos(){ */
+/*     x = y = 0; */
+/*   } */
+/*   a_pos(int X, int Y){ */
+/*     x = X; y = Y; */
+/*   } */
+/* }; */
 
 struct td_bg {
   int x_m, y_m;

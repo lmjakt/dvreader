@@ -74,13 +74,6 @@ bool DVReader::readDVFile(const char* fName){
     headerSize = 1024;   // use for seeking to appropriate place... 
 
 
-///  The below comment is untrue. I cannot open up an unlimited number of file handles. So I think I ended up
-///  using one for each thingy.. 
-//// It seems that there is no problem to open up to 50,000 handles on a given file. That is useful, since it should
-//// mean that we can make an object for every frame. This frame has all the information that we need to extract data..
-//// 
-    
-
     ifstream in(fName, ios::binary);
     if(!in){
 	cerr << "couldn't open file: " << fName << endl;
@@ -127,15 +120,16 @@ bool DVReader::readDVFile(const char* fName){
 	 << "mxst : " << mxst << endl
 	 << "myst : " << myst << endl;
     
-    
+    // temporary for different purposes
+    // cout << "dvReader tellg " << in.tellg() << endl;
     readFloat(in, dx);
     readFloat(in, dy);
     readFloat(in, dz);
     readFloat(in, alpha);
     readFloat(in, beta);
     readFloat(in, gamma);
-
-
+    //cout << "\tdx : " << dx << "\tdy : " << dy << " : " << dz << endl;
+    //exit(1);
     
     readInt(in, xaxis);
     readInt(in, yaxis);
@@ -284,11 +278,7 @@ bool DVReader::readDVFile(const char* fName){
 
     
     std::ios::pos_type secSize = (pSize * nx * ny);  // the number of bytes per image..
-    //<<<<<<< HEAD:dvReader.cpp
-    //std::ios::pos_type imBegin = headerSize + next;  // next = n extended.. 
-    //=======
     std::ios::pos_type imBegin = headerSize + (std::ios::pos_type)next;  // next = n extended.. 
-    //>>>>>>> 3D_bg_subtract:dvReader.cpp
     
     // let's have a look first ..
     cout << "next : " << next << "\tnint : " << nint << "\tnreal : " << nreal << endl;
@@ -304,34 +294,25 @@ bool DVReader::readDVFile(const char* fName){
 	cerr << "dvReader failed to create a second filestream on " << fName << endl;
 	exit(1);
     }
-    // ok and now let's read the extendned header ..
+    // ok and now let's read the extended header ..
     int tempInt;
     float tempFloat;   // assume 
     in.seekg(headerSize);
     for(int i=0; i < nsec; i++){
 	std::ios::pos_type framePos = imBegin + secSize * i;
-	//<<<<<<< HEAD:dvReader.cpp
-	//std::ios::pos_type readPos = headerSize + (nint + nreal) * 4 * i;
-	//=======
 	std::ios::pos_type readPos = headerSize + (std::ios::pos_type)((nint + nreal) * 4 * i);
-	//>>>>>>> 3D_bg_subtract:dvReader.cpp
 	std::ios::pos_type extHeadSize = next;  // I think.. 
 	bool bigEnd = !sameEndian;   // but this is indeed very bad way of doing it.. 
 	if(!fileSet->addFrame(fName, in2, framePos, readPos, extHeadSize, nint, nreal, pSize, isReal, bigEnd, nx, ny, dx, dy, dz)){
 	    cerr << "DVreader unable to add frame to file set will die here for debugging.." << endl;
 	    exit(1);
 	}
-//	cout << i << "\ti:";
 	for(int j=0; j < nint; j++){
 	    in.read((char*)&tempInt, 4);
-//	    cout << "\t" << tempInt;
 	}
-//	cout << endl << "\tf:";
 	for(int j=0; j < nreal; j++){
 	    in.read((char*)&tempFloat, 4);
-//	    cout << "\t" << tempFloat;
 	}
-//	cout << endl << endl;
     }
     delete in2;
 

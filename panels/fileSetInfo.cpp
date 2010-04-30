@@ -80,7 +80,7 @@ FileSetInfo::FileSetInfo(const char* fname){
 	 << "\twaveNo " << waveNo << "\n"
 	 << "\twidth x height " << width << " x " << height << endl;
 
-    if(width * height > maxPixelNo){
+    if(width * height > (uint)maxPixelNo){
 	cerr << "dimensions of stacks are larger than max allowed size : " << width << " x " << height << endl;
 	ok = false;
 	return;
@@ -190,4 +190,44 @@ bool FileSetInfo::writeInfo(const char* fname){
     return(true);  // well I should check the state of the stream here, but don't remember how, and not sure what to do about it anyway.. 
 }
 
-    
+// the total width of the arrangement
+void FileSetInfo::dims(int& w, int& h)
+{
+  int max_x = 0;
+  int max_y = 0;
+  int min_x = 0;
+  int min_y = 0;
+  bool initial = true;
+  for(map<float, map<float, FrameInfo*> >::iterator ot=stacks.begin();
+      ot != stacks.end(); ++ot){
+    for(map<float, FrameInfo*>::iterator it=(*ot).second.begin();
+	it != (*ot).second.end(); ++it){
+      if(initial){
+	min_x = (*it).second->xp;
+	max_x = (*it).second->xp;
+	min_y = (*it).second->yp;
+	max_y = (*it).second->yp;
+	initial = false;
+	continue;
+      }
+      min_x = min_x > (*it).second->xp ? (*it).second->xp : min_x;
+      max_x = max_x < (*it).second->xp ? (*it).second->xp : max_x;
+      min_y = min_y > (*it).second->yp ? (*it).second->yp : min_y;
+      max_y = max_y < (*it).second->yp ? (*it).second->yp : max_y;
+    }
+  }
+  w = (max_x + width) - min_x;
+  h = (max_y + height) - min_y;
+}
+
+int FileSetInfo::image_width(){
+  int w, h;
+  dims(w, h);
+  return(w);
+}
+
+int FileSetInfo::image_height(){
+  int w, h;
+  dims(w, h);
+  return(w);
+}

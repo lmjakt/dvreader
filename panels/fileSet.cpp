@@ -23,7 +23,6 @@
 //End Copyright Notice
 
 #include "fileSet.h"
-#include "fileSetInfo.h"
 #include "../stat/stat.h"
 #include <iostream>
 #include <fstream>
@@ -77,105 +76,105 @@ bool FileSet::addFrame(string fname, ifstream* in, std::ios::pos_type framePos,
     // make a new frame, and if its x and y coordinates don't fit then 
     // make a new framestack and stick it into that ..
   if(!fileName){
-	fileName = fname.c_str();
-	//	cout << "\n\n\nFILENAME HAS BEEN SET TO : " << fileName << " From : " << fname << " via: " << fname.c_str() << " \n\n" << endl;
-    }
+    // It seems that it is necessary that we call new to make sure that
+    // the filename doesn't get overwritten.
+    fileName = new char[fname.length() + 1];
+    fileName[fname.length()] = 0;
+    memcpy((void*)fileName, (void*)fname.c_str(), fname.length());
+  }
   if(*fileName != *fname.c_str()){
     cerr << "FileSet::addFrame fileName has changed, reassigning from " << fileName << " to : " << fname << endl;
-    fileName = fname.c_str();
+    exit(1);
+    //    fileName = fname.c_str();
   }
-  //  cout << "at the beginning of addFrame, fileName : " << fileName << "  set from " << fname << endl;
-
-    // first use a temporary ifstream as it seems we can't make and delete thousands of ifstreams..
-    Frame* frame = new Frame(in, framePos, readPos, extHeadSize, 
-			     numInt, numFloat, byteSize, real, bigEnd, width, height, dx, dy, dz);
-    if(!frame->ok()){
-	cerr << "FileSet::addFrame Frame is not ok" << endl;
-	delete frame;
-	return(false);
+  // first use a temporary ifstream as it seems we can't make and delete thousands of ifstreams..
+  Frame* frame = new Frame(in, framePos, readPos, extHeadSize, 
+			   numInt, numFloat, byteSize, real, bigEnd, width, height, dx, dy, dz);
+  if(!frame->ok()){
+    cerr << "FileSet::addFrame Frame is not ok" << endl;
+    delete frame;
+    return(false);
+  }
+  fluorInfo finfo(frame->excitation(), frame->emission(), frame->exposure());
+  flInfo.insert(finfo);
+  //flInfo.insert(fluorInfo(frame->excitation(), frame->emission(), frame->exposure()));
+  if(!photoSensors.count(finfo)){
+    photoSensors[finfo] = frame->phSensor();
+  }
+  frame->setPhSensorStandard( photoSensors[finfo] );
+  
+  // and then look for a suitable framestack..
+  bool stackIsNew = false;
+  float x_pos = frame->xPos();
+  float y_pos = frame->yPos();   // these get modified by the getStack function to point to the appropriate things for assigning the stack
+  
+  FrameStack* fstack = 0;
+  
+  if(!getStack(x_pos, y_pos)){
+    stackIsNew = true;
+    cerr << "no stack found for frame counter  "  << ifstreamCounter << endl;
+    ifstream* newStream = new ifstream(fname.c_str());
+    ifstreamCounter++;
+    if(!(*newStream)){
+      cerr << "FileSet::addFrame failed to create new filestream on new stack counter " << ifstreamCounter << endl;
+      exit(1);
     }
-    fluorInfo finfo(frame->excitation(), frame->emission(), frame->exposure());
-    flInfo.insert(finfo);
-    //flInfo.insert(fluorInfo(frame->excitation(), frame->emission(), frame->exposure()));
-    if(!photoSensors.count(finfo)){
-      photoSensors[finfo] = frame->phSensor();
+    fstack = new FrameStack(wave_lengths, wave_no, newStream, maxIntensity);   // in which case we should not delete or change the ifstream around.. 
+  }else{
+    fstack = frames[x_pos][y_pos];
+  }
+  // and assign the appropriate stream to the frame (the one that belongs to the filestack
+  frame->setStream(fstack->fileStream());   // ugly hack, since we can't open more than about 1000 ifstreams on one file it seems.. 
+  
+  // then add the frame to the framestack.. 
+  if(!fstack->addFrame(frame)){
+    cerr << "FileSet::addFrame unable to add frame to filestack" << endl;
+    delete frame;
+    if(stackIsNew){
+      delete fstack;
     }
-    frame->setPhSensorStandard( photoSensors[finfo] );
+    exit(1);
+    return(false);
+  }
+  // if we are here, then we have created a new frame - we may have created a new file stack.. 
+  // regardless we have to check out whether or not things match up..
+  
+  // 1. if this is the first one, we have to set the parameters, frameWidth, pixelHeight, .. and so on.. 
+  if(!frames.size()){
+    frameWidth = frame->sampleWidth();
+    frameHeight = frame->sampleHeight();
+    pixelHeight = frame->p_height();
+    pixelWidth = frame->p_width();
+    x = frame->xPos();
+    y = frame->yPos();
+    // and then how to insert ..
+    frames[x_pos][y_pos] = fstack;
+    //cout << "adding first framestack to FileSet position : " << x << ", " << y << ", " << frame->zPos() << "  dims : " << pixelWidth << ", " << pixelHeight << endl;
     
-    // and then look for a suitable framestack..
-    bool stackIsNew = false;
-    float x_pos = frame->xPos();
-    float y_pos = frame->yPos();   // these get modified by the getStack function to point to the appropriate things for assigning the stack
-
-    FrameStack* fstack;
-
-    if(!getStack(x_pos, y_pos)){
-	stackIsNew = true;
-	cerr << "no stack found for frame counter  "  << ifstreamCounter << endl;
-	ifstream* newStream = new ifstream(fname.c_str());
-	ifstreamCounter++;
-	if(!(*newStream)){
-	    cerr << "FileSet::addFrame failed to create new filestream on new stack counter " << ifstreamCounter << endl;
-	    exit(1);
-	}
-	fstack = new FrameStack(wave_lengths, wave_no, newStream, maxIntensity);   // in which case we should not delete or change the ifstream around.. 
-    }else{
-	fstack = frames[x_pos][y_pos];
-    }
-    // and assign the appropriate stream to the frame (the one that belongs to the filestack
-    frame->setStream(fstack->fileStream());   // ugly hack, since we can't open more than about 1000 ifstreams on one file it seems.. 
-    
-    // then add the frame to the framestack.. 
-    if(!fstack->addFrame(frame)){
-	cerr << "FileSet::addFrame unable to add frame to filestack" << endl;
-	delete frame;
-	if(stackIsNew){
-	    delete fstack;
-	}
-	exit(1);
-	return(false);
-    }
-    // if we are here, then we have created a new frame - we may have created a new file stack.. 
-    // regardless we have to check out whether or not things match up..
-    
-    // 1. if this is the first one, we have to set the parameters, frameWidth, pixelHeight, .. and so on.. 
-    if(!frames.size()){
-	frameWidth = frame->sampleWidth();
-	frameHeight = frame->sampleHeight();
-	pixelHeight = frame->p_height();
-	pixelWidth = frame->p_width();
-	x = frame->xPos();
-	y = frame->yPos();
-	// and then how to insert ..
-	frames[x_pos][y_pos] = fstack;
-	//cout << "adding first framestack to FileSet position : " << x << ", " << y << ", " << frame->zPos() << "  dims : " << pixelWidth << ", " << pixelHeight << endl;
-
-	//and make sure to insert the x, y and z values..
-	x_set.insert(x_pos);
-	y_set.insert(y_pos);
-	z_set.insert(frame->zPos());
-	return(true);
-    }
-    // first check if the coordinates are ok.. (this is not a complete check)
-    if(frame->p_width() != pixelWidth || frame->p_height() != pixelHeight){
-	cerr << "FileSet::addFrame frame dimensions appear to be different to previously entered values.." << endl
-	     << "current : " << pixelWidth << ", " << pixelHeight << " --> " << frame->p_width() << ", " << frame->p_height() << endl;
-	delete fstack;
-	// do not delete frame, as this is deleted by fstack.. 
-	return(false);
-    }
-    // we don't actually need to check if its a new stack, as it will just replace the old one in the same position
-    // and then it should simply be possible to do ..
-    frames[x_pos][y_pos] = fstack;   // if it already exists, then it just redefines the pointer.. 
+    //and make sure to insert the x, y and z values..
     x_set.insert(x_pos);
     y_set.insert(y_pos);
     z_set.insert(frame->zPos());
-    if(x_pos < x){ x = x_pos; }
-    if(y_pos < y){ y = y_pos; }
-    
-    //cout << "at the end of addFrame and fileName is now: " << fileName << endl;
-
     return(true);
+  }
+  // first check if the coordinates are ok.. (this is not a complete check)
+  if(frame->p_width() != pixelWidth || frame->p_height() != pixelHeight){
+    cerr << "FileSet::addFrame frame dimensions appear to be different to previously entered values.." << endl
+	 << "current : " << pixelWidth << ", " << pixelHeight << " --> " << frame->p_width() << ", " << frame->p_height() << endl;
+    delete fstack;
+    // do not delete frame, as this is deleted by fstack.. 
+    return(false);
+  }
+  // we don't actually need to check if its a new stack, as it will just replace the old one in the same position
+  // and then it should simply be possible to do ..
+  frames[x_pos][y_pos] = fstack;   // if it already exists, then it just redefines the pointer.. 
+  x_set.insert(x_pos);
+  y_set.insert(y_pos);
+  z_set.insert(frame->zPos());
+  if(x_pos < x){ x = x_pos; }
+  if(y_pos < y){ y = y_pos; }
+  
+  return(true);
 }
 
 
@@ -238,14 +237,11 @@ bool FileSet::finalise(){
 	}
 	map<float, map<float, FrameStack*> >::iterator it = frames.find(x_positions[i]);
 	for(uint j=0; j < y_positions.size(); j++){
-//	    cout << "Frame Stack at : " << x_positions[i] << ", " << y_positions[j] << endl;
 	    if(!(*it).second.count(y_positions[j])){
 		cerr << "No framestacks defined for y_positions y: " << y_positions[j] << endl;
 		completeRectangle = false;
 	    }else{
-		//	frames[x_positions[i]][y_positions[j]]->finalise(maxIntensity);  // here I should also pass the projection data if it exists.. 
-	
-		// also set the pixelPosition of the thingy..
+		// set the pixelPosition of the thingy..
 		int xp = int((frames[x_positions[i]][y_positions[j]]->x_pos() - x)/xscale);
 		int yp = int((frames[x_positions[i]][y_positions[j]]->y_pos() - y)/yscale);
 		frames[x_positions[i]][y_positions[j]]->setPixelPos(xp, yp, true);
@@ -258,101 +254,89 @@ bool FileSet::finalise(){
 	}
     }
     
+    // This next section sets up the relationships between frames (i.e. for each frame which is it's
+    // neighboring frames (left and right and top..
     if(completeRectangle){
-	for(uint i=0; i < x_positions.size(); i++){
-	    for(uint j=0; j < y_positions.size(); j++){
-		float tx = x_positions[i];
-		float ty = y_positions[j];
-//		frames[tx][ty]->finalise(maxIntensity);    //
-//		cout << "Determining Focal Plane for Framestack at : " << i << ", " << j << endl;
-//		frames[tx][ty]->determineFocalPlanes(32);
-		//
-		//	cout << "setting neighbours for panel at " << i << ", " << j << endl;
-		if(i){
-		    //   cout "i : " << i << endl;
-		    float lx = x_positions[i-1];  // left x..
-			if(!frames[tx][ty]->setNeighbour(frames[lx][ty], 0)){
-			    cerr << "no overlap between " << i << "," << j << "  and  " << i-1 << "," << j << endl;
-			}
-		}
-		if(j){
-		    //cout << "j : " << j << endl;
-		    float by = y_positions[j-1];  // below y.. 
-		    if(!frames[tx][ty]->setNeighbour(frames[tx][by], 3)){   // the function is recipocral, so this is all we need to do..
-			cerr << "no overlap between " << i << "," << j << "  and  " << i << "," << j-1 << endl;
-		    }
-		}
+      for(uint i=0; i < x_positions.size(); i++){
+	for(uint j=0; j < y_positions.size(); j++){
+	  float tx = x_positions[i];
+	  float ty = y_positions[j];
+	  if(i){
+	    float lx = x_positions[i-1];  // left x..
+	    if(!frames[tx][ty]->setNeighbour(frames[lx][ty], 0)){
+	      cerr << "no overlap between " << i << "," << j << "  and  " << i-1 << "," << j << endl;
 	    }
+	  }
+	  if(j){
+	    float by = y_positions[j-1];  // below y.. 
+	    if(!frames[tx][ty]->setNeighbour(frames[tx][by], 3)){   // the function is recipocral, so this is all we need to do..
+	      cerr << "no overlap between " << i << "," << j << "  and  " << i << "," << j-1 << endl;
+	    }
+	  }
 	}
+      }
     }
     // first check if there is afile..
 
     string infoFile = fileName;
     infoFile.append(".info");
-    //cout << "\n\nINFOFILE HAS BEEN SET TO : " << infoFile << " from : " << fileName << "\n\n\n" <<  endl; 
 
-    FileSetInfo stackInfo(infoFile.c_str());
-    if(stackInfo.ok){
-	cout << "Managed to read fileSetInfo from  " << infoFile << endl;
-	// Read pixel positions of files and other things and set up the 
-	// projections by calling finalise() with the appropriate float** structure..
-	map<float, map<float, FrameStack*> >::iterator ot;
-	map<float, FrameStack*>::iterator it;
-	for(ot = frames.begin(); ot != frames.end(); ot++){
-	    for(it = (*ot).second.begin(); it != (*ot).second.end(); it++){
-		FrameStack* fstack = (*it).second;
-		FrameInfo* finfo = stackInfo.getStack((*ot).first, (*it).first);
-		if(finfo){
-		    cout << "Setting stack positions to : " << finfo->xp << ", " << finfo->yp << endl;
-//		    fstack->setPixelPos(finfo->xp, finfo->yp, false);
-		    
-		    fstack->finalise(maxIntensity, finfo);
-//		    fstack->finalise(maxIntensity, finfo->projection);
-		}
-	    }
+    stackInfo = new FileSetInfo(infoFile.c_str());
+    if(stackInfo->ok){
+      cout << "Managed to read fileSetInfo from  " << infoFile << endl;
+      // Read pixel positions of files and other things and set up the 
+      // projections by calling finalise() with the appropriate FrameInfo structure..
+      map<float, map<float, FrameStack*> >::iterator ot;
+      map<float, FrameStack*>::iterator it;
+      for(ot = frames.begin(); ot != frames.end(); ot++){
+	for(it = (*ot).second.begin(); it != (*ot).second.end(); it++){
+	  FrameStack* fstack = (*it).second;
+	  FrameInfo* finfo = stackInfo->getStack((*ot).first, (*it).first);
+	  if(finfo){
+	    fstack->finalise(maxIntensity, finfo);
+	  }
 	}
+      }
     }else{
-	// We should do this even if the rectangle is not complete, but we have to be a bit more careful about how we set things
-	// up.. -- need to put in some more things in there.. 
-
-	// set up the overlaps. Only do this if the rectangle is complete, -otherwise it is a little bit too difficult..
-	// make sure to make FileSetInfo and get that to write out the info so we don't have to do this again.. 
-	for(uint i=0; i < x_positions.size(); i++){
-	    for(uint j=0; j < y_positions.size(); j++){
-		float tx = x_positions[i];
-		float ty = y_positions[j];
-		frames[tx][ty]->finalise(maxIntensity);    //
-		//cout << "\n\tADJUSTING POSITIONS" << endl;
-	    }
+      delete stackInfo;
+      // We should do this even if the rectangle is not complete, but we have to be a bit more careful about how we set things
+      // up.. -- need to put in some more things in there.. 
+      
+      // set up the overlaps. Only do this if the rectangle is complete, -otherwise it is a little bit too difficult..
+      // make sure to make FileSetInfo and get that to write out the info so we don't have to do this again.. 
+      for(uint i=0; i < x_positions.size(); i++){
+	for(uint j=0; j < y_positions.size(); j++){
+	  float tx = x_positions[i];
+	  float ty = y_positions[j];
+	  frames[tx][ty]->finalise(maxIntensity);    //
+	  //cout << "\n\tADJUSTING POSITIONS" << endl;
 	}
-	for(uint i=0; i < x_positions.size(); i++){
-	    for(uint j=0; j < y_positions.size(); j++){
-		cout << "frame " << i << ", " << j << endl;
-		vector<overlap_data*> o_data = frames[x_positions[i]][y_positions[j]]->adjustNeighbourPositions(15, 18, 32, 30, i, j);
-		for(uint k=0; k < o_data.size(); k++){
-		    overlapData.push_back(o_data[k]);
-		}
-	    }
+      }
+      for(uint i=0; i < x_positions.size(); i++){
+	for(uint j=0; j < y_positions.size(); j++){
+	  cout << "frame " << i << ", " << j << endl;
+	  vector<overlap_data*> o_data = frames[x_positions[i]][y_positions[j]]->adjustNeighbourPositions(15, 32, 40, 38, i, j);
+	  for(uint k=0; k < o_data.size(); k++){
+	    overlapData.push_back(o_data[k]);
+	  }
 	}
-	// at this point we want to make a new FileSetInfo, fill it up and then write to file.. 
-	stackInfo = FileSetInfo(waves, pixelWidth, pixelHeight);
-	map<float, map<float, FrameStack*> >::iterator ot;
-	map<float, FrameStack*>::iterator it;
-	for(ot = frames.begin(); ot != frames.end(); ot++){
-	    for(it = (*ot).second.begin(); it != (*ot).second.end(); it++){
-		FrameStack* fstack = (*it).second;
-		cout << "Making a new FrameInfo at position : " << fstack->left() << ", " << fstack->bottom() << "  ( " << fstack->x_pos() << ", " << fstack->y_pos() << " ) " << endl;
-		
-		FrameInfo* finfo = fstack->frameInfo();
-//		FrameInfo* finfo = new FrameInfo(stackInfo.waveNo, fstack->projectionData(), fstack->x_pos(), fstack->y_pos(),  fstack->left(), fstack->bottom(), fstack->p_width(), fstack->p_height());
-		stackInfo.addFrameInfo(finfo, (*ot).first, (*it).first);
-	    }
+      }
+      // at this point we want to make a new FileSetInfo, fill it up and then write to file.. 
+      stackInfo = new FileSetInfo(waves, pixelWidth, pixelHeight);
+      map<float, map<float, FrameStack*> >::iterator ot;
+      map<float, FrameStack*>::iterator it;
+      for(ot = frames.begin(); ot != frames.end(); ot++){
+	for(it = (*ot).second.begin(); it != (*ot).second.end(); it++){
+	  FrameStack* fstack = (*it).second;
+	  cout << "Making a new FrameInfo at position : " << fstack->left() << ", " << fstack->bottom() << "  ( " << fstack->x_pos() << ", " << fstack->y_pos() << " ) " << endl;
+	  
+	  FrameInfo* finfo = fstack->frameInfo();
+	  stackInfo->addFrameInfo(finfo, (*ot).first, (*it).first);
 	}
-	stackInfo.writeInfo(infoFile.c_str());   // we should remember it as well, but hey who cares.. 
-	
+      }
+      stackInfo->writeInfo(infoFile.c_str());   // we should remember it as well, but hey who cares.. 
+      
     }
-    
-
     // then just set w, h, and d.. 
     w = frameWidth + x_positions.back() - x_positions[0];  // this is fine, doesn't have a problem with overlaps, since there isn't one at the end. .. 
     h = frameHeight + y_positions.back() - y_positions.front();

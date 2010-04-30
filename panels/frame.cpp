@@ -187,7 +187,8 @@ bool Frame::readToRGB(float* dest, unsigned int source_x, unsigned int source_y,
 {
   // note that the dest has to be already initialised
   // we are only going to add to it..
-  
+  //  cout << "Frame::readToRGB source_x : " << source_x << "  dest_x : " << dest_x << "  width : " << width << "  pwidth : " << pWidth<< endl;
+
   if(width > pWidth || height > pHeight || source_y >= pHeight || source_x >= pWidth){
     cerr << "Frame::readToRGB inappropriate coordinates : " << source_x << "\t" << source_y << "\t" << width << "\t" << height << endl;
     return(false);
@@ -304,7 +305,7 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
 
   // The commented section refers to the use of a two dimensional background subtraction
   if(chinfo.bg_subtract && !background.x_m){
-    cout << "Frame::readToRGB_s background subtraction requested: creating background object" << endl;
+    //cout << "Frame::readToRGB_s background subtraction requested: creating background object" << endl;
     channelInfo.bg_subtract = false;
     setBackground(16, 16, 0.2);
     channelInfo.bg_subtract = true;
@@ -315,7 +316,7 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
   //   exit(1);
   // }
 
-  cout << "Frame::readToRGB_s wave: " << excitationWavelength << "  photoS : " << photoSensor << "  photoS_m " << phSensor_m << endl;
+  //cout << "Frame::readToRGB_s wave: " << excitationWavelength << "  photoS : " << photoSensor << "  photoS_m " << phSensor_m << endl;
   unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
   std::ios::pos_type startPos = frameOffset + (std::ios::pos_type)(pWidth * 2 * source_y);
   in->seekg(startPos);

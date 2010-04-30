@@ -2,6 +2,7 @@
 #include <iostream>
 #include <QString>
 #include <QVBoxLayout>
+#include "../dataStructs.h"
 
 using namespace std;
 
@@ -22,6 +23,10 @@ ImageBuilderWidget::ImageBuilderWidget(FileSet* fs, vector<channel_info> ch, QWi
   tasks["slice"] = SLICE;
   tasks["project"] = PROJECT;
   tasks["report"] = REPORT;
+  tasks["bg_add"] = BG_ADD;
+  tasks["bg_sub"] = BG_SUB;
+  tasks["reset_rgb"] = RESET_RGB;
+  tasks["add_mcp"] = ADD_MCP;
 
   QVBoxLayout* vbox = new QVBoxLayout(this);
   vbox->addWidget(output);
@@ -77,8 +82,20 @@ void ImageBuilderWidget::parseInput(vector<QString> words)
   case PROJECT:
     makeProjection(words);
     break;
+  case BG_ADD:
+    addBackground(words);
+    break;
+  case BG_SUB:
+    subBackground(words);
+    break;
   case REPORT:
     builder->reportParameters();
+    break;
+  case RESET_RGB:
+    builder->resetRGB();
+    break;
+  case ADD_MCP:
+    addMCP(words);
     break;
   default:
     cerr << "ImageBuilderWidget::parseInput(vector<QString>): unknown command " << endl;
@@ -115,7 +132,12 @@ void ImageBuilderWidget::setParameter(vector<QString> words)
     }
     return;
   }
-
+  if(words[1] == "bgpar"){
+    if(values.size() == 5)
+      builder->setBackgroundPars(wi, (int)values[0], (int)values[1], (int)values[2],
+				 values[3], (bool)values[4]);
+    return;
+  }
 }
 
 void ImageBuilderWidget::makeSlice(vector<QString> words)
@@ -139,6 +161,29 @@ void ImageBuilderWidget::makeProjection(vector<QString> words)
   for(uint i=2; i < values.size(); ++i)
     wi.push_back((unsigned int)values[i]);
   builder->buildProjection(wi, (unsigned int)values[0], (unsigned int)values[1]);
+}
+
+void ImageBuilderWidget::addBackground(vector<QString> words)
+{
+  vector<int> ints = getInts(words, 1);
+  vector<float> floats = getFloats(words, 3);
+  if(floats.size() == 3 && ints.size() > 2)
+    builder->addBackground((unsigned int)ints[0], (unsigned int)ints[1],
+			   color_map(floats[0], floats[1], floats[2]) );
+}
+
+void ImageBuilderWidget::subBackground(vector<QString> words)
+{
+  vector<int> ints = getInts(words, 1);
+  if(ints.size() == 2)
+    builder->subBackground((unsigned int)ints[0], (unsigned int)ints[1]);
+}
+
+void ImageBuilderWidget::addMCP(vector<QString> words)
+{
+  vector<int> ints = getInts(words, 1);
+  if(ints.size() == 3)
+    builder->addMCP((unsigned int)ints[0], (unsigned int)ints[1], (unsigned int)ints[2]);
 }
 
 vector<float> ImageBuilderWidget::getFloats(vector<QString>& words, unsigned int offset){

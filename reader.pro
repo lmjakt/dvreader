@@ -8,6 +8,7 @@ HEADERS		= \
 		dvReader.h \
 		deltaViewer.h \
 		dataStructs.h \
+		datastructs/a_pos.h \
 		jpgView/jpgView.h \
 		opengl/glImage.h \
 		distchooser/distChooser.h \
@@ -55,6 +56,8 @@ HEADERS		= \
 		panels/overlapViewer.h \
 		panels/overlapWindow.h \
 		panels/fileSetInfo.h \
+		panels/overlapEditor.h \
+		panels/overlapEditorWindow.h \
 		image/imageFunc.h \
 		image/imageAnalyser.h \
 		image/imageData.h \
@@ -78,6 +81,7 @@ HEADERS		= \
 		image/backgroundWidget.h \
 		image/backgroundWindow.h \
 		image/rectangle.h \
+		image/two_d_background.h \
 		cavity/cavityBall.h \
 		cavity/cavityBallInputWidget.h \
 		cavity/cavityMapper.h \
@@ -144,6 +148,8 @@ SOURCES		= \
 		panels/overlapViewer.cpp \
 		panels/overlapWindow.cpp \
 		panels/fileSetInfo.cpp \
+		panels/overlapEditor.cpp \
+		panels/overlapEditorWindow.cpp \
 		image/imageFunc.cpp \
 		image/imageAnalyser.cpp \
 		image/volumeCache.cpp \
@@ -164,6 +170,7 @@ SOURCES		= \
 		image/background.cpp \
 		image/backgroundWidget.cpp \
 		image/backgroundWindow.cpp \
+		image/two_d_background.cpp \
 		cavity/cavityBall.cpp \
 		cavity/cavityBallInputWidget.cpp \
 		cavity/cavityMapper.cpp \
