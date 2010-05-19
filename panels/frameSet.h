@@ -44,7 +44,7 @@ class FrameSet {
     bool addFrame(Frame* frame);  // deletes frame if not good... 
     // since the frame constructor does the actual parsing of the file, create the frame first, then check if it 
     void setBackgrounds(std::map<fluorInfo, Background*> backgrounds, int zp);
-
+    void setContribMap(float* map);
     // we also need a whole load of accessor functions, and wrappers for the frame functions.. 
     float z_pos(){
 	return(z);

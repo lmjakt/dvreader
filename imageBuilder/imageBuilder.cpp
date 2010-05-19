@@ -2,6 +2,7 @@
 #include "panels/fileSet.h"
 #include "opengl/glImage.h"
 #include "../image/two_d_background.h"
+#include "../tiff/tiffReader.h"
 #include <string.h>
 #include <iostream>
 #include <stdlib.h>
@@ -94,7 +95,7 @@ bool ImageBuilder::subBackground(unsigned int wi, unsigned int slice){
   bool ok;
   unsigned short* sb = background(wi, slice, ok);
   if(!ok){
-    cerr << "ImageBuilder::addBackground didn't obtain background" << endl;
+    cerr << "ImageBuilder::subBackground didn't obtain background" << endl;
     delete sb;
     return(false);
   }
@@ -183,6 +184,16 @@ void ImageBuilder::reportParameters(){
   }
 }
 
+void ImageBuilder::exportTiff(QString fname)
+{
+  TiffReader tr;
+  if(!tr.makeFromRGBFloat(rgbData, data->pwidth(), data->pheight())){
+    cerr << "ImageBuilder::exportTiff unable to make tiff from RGB" << endl;
+    return;
+  }
+  tr.writeOut(fname.toStdString());
+}
+
 bool ImageBuilder::buildShortProjection(unsigned short* p_buffer, unsigned int wi, unsigned int beg, unsigned int end)
 {
   if(beg > end){
@@ -194,6 +205,7 @@ bool ImageBuilder::buildShortProjection(unsigned short* p_buffer, unsigned int w
   memset((void*)p_buffer, 0, sizeof(unsigned short) * data->pwidth() * data->pheight());
   bool got_something = false;
   for(unsigned int i=beg; i <= end; ++i){
+    memset((void*)sb, 0, sizeof(short) * data->pwidth() * data->pheight());
     if( data->readToShort(sb, 0, 0, i, data->pwidth(), data->pheight(), wi) ){
       got_something = true;
       if(channels[wi].bg_subtract)
@@ -217,7 +229,9 @@ unsigned short* ImageBuilder::buildShortMCPProjection(unsigned short* p_buffer, 
   unsigned short* contrast_projection = new unsigned short[data->pwidth() * data->pheight()];
   memset((void*)p_buffer, 0, sizeof(unsigned short) * data->pwidth() * data->pheight());
   memset((void*)contrast_projection, 0, sizeof(unsigned short) * data->pwidth() * data->pheight());
+  memset((void*)current_contrast, 0, sizeof(unsigned short) * data->pwidth() * data->pheight());
   for(unsigned int i=beg; i <= end; ++i){
+    memset((void*)image_buffer, 0, sizeof(unsigned short) * data->pwidth() * data->pheight());
     if( data->readToShort(image_buffer, 0, 0, i, data->pwidth(), data->pheight(), wi) ){
       if(channels[wi].bg_subtract)
 	sub_slice_bg(wi, i, image_buffer);
@@ -290,13 +304,14 @@ void ImageBuilder::sub_slice_bg(unsigned int wi, unsigned int slice, unsigned sh
   }
   for(int i=0; i < data->pwidth() * data->pheight(); ++i)
     sb[i] = sb[i] > bg[i] ? sb[i] - bg[i] : 0;
+  delete bg;
 }
 
 unsigned short* ImageBuilder::background(unsigned int wi, unsigned int slice, bool& ok)
 {  
 
   unsigned short* sb = new unsigned short[ data->pwidth() * data->pheight()];
-
+  memset((void*)sb, 0, sizeof(short)*data->pwidth() * data->pheight());
   if(wi >= channels.size()){
     cerr << "ImageBuilder::addBackground waveIndex too large: " << wi << endl;
     ok = false;

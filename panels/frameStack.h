@@ -29,17 +29,19 @@
 #include "frameSet.h"
 #include "fileSetInfo.h"
 #include "../dataStructs.h"
+#include "borderInformation.h"
 #include <map>
 #include <vector>
 #include <fstream>
 
 class Background;
+class IdMap;
 
 class FrameStack {
     public :
-	enum POSITION {
-	    LEFT, TOP, RIGHT, BOTTOM
-	};
+  //	enum POSITION {
+  //	    LEFT, TOP, RIGHT, BOTTOM
+  //	};
     FrameStack(int* waveLengths, int waveNo, std::ifstream* inStream, float maxLevel);
     ~FrameStack();
     
@@ -109,6 +111,7 @@ class FrameStack {
     FrameInfo* frameInfo(){
 	return(frameInformation);
     }
+    void setContribMap(IdMap* idmap, ulong id);
     int left(){
 	return(pixelX);
     }
@@ -144,6 +147,8 @@ class FrameStack {
     // returns the position that should be set by the caller.. (i.e. we negotiate a position)... 
     // AT THE MOMENT THIS FUNCTION is trusting and doesn't check to make sure the numbers make any sense.. but.. 
 
+    void setBorders();  // uses neighbours to set the borders. Should be called after all adjustments
+
 
     // and a function for setting the neighbour
     bool setNeighbour(FrameStack* neibour, int pos, bool recip=true);   // pos is 0, 1, 2, 3 going from left neighbour to bottom neighbour in clockwise order
@@ -153,6 +158,7 @@ class FrameStack {
 
     void determineFocalPlanes(unsigned int rolloff);  // determine the focal planes for each frameStack.. 
     void adjustPosition(int dx, int dy, POSITION n, float setAdjustmentFlag=0);
+    void adjustPosition(QPoint p);   // the rules for who moves whom are a bit complicated, hence.. 
     
     std::vector<std::vector<float> > contrastData(){    // this allows the parent to work stuff out.. 
 	return(contrasts);
@@ -206,6 +212,9 @@ class FrameStack {
     bool readToFloatPro(float* dest, unsigned int xb, unsigned int iwidth, unsigned int yb, 
 			unsigned int iheight, unsigned int wave);   // simply read the appropriate pixels in.. 
 
+    bool readProjectionData(float* dest, uint d_width, uint d_x, uint d_y,
+			    uint xb, uint yb, uint c_width, uint c_height, uint wave);
+
     bool readToFloatProGlobal(float* dest, int xb, int iwidth, int yb, 
 			      int iheight, unsigned int wave);   // convert global coordinates to local ones.. 
 
@@ -214,6 +223,9 @@ class FrameStack {
 //	return(projection);
 	return(frameInformation->projection);
     }
+
+    BorderInfo* borderInformation();
+    BorderArea* borderArea(FrameStack* nbor, int x, int y, int h, int w);
 
     // destination in mip_projection is an RGB float formatted array which has been transformed.
     // raw_data if defined should have enough space for all the appropriate wavelengths and pixels
@@ -225,6 +237,7 @@ class FrameStack {
     
     // but actually .. we have ..
     FrameInfo* frameInformation;              // which we can make or get from file.. 
+    float* contribMap;                        // defines what proportion of positions should be taken from this framestack.
     float** projection;                      // some projection of all of the data.. (set in the finalise option..)
 
     FrameStack* leftNeighbour;
@@ -253,7 +266,6 @@ class FrameStack {
     std::vector<float> focalPlanes;     // assigned by some equation.. 
 
     // a function that determines whether this stack or the neighbour stack gets to move..
-    void adjustPosition(FrameStack* neibor, int dx, int dy, float corr);   // the rules for who moves whom are a bit complicated, hence.. 
                                   // this functionality overlaps with the 
     float* make_mip_projection(unsigned int wi, float maxLevel, std::vector<float>& contrast);  // just give the wavelength..  
 

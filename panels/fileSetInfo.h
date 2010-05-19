@@ -27,6 +27,7 @@
 
 #include <map>
 #include <vector>
+#include <string>
 
 // This holds information about the FrameStacks in a given FileSet. This includes things like 
 // a projection of the sections (one for each frameStack) as well the corrected offsets for the
@@ -68,31 +69,34 @@ struct FrameInfo {
 };
 
 struct FileSetInfo {
-    FileSetInfo(){
-	stackNo = 0;
-    }
-    FileSetInfo(std::vector<int> wl, unsigned int w, unsigned int h){
-	waveLengths = wl;
-	waveNo = wl.size();
-	width = w;
-	height = h;
-	stackNo = 0;
-    }
-    ~FileSetInfo(){}
-    FileSetInfo(const char* fname);  // read from a file ? 
-    FrameInfo* getStack(float x, float y);  // returns a FrameInfo pointer or 0 on failure
-    void addFrameInfo(FrameInfo* finfo, float x, float y); // add one .. 
-    bool writeInfo(const char* fname);   // write stuff to this file.. 
-    void dims(int& w, int& h);
-    int image_width();
-    int image_height();
-
-    std::map<float, std::map<float, FrameInfo*> > stacks;
-    std::vector<int> waveLengths;
-    unsigned int width, height;  // useful to know.. 
-    unsigned int waveNo;
-    int stackNo;
-    bool ok;
+  FileSetInfo(){
+    stackNo = 0;
+  }
+  FileSetInfo(std::vector<int> wl, unsigned int w, unsigned int h){
+    waveLengths = wl;
+    waveNo = wl.size();
+    width = w;
+    height = h;
+    stackNo = 0;
+    fileName = "null";
+  }
+  ~FileSetInfo(){}
+  FileSetInfo(const char* fname);  // read from a file ? 
+  FrameInfo* getStack(float x, float y);  // returns a FrameInfo pointer or 0 on failure
+  void addFrameInfo(FrameInfo* finfo, float x, float y); // add one .. 
+  bool writeInfo(const char* fname);   // write stuff to this file.. 
+  bool writeInfo();
+  void dims(int& w, int& h);
+  int image_width();
+  int image_height();
+  
+  std::string fileName;
+  std::map<float, std::map<float, FrameInfo*> > stacks;
+  std::vector<int> waveLengths;
+  unsigned int width, height;  // useful to know.. 
+  unsigned int waveNo;
+  int stackNo;
+  bool ok;
 
 };
 

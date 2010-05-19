@@ -24,12 +24,15 @@
 
 #include "frameStack.h"
 #include "../image/imageFunc.h"
+#include "idMap.h"
 #include <fstream>
 #include <iostream>
 #include <algorithm>
 #include <stdio.h>
 
 using namespace std;
+
+int rolloff = 36;
 
 FrameStack::FrameStack(int* waveLengths, int waveNo, ifstream* inStream, float maxLevel){
     maxIntensity = maxLevel;
@@ -59,6 +62,7 @@ FrameStack::FrameStack(int* waveLengths, int waveNo, ifstream* inStream, float m
     positionAdjusted = 0;
     neighboursAdjusted = false;
     projection = 0;
+    contribMap = 0;
 }
 
 FrameStack::~FrameStack(){
@@ -75,7 +79,7 @@ FrameStack::~FrameStack(){
 	}
 	delete projection;
     }
-
+    delete contribMap;
     delete in;
 }
 
@@ -177,11 +181,7 @@ void FrameStack::finalise(float maxLevel, FrameInfo* frameData){
     topBorder = pixelY + int(pHeight) < topBorder ? pixelY + pHeight : topBorder;
     bottomBorder = pixelY > bottomBorder ? pixelY : bottomBorder;
     
-    //cout << "\t\tpixelX : " << pixelX << "\tpixelY : " << pixelY << endl;
-    
-    //    cout << "FrameStack::finalise projection data has been read in from a file" << endl;
     projection = frameInformation->projection;   // though we may not need to know the projection .. 
-    /// currently many pieces of code refer to projection directly, we should try to remove this in the future. 
     return;
   }
   // first initialise the projection
@@ -190,7 +190,6 @@ void FrameStack::finalise(float maxLevel, FrameInfo* frameData){
   contrasts.resize(fwaves.size());
   for(uint i=0; i < fwaves.size(); i++){
     projection[i] = make_mip_projection(i, maxLevel, contrasts[i]);
-    //	projection[i] = make_mip_projection(fwaves[i], maxLevel, contrasts[i]);
   }
   frameInformation = new FrameInfo(fwaves.size(), projection, x, y, pixelX, pixelY, pWidth, pHeight);
   
@@ -203,6 +202,28 @@ void FrameStack::printFrames(){
 	cout << "\t" << counter++ << "\t" << (*it).second->z_pos() << "\t" << (*it).second->x_pos() << ", " << (*it).second->y_pos() 
 	     << "  size : " << (*it).second->width() << ", " << (*it).second->height() << "\t" << (*it).second->num_colors() << endl;
     }
+}
+
+
+// This function needs to take into consideration the rolloff of the
+// image. Unfortunately I've not found any record for it anywhere.
+void FrameStack::setContribMap(IdMap* idmap, ulong id){
+  // int rolloff = 0; // set at the beginning of this file
+  if(!contribMap)
+    contribMap = new float[pWidth * pHeight];
+  float* map = contribMap;
+  cout << "Setting contrib map for : " << pixelX << "," << pixelY << endl;
+  for(int dy=rolloff; dy < pHeight-rolloff; ++dy){
+    map = contribMap + dy * pWidth + rolloff;
+    for(int dx=rolloff; dx < pWidth-rolloff; ++dx){
+      *map = idmap->count(id, pixelX + dx, pixelY + dy) ? 1.0 / float(idmap->count(pixelX + dx, pixelY + dy)) : 0.0;
+      //cout << "[" << id << " " << idmap->id(pixelX + dx, pixelY + dy) << " c: " << idmap->count(pixelX + dx, pixelY + dy) << " " << *map << "] ";
+      ++map;
+    }
+  }
+  cout << endl;
+  for(uint i=0; i < sections.size(); ++i)
+    sections[i]->setContribMap(contribMap);
 }
 
 bool FrameStack::setNeighbour(FrameStack* neibour, int pos, bool recip){
@@ -287,6 +308,21 @@ int FrameStack::setBorder(int pos, POSITION n){
     }
     //cout << "Border set to " << p << endl;
     return(p);
+}
+
+void FrameStack::setBorders(){
+  // experimental settings :
+  // int rolloff = 0; // set at the beginninig of this file.. 
+  leftBorder = left() + rolloff;
+  rightBorder = right() - rolloff;
+  bottomBorder = bottom() + rolloff;
+  topBorder = top() - rolloff;
+
+
+  // leftBorder = leftNeighbour ? (leftNeighbour->right() + left()) / 2 : left();
+  // rightBorder = rightNeighbour ? ((rightNeighbour->left() + right()) / 2) : right();
+  // bottomBorder = bottomNeighbour ? ((bottomNeighbour->top() + bottom()) / 2) : bottom();
+  // topBorder = topNeighbour ? ((topNeighbour->bottom() + top()) / 2) : top();
 }
 
 vector<overlap_data*> FrameStack::adjustNeighbourPositions(unsigned int secNo, unsigned int rolloff, int instep, int window, int px, int py){
@@ -574,11 +610,6 @@ bool FrameStack::readToRGB(float* dest, float xpos, float ypos, float dest_width
 	return(false);
     }
     
-    //cout << "\tFrameStack::readToRGB  data requested from " << xpos << " --> " << xpos + dest_width << " local coverage " << lx1 << " --> " << lx2 << "  pixelX " << pixelX << " pwidth : " << pWidth << endl;
-       //cout << "\tFrameStack::readToRGB  data requested from " << ypos << " --> " << ypos + dest_height << " local coverage " << ly1 << " --> " << ly2 << "  pixelY " << pixelY << " pheight : " << pHeight << endl;
-    //cout << "\tFrame boundaries set at  horizonta : " << leftBorder << " --> " << rightBorder << " (" << leftBorder - pixelX << " -> " << rightBorder - pixelX << ")  "
-//	 << "vertical : " << bottomBorder << " --> " << topBorder << "  (" << bottomBorder - pixelY << " -> " << topBorder - pixelY << ")" << endl;
-
     // so now we have an overlap.. we have to work out the local coordinates of that overlap..
     float x1, x2, y1, y2;
     x1 = xpos < lx1 ? lx1 : xpos;
@@ -634,8 +665,10 @@ bool FrameStack::readToRGB(float* dest, int xpos, int ypos,
     int dest_x, source_x, dest_y, source_y;
     unsigned int subWidth, subHeight;
     // check if it overlaps with the border positions..
-    if(globalToLocal(xpos, ypos, dest_width, dest_height, dest_x, source_x, dest_y, source_y, subWidth, subHeight)){
-      return(sections[slice_no]->readToRGB(dest, source_x, source_y, subWidth, subHeight, dest_x, dest_y, dest_width, chinfo, raw));
+    if(globalToLocal(xpos, ypos, dest_width, dest_height, dest_x, 
+		     source_x, dest_y, source_y, subWidth, subHeight)){
+      return(sections[slice_no]->readToRGB(dest, source_x, source_y, subWidth, subHeight, 
+					   dest_x, dest_y, dest_width, chinfo, raw));
     }
     return(false);
 }
@@ -762,7 +795,6 @@ bool FrameStack::mip_projection(float* dest, float xpos, float ypos, float dest_
 bool FrameStack::mip_projection(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height,
 				float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, raw_data* raw){
     if(!projection){
-      //	cout << "FrameStack::mip_projection projection is 0 so making new projection " << endl;
 	finalise(maxLevel);
     }
 
@@ -774,54 +806,34 @@ bool FrameStack::mip_projection(float* dest, int xpos, int ypos, unsigned int de
     unsigned int subWidth, subHeight;
 
     if(globalToLocal(xpos, ypos, dest_width, dest_height, dest_x, source_x, dest_y, source_y, subWidth, subHeight)){
-//     if(
-// 	(xpos < rightBorder && xpos + int(dest_width) > leftBorder)  // overlap in horizontal direction 
-// 	&&
-// 	(ypos < topBorder && ypos + int(dest_height) > bottomBorder)  // overlap in vertical plane ?
-// 	){
-// 	// then first work out which pixels to take from here, and which pixels to put them to.. 
-// 	int dest_x = leftBorder >= xpos ? leftBorder - xpos : 0;
-// 	int source_x = leftBorder >= xpos ? leftBorder - pixelX : xpos - pixelX;
-// 	int dest_y = bottomBorder >= ypos ? bottomBorder - ypos : 0;
-// 	int source_y = bottomBorder >= ypos ? bottomBorder - pixelY : ypos - pixelY;
-// 	if(source_x < 0){
-// 	    dest_x -= source_x;
-// 	    source_x = 0;
-// 	}
-// 	if(source_y < 0){
-// 	    dest_y -= source_y;
-// 	    source_y = 0;
-// 	}
-// 	// and then work out the width and height that we'll be taking out of this.. 
-// 	unsigned int subWidth = rightBorder <= xpos + int(dest_width) ? (rightBorder - pixelX) - source_x : (xpos + dest_width) - leftBorder;
-// 	unsigned int subHeight = topBorder <= ypos + int(dest_width) ? (topBorder - pixelY) - source_y : (ypos + dest_height) - bottomBorder;
-	// and then just map from our projections ..
 	float v;
-	//	cout << "\toverlap found , dest_pos : " << dest_x << ", " << dest_y << "  source : " << source_x << ", " << source_y << "  dimensions : " << subWidth << ", " << subHeight << endl;
 	for(uint wi=0; wi < fwaves.size(); ++wi){
-	    for(uint hp=0; hp < subHeight; ++hp){
-		float* dst = dest + ((dest_y + hp) * dest_width + dest_x) * 3;   // dest is an rgb triplet..
-		float* src = projection[wi] + (source_y + hp) * pWidth + source_x;
-		float* raw_dest = 0;
-		if(raw){
-		    raw_dest = raw->values[wi] + (dest_y + hp) * dest_width + dest_x;
-		}
-		for(uint wp=0; wp < subWidth; ++wp){
-		    // and do stuff..
-		    if(raw){
-			(*raw_dest) = (*src);
-			++raw_dest;
-		    }
-		    v = bias[wi] + (*src) * scale[wi];
-		    if(v > 0){
-			dst[0] += v * colors[wi].r;
-			dst[1] += v * colors[wi].g;
-			dst[2] += v * colors[wi].b;
-		    }
-		    ++src;
-		    dst += 3;
-		}
+	  for(uint hp=0; hp < subHeight; ++hp){
+	    float* dst = dest + ((dest_y + hp) * dest_width + dest_x) * 3;   // dest is an rgb triplet..
+	    float* src = projection[wi] + (source_y + hp) * pWidth + source_x;
+	    float* mod = contribMap + (source_y + hp) * pWidth + source_x;
+	    float* raw_dest = 0;
+	    if(raw){
+	      raw_dest = raw->values[wi] + (dest_y + hp) * dest_width + dest_x;
 	    }
+	    for(uint wp=0; wp < subWidth; ++wp){
+	      // and do stuff..
+	      if(raw){
+		(*raw_dest) = (*src);
+		++raw_dest;
+	      }
+	      //v =  (bias[wi] + (*src) * scale[wi]);
+	      v = (*mod) * (bias[wi] + (*src) * scale[wi]);
+	      if(v > 0){
+		dst[0] += v * colors[wi].r;
+		dst[1] += v * colors[wi].g;
+		dst[2] += v * colors[wi].b;
+	      }
+	      ++src;
+	      dst += 3;
+	      ++mod;
+	    }
+	  }
 	}
 	return(true);
     }
@@ -833,10 +845,11 @@ bool FrameStack::readToFloatPro(float* dest, unsigned int xb, unsigned int iwidt
 {
     cout << "readToFloatPro " << xb << ", " << yb << " :  " << iwidth << ", " << iheight << endl;
     if(!projection){
+      cout << "no projection so calling finalise" << endl;
 	finalise(maxIntensity);
     }
 
-    if(xb + iwidth >= pWidth || yb + iheight >= pHeight){
+    if(xb + iwidth > pWidth || yb + iheight > pHeight){
 	cerr << "FrameStack::ReadToFloatPro coordinates are larger than projection (remember to use local coordinates not global) "
 	     << xb << ", " << yb << " : " << iwidth << ", " << iheight << endl;
 	return(false);
@@ -853,7 +866,33 @@ bool FrameStack::readToFloatPro(float* dest, unsigned int xb, unsigned int iwidt
 	memcpy((void*)dst, (const void*)src, sizeof(float) * iwidth);
     }
     return(true);
+}
 
+// The below allows the projection to be copied to a subregion of the destination data
+// similarly to the readToFloatProGlobal, but without using the globalToLocal function
+// (which uses the left_border, etc functions) thus allowing the data to be read to the 
+// edge of the image.. 
+// Uses LOCAL coordinates
+bool FrameStack::readProjectionData(float* dest, uint d_width, uint d_x, uint d_y,  
+				    uint xb, uint yb, uint c_width, uint c_height, uint wave){
+  c_width = (xb + c_width) > pWidth ? pWidth - xb : c_width; 
+  c_height = (yb + c_height) > pHeight ? pHeight - yb : c_height;
+
+  // but since unsigned ints, this can still cause trouble for us
+  if(xb + c_width > pWidth || yb + c_height > pHeight || wave > wave_no){
+    cerr << "FrameStack::readProjectionData illegal coordinates "
+	 << d_width << " : " << d_x << "," << d_y << "  xb,yb : " << xb << "," << yb
+	 << "  c_width,c_height : " << c_width << "," << c_height << endl;
+    return(false);
+  }
+  float* src = projection[wave] + yb * pWidth + xb;
+  for(uint y=0; y < c_height; ++y){
+    memcpy( (void*)(dest + (y + d_y) * d_width + d_x),
+	    (void*)( src + y * pWidth ),
+	    sizeof(float) * c_width
+	    );
+  }
+  return(true);
 }
     
 bool FrameStack::readToFloatProGlobal(float* dest, int xb, int iwidth, int yb, int iheight, unsigned int wave){
@@ -871,36 +910,103 @@ bool FrameStack::readToFloatProGlobal(float* dest, int xb, int iwidth, int yb, i
     bool ok = true;
 //    cout << "FrameStack::readToFloatProGlobal requested : " << xb << " +-> " << iwidth << " , " << yb << " +-> " << iheight << "  giving " << source_x << " +-> " << subWidth << " , "
 //	 << source_y << " +-> " << subHeight << endl;
+    
     for(uint yp = 0; yp < subHeight; ++yp){
 	float* src = projection[wave] + (source_y + yp) * pWidth + source_x;
 	float* dst = dest + (dest_y + yp) * iwidth + dest_x;
-	memcpy((void*)dst, (const void*)src, sizeof(float) * subWidth);
+	//	memcpy((void*)dst, (const void*)src, sizeof(float) * subWidth);
+	float* mod = contribMap + (source_y + yp) * pWidth + source_x;
+	for(uint xp=0; xp < subWidth; ++xp){
+	  *dst += (*src) * (*mod);
+	  ++src;
+	  ++dst;
+	  ++mod;
+	}
     }
     return(true);
 }
 
+BorderInfo* FrameStack::borderInformation(){
+  BorderInfo* info = new BorderInfo(x, y);
+  int x, y, w, h;
+  if(leftNeighbour){
+    x = left();
+    y = bottom();
+    w = leftNeighbour->right() - left();
+    h = pHeight;
+    info->setArea( borderArea(leftNeighbour, x, y, w, h), LEFT);
+  }
+  if(rightNeighbour){
+    x = rightNeighbour->left();
+    y = bottom();
+    w = right() - x;
+    h = pHeight;
+    info->setArea( borderArea(rightNeighbour, x, y, w, h), RIGHT );
+  }
+  if(bottomNeighbour){
+    x = left();
+    y = bottom();
+    w = pWidth;
+    h = bottomNeighbour->top() - bottom();
+    info->setArea( borderArea(bottomNeighbour, x, y, w, h), BOTTOM);
+  }
+  if(topNeighbour){
+    x = left();
+    y = topNeighbour->bottom();
+    w = pWidth;
+    h = top() - topNeighbour->bottom();
+    info->setArea( borderArea(topNeighbour, x, y, w, h), TOP);
+  }
+  return(info);
+}
+
+// x and y are in global coordinates. Converted within this function.
+BorderArea* FrameStack::borderArea(FrameStack* nbor, int x, int y, int w, int h){
+  // assume that this is correct.
+  // The coordinates must work for this projection, but may nor work for
+  // the neighbour and may need adjustment.
+  
+  int n_dx = x < nbor->left() ? nbor->left() - x : 0;
+  int n_dy = y < nbor->bottom() ? nbor->bottom() - y : 0;
+  int nw = w - n_dx;
+  int nh = h - n_dy;
+
+  float** t_data = new float*[wave_no];
+  float** n_data = new float*[wave_no];
+  for(uint i=0; i < wave_no; ++i){
+    t_data[i] = new float[w * h];
+    n_data[i] = new float[w * h];
+    memset((void*)t_data[i], 0, sizeof(float) * w * h);
+    memset((void*)n_data[i], 0, sizeof(float) * w * h);
+    readToFloatPro( t_data[i], x - left(), w, y-bottom(), h, i);
+    nbor->readProjectionData( n_data[i], w, n_dx, n_dy, 
+			n_dx + x - nbor->left(), n_dy + y - nbor->bottom(),
+			nw, nh, i );
+    
+  }
+  BorderArea* ba = new BorderArea(t_data, n_data, wave_lengths, wave_no, x, y, w, h);
+  return(ba);
+}
+
 float* FrameStack::make_mip_projection(unsigned int wi, float maxLevel, vector<float>& contrast){
-    unsigned int margin = 32;  // but we should be supplying this from somewhere else ? -ideally we should make it a property of the frameStack .. 
+  unsigned int margin = 32;  // but we should be supplying this from somewhere else ? -ideally we should make it a property of the frameStack .. 
                                // actually this is the rolloff and I need to fix this somewhere.. 
-    float* proj = new float[pWidth * pHeight];
-    memset((void*)proj, 0, sizeof(float) * pWidth * pHeight);
-    float* buf = new float[pWidth * pHeight];
-    contrast.resize(sections.size());
-    cout << "FrameStack::make_mip_projection" << endl;
-    for(uint i=0; i < sections.size(); ++i){
-      if(sections[i]->readToFloat(buf, 0, 0, pWidth, pHeight, 0, 0, pWidth, maxLevel, wi)){
-	    // check if we need to update the buffers..
-	    for(uint j=0; j < pWidth * pHeight; ++j){
-		proj[j] = buf[j] > proj[j] ? buf[j] : proj[j];
-	    }
-	    // and then do the contrasts..
-	    contrast[i] = determineContrast(buf, pWidth, pHeight, margin, margin, pWidth - 2 * margin, pHeight - 2 * margin);
-	}
+  float* proj = new float[pWidth * pHeight];
+  memset((void*)proj, 0, sizeof(float) * pWidth * pHeight);
+  float* buf = new float[pWidth * pHeight];
+  contrast.resize(sections.size());
+  cout << "FrameStack::make_mip_projection" << endl;
+  for(uint i=0; i < sections.size(); ++i){
+    if(sections[i]->readToFloat(buf, 0, 0, pWidth, pHeight, 0, 0, pWidth, maxLevel, wi)){
+      // check if we need to update the buffers..
+      for(uint j=0; j < pWidth * pHeight; ++j){
+	proj[j] = buf[j] > proj[j] ? buf[j] : proj[j];
+      }
+      // and then do the contrasts..
+      contrast[i] = determineContrast(buf, pWidth, pHeight, margin, margin, pWidth - 2 * margin, pHeight - 2 * margin);
     }
-    //    for(uint j=0; j < pWidth; ++j){
-    //  cout << j << " : " << proj[ 512 * pWidth + j] << endl;
-    //}
-    return(proj);
+  }
+  return(proj);
 }
 
 
@@ -946,7 +1052,8 @@ bool FrameStack::readToShort(unsigned short* dest,unsigned int xb, unsigned int 
 			     unsigned int iheight, unsigned int secNo, unsigned int waveIndex){
 
   if(secNo >= sections.size()){
-    cerr << "FrameStack::readToShort secNo (" << secNo << ") is larger than sections size : " << sections.size() << endl;
+    cerr << "FrameStack::readToShort secNo (" << secNo << ") is larger than sections size : " 
+	 << sections.size() << endl;
     return(false);
   }
   
@@ -955,9 +1062,8 @@ bool FrameStack::readToShort(unsigned short* dest,unsigned int xb, unsigned int 
   if(!globalToLocal(xb, yb, iwidth, iheight, dest_x, source_x, dest_y, source_y, subWidth, subHeight)){
     return(false);   // this just means that there is no overlap and there is nothing more for us to do here..
   }
-  
-  
-  return(sections[secNo]->readToShort(dest, (unsigned int)source_x, (unsigned int)source_y, subWidth, subHeight, 
+  return(sections[secNo]->readToShort(dest, (unsigned int)source_x, (unsigned int)source_y, 
+				      subWidth, subHeight, 
 				      (unsigned int)dest_x, (unsigned int)dest_y, iwidth, waveIndex));
 }
 
@@ -1024,11 +1130,29 @@ float FrameStack::correlate(float* a, float* b, unsigned int l){
     return(score);
 }
 
-void FrameStack::adjustPosition(FrameStack* neibor, int dx, int dy, float corr){
+void FrameStack::adjustPosition(QPoint p){
     // if I have been adjusted then this takes precedence, but 
     // probably we should change this function.. 
-    
-
+  pixelX += p.x();
+  pixelY += p.y();
+  if(frameInformation){
+    frameInformation->xp = pixelX;
+    frameInformation->yp = pixelY;
+  }
+  
+  if(leftBorder < pixelX){
+    leftBorder = pixelX;
+  }
+  if(rightBorder > pixelX + int(pWidth)){
+    rightBorder = pixelX + pWidth;
+  }
+  if(bottomBorder < pixelY){
+    bottomBorder = pixelY;
+  }
+  if(topBorder > pixelY + int(pHeight)){
+    topBorder = pixelY + pHeight;
+  }
+  
 }
 
 void FrameStack::adjustPosition(int dx, int dy, POSITION n, float setAdjustmentFlag){
@@ -1209,23 +1333,9 @@ bool FrameStack::globalToLocal(int xpos, int ypos, int dest_width, int dest_heig
 	    dest_y -= source_y;
 	    source_y = 0;
 	}
-
-//	cout << "globalToLocal :: \n" << xpos << ", " << ypos << ", " << dest_width << ", " << dest_height << "\n-->  "
-//	     << "  " << dest_x <<  ", " << source_x << ", " << dest_y << ", " << source_y << ", " << endl;
-	
 	// and then work out the width and height that we'll be taking out of this.. 
 	subWidth = rightBorder <= xpos + int(dest_width) ? (rightBorder - pixelX) - source_x : (dest_width - dest_x);
 	subHeight = topBorder <= ypos + int(dest_height) ? (topBorder - pixelY) - source_y : (dest_height - dest_y);
-
-	//	cout << "globalToLocal :: " << "xpos " << xpos << " leftBorder " << leftBorder << "  pixelPos " << pixelX << "," << pixelY
-	//   << "   dest_x " << dest_x << "  source_x " << source_x << "  subWidth " << subWidth << endl;
-	
-	// I can't think of a better way of putting this.. but there should be.
-	// We also have to make sure that we don't overstep the size of the destination buffer.. 
-
-//	subWidth = rightBorder <= xpos + int(dest_width) ? (rightBorder - pixelX) - source_x : (xpos + dest_width) - leftBorder;
-//	subHeight = topBorder <= ypos + int(dest_height) ? (topBorder - pixelY) - source_y : (ypos + dest_height) - bottomBorder;
-//	cout << "  and subHeight : " << subHeight << "  subWidth   : " << subWidth << endl;
 	return(true);
     }
     return(false);

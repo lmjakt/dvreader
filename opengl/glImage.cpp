@@ -77,8 +77,8 @@ GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texSize, 
   // In fact it seems that backgroundWidth and imageWidth are never different from textureWidth
   // and I should remove them.
  
-  backgroundWidth = imageWidth = texSize; //backgroundHeight = textureSize;
-  backgroundHeight = imageHeight = texSize;
+  //backgroundWidth = imageWidth = texSize; //backgroundHeight = textureSize;
+  //backgroundHeight = imageHeight = texSize;
   setFocusPolicy(Qt::ClickFocus);
   setAttribute(Qt::WA_NoSystemBackground);
   
@@ -105,8 +105,8 @@ GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texWidth,
 
     // width and height are used to work out the backgroundHeight and backgroundWidth...
 
-    backgroundWidth = imageWidth = textureWidth; //backgroundHeight = textureSize;
-    backgroundHeight = imageHeight = textureHeight;
+    //    textureWidth = imageWidth = textureWidth; //backgroundHeight = textureSize;
+    //backgroundHeight = imageHeight = textureHeight;
     setFocusPolicy(Qt::ClickFocus);
     setAttribute(Qt::WA_NoSystemBackground);
 
@@ -164,6 +164,19 @@ void GLImage::setBigImage(float* data, int source_x, int source_y,
   cout << "\n\n\n\n\npanelCount : " << panelCount << "\n\n\n" <<  endl;
 }
 
+void GLImage::clearTextures(){
+  float* blank = new float[ 3 * textureWidth * textureHeight ];
+  memset((void*)blank, 0, sizeof(float) * 3 * textureWidth * textureHeight);
+  for(int y=0; y < theight; ++y){
+    for(int x=0; x < twidth; ++x){
+      glBindTexture(GL_TEXTURE_2D, textures[y * twidth + x]);
+      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, textureWidth, textureHeight, GL_RGB, GL_FLOAT, blank);
+    }
+  }
+  updateGL();
+  delete blank;
+}
+
 void GLImage::gl_mod_buffer(float* destination, float* source, GLint w, GLint h, GLfloat param){
     makeCurrent();
     cout << "glmod_buffer" << endl;
@@ -187,7 +200,7 @@ bool GLImage::mapImageToTexture(float* image_data, int source_x, int source_y,
   // Check the below inequalities again. My head is too thick at the moment
   if( !((source_x < tex_x + textureWidth) && 
 	(source_x + source_w >= tex_x) && 
-	(source_y < tex_y + textureWidth) && 
+	(source_y < tex_y + textureHeight) && 
 	(source_y + source_h) >= tex_y)){
     cout << "mapImageToTexture no overlap found" << endl;
     return(false);
@@ -202,18 +215,18 @@ bool GLImage::mapImageToTexture(float* image_data, int source_x, int source_y,
   int t_bx = tex_x >= source_x ? 0 : source_x - tex_x;
  
   int s_by = tex_y > source_y ? tex_y - source_y : 0;
-  int t_by = tex_y >= source_x ? 0 : source_y - tex_y;
+  int t_by = tex_y >= source_y ? 0 : source_y - tex_y;
   
   // the maximum width and height that we can copy to and from 
   int max_w = textureWidth < source_w ? textureWidth : source_w;
   int max_h = textureHeight < source_h ? textureWidth : source_h;
 
   int cp_w = (tex_x + textureWidth) > (source_x + source_w) ? 
-    (1 + (source_x + source_w) - tex_x) : ((tex_x + textureWidth) - source_x);
+    ((source_x + source_w) - tex_x) : ((tex_x + textureWidth) - source_x);
   cp_w = cp_w > max_w ? max_w : cp_w;
 
   int cp_h = (tex_y + textureHeight) > (source_y + source_h) ?
-    (1 + (source_y + source_h) - tex_y) : (1 + (tex_y + textureHeight) - source_y);
+    ((source_y + source_h) - tex_y) : ((tex_y + textureHeight) - source_y);
   cp_h = cp_h > max_h ? max_h : cp_h;
 
   if(cp_w <= 0 || cp_h <= 0){
@@ -261,17 +274,17 @@ void GLImage::transformPos(int x, int y, int& px, int& py, bool setCross){
     
     // I think this might end up being different if the size of the drawn pixmap is different from the background, 
     // and if the aspectRatio isn't one. (but you never know, it might work..)
-    GLfloat frustumPos = -1.0 + ((GLfloat)(2 * x)/(GLfloat)backgroundWidth);
+    GLfloat frustumPos = -1.0 + ((GLfloat)(2 * x)/(GLfloat)textureWidth);
     GLfloat xOrigin = (-1.0 + xo) * xscale;
     GLfloat frustumDistance = frustumPos - xOrigin;
     GLfloat scaledFrustumDistance = frustumDistance / xscale;
-    px = backgroundWidth * (scaledFrustumDistance / 2.0);
+    px = textureWidth * (scaledFrustumDistance / 2.0);
     
     // y position might be a little bit more complicated, but as long as the aspect ratio is 1, and the whole image is used... no problem.. 
-    GLfloat yFrustumPos = -aspectRatio + ((GLfloat)(2 * (height() - y)) / (GLfloat)backgroundHeight);   //
+    GLfloat yFrustumPos = -aspectRatio + ((GLfloat)(2 * (height() - y)) / (GLfloat)textureHeight);   //
     GLfloat yOrigin = (-aspectRatio + yo) * xscale;
     GLfloat yScaledFrustumDistance = (yFrustumPos - yOrigin) / xscale;
-    py = backgroundHeight * (yScaledFrustumDistance / 2.0);
+    py = textureHeight * (yScaledFrustumDistance / 2.0);
     
 
     // if we want to draw a cross on the thingy.. 
@@ -345,12 +358,12 @@ void GLImage::mouseMoveEvent(QMouseEvent* e){
     transformPos(e->x(), e->y(), px, py, false);
     switch(buttonPressed){
 	case Qt::LeftButton :
-	    xo += 2.0 * ((GLfloat)(e->x() - lastX)) / (xscale * (GLfloat)backgroundWidth) ;
-	    yo += aspectRatio * 2.0 * (GLfloat)(lastY - e->y()) / (xscale * (GLfloat)imageWidth * aspectRatio);   // vertical direction is opposite on these things
+	    xo += 2.0 * ((GLfloat)(e->x() - lastX)) / (xscale * (GLfloat)textureWidth) ;
+	    yo += aspectRatio * 2.0 * (GLfloat)(lastY - e->y()) / (xscale * (GLfloat)textureWidth * aspectRatio);   // vertical direction is opposite on these things
 	    //yo += aspectRatio * 2.0 * (GLfloat)(lastY - e->y()) / (xscale * (GLfloat)backgroundHeight);   // vertical direction is opposite on these things
 	    // the offsets need to be divided by the multiplier.. hmm
 	    //cout << "backgroundwidth : " << backgroundWidth << "\tbackgroundHeight " << backgroundHeight << "\txo : " << xo << "\t" << yo << endl;
-	    emit offSetsSet((int)(xo * (float)backgroundWidth), (int)(yo * (float)backgroundHeight));   // but these should really be divided by the magnification.. hmm 
+	    emit offSetsSet((int)(xo * (float)textureWidth), (int)(yo * (float)textureHeight));   // but these should really be divided by the magnification.. hmm 
 	    break;
 	case Qt::RightButton :
 	    // change the magnification multiplier..
@@ -445,9 +458,9 @@ void GLImage::paintGL(){
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-    GLfloat x = (GLfloat)backgroundWidth / (GLfloat)imageWidth;
+    GLfloat x = (GLfloat)textureWidth / (GLfloat)textureWidth;
     GLfloat y1 = -aspectRatio;
-    GLfloat y2 = (textureHeight / textureWidth) * 2.0 * (aspectRatio * (GLfloat)backgroundHeight / (GLfloat)imageHeight) - aspectRatio;
+    GLfloat y2 = (textureHeight / textureWidth) * 2.0 * (aspectRatio * (GLfloat)textureHeight / (GLfloat)textureHeight) - aspectRatio;
 
     GLfloat h = y2 - y1;
     
@@ -550,7 +563,7 @@ void GLImage::initializeGL()
 	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	    
-	    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, backgroundWidth, backgroundHeight, 0, GL_RGB, GL_FLOAT, backgroundImage);
+	    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textureWidth, textureHeight, 0, GL_RGB, GL_FLOAT, backgroundImage);
 	    GLint resWidth;
 	    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &resWidth);
 	    cout << "generate texture at " << j << "," << i << "\tresulting width : " << resWidth << endl;
@@ -583,9 +596,9 @@ void GLImage::resizeGL( int w, int h )
     // and vice versa..
     
     GLfloat x1 = -1.0;
-    GLfloat x2 = x1 + 2.0 * (GLfloat)w/(GLfloat)backgroundWidth;
+    GLfloat x2 = x1 + 2.0 * (GLfloat)w/(GLfloat)textureWidth;
     GLfloat y1 = -aspectRatio;
-    GLfloat y2 = (y1 + 2.0 * aspectRatio * (GLfloat)h/((GLfloat)imageWidth * aspectRatio));
+    GLfloat y2 = (y1 + 2.0 * aspectRatio * (GLfloat)h/((GLfloat)textureWidth * aspectRatio));
 
 
     glOrtho(x1, x2, y1, y2, 1.0, 30.0);

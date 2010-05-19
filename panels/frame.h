@@ -132,6 +132,7 @@ class Frame {
     // NOTE the constructor will make a number of assumptions about the structure of the extended header. If these are not met, then 
     // it will set some flag to indicate failure.. 
     void setBackground(Background* bg, int z_pos);
+    void setContribMap(float* map);
 
     private :
 	
@@ -149,6 +150,7 @@ class Frame {
     float w, h;           // width and height
     float vx, vy, vz;     // the distances represented by one voxel.. (can be derived from the above number (except for vd)
     int zp;               // the z position, or rather the slice number
+    float* contribMap;    // gives partial contributions at specific positions. This is a shared pointer, do not delete here.
     // other image parameters...
     float photoSensor;
     float photoSensorStandard;  // the standard value
@@ -199,16 +201,16 @@ class Frame {
 
     // functions that can be used to convert the raw 2 byte numbers to the relevant numbers.
     float convert_s(unsigned short* source, float bg, float bias, float scale, 
-		    float maxLevel, float* raw, unsigned int xp, unsigned int yp){
-      return( bias + scale * ((float)*source - bg) / maxLevel );
+		    float maxLevel, float contrib, float* raw, unsigned int xp, unsigned int yp){
+      return( contrib * (bias + scale * ((float)*source - bg) / maxLevel) );
     }
     float convert_s_raw(unsigned short* source, float bg, float bias, float scale, 
-			float maxLevel, float* raw, unsigned int xp, unsigned int yp){
+			float maxLevel, float contrib, float* raw, unsigned int xp, unsigned int yp){
       *raw = (float(*source) - bg) / maxLevel;
-      return( bias + scale * ((float)*source - bg) / maxLevel );
+      return(contrib *(bias + scale * ((float)*source - bg) / maxLevel));
     }
     float convert_s_contrast(unsigned short* source, float bg, float bias, float scale, 
-			     float maxLevel, float* raw, unsigned int xp, unsigned int yp){
+			     float maxLevel, float contrib, float* raw, unsigned int xp, unsigned int yp){
       source = xp > 0 ? source : source + 1;
       source = yp > 0 ? source : source + pWidth; // hack that causes incorrect behaviour at edges.
       int ct1 = abs( *(source - 1) - (*source) );
@@ -218,16 +220,17 @@ class Frame {
       ct1 = ct1 > ct3 ? ct1 : ct3;
       if(raw)
 	(*raw) = float(ct1) / maxLevel;
-      return(bias + scale * float(ct1)/maxLevel);
+      return(contrib * (bias + scale * float(ct1)/maxLevel));
     }
     
     float to_float(unsigned short* source, float bg, 
 		   float maxLevel, unsigned int xp, unsigned int yp){
       return( (float(*source) - bg) / maxLevel );
     }
+    /// the 1.0 following the maxLevel indicates the contribution. Probably a temporary hack..
     float to_float_contrast(unsigned short* source, float bg, 
 			    float maxLevel, unsigned int xp, unsigned int yp){
-      return( convert_s_contrast(source, bg, 0, 1.0, maxLevel, 0, xp, yp) );
+      return( convert_s_contrast(source, bg, 0, 1.0, maxLevel, 1.0, 0, xp, yp) );
     }
 };
     

@@ -37,6 +37,8 @@
 /////////// the following introduces circular dependancies 
 class Background;
 class ImageData;
+class BorderInfo;
+class IdMap;
 
 // Background objects contain a reference to an imageData object; the imageData object
 // provides some higher level access functions for the FileSet Object, and has a pointer
@@ -66,7 +68,10 @@ class FileSet {
 		  bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz);
     bool getStack(float& xpos, float& ypos);   // sets the appropriate values up for a given thingy.. 
     bool finalise();   // checks for a complete rectangle and sets up the x, y, and z_position vectors
-    
+    void adjustStackPosition(float xp, float yp, QPoint P);
+    void setPosMap();
+    void adjustStackBorders();
+    bool updateFileSetInfo();
 
     bool readToRGB(float* dest, float xpos, float ypos, float dest_width, 
 		   float dest_height, unsigned int slice_no, unsigned int dest_pwidth, 
@@ -93,6 +98,8 @@ class FileSet {
     // wave in readtofloatPro is waveindex (and it is checked, but nothing happens if too large) 
     // we then also need a whole load of accessor functions to allow us to make sense of the data
     void setBackgroundParameters(std::map<fluorInfo, backgroundPars> bgp);
+    BorderInfo* borderInformation(float x, float y);
+    float* paintCoverage(int& w, int& h, float maxCount);
 
     float xpos(){
 	return(x);
@@ -150,6 +157,7 @@ class FileSet {
       return(stackInfo);
     }
 
+    void stackDimensions(int& col_no, int& row_no, int& panelWidth, int& panelHeight);
     private :
 
     void determineZOffsets();    // this is actually a bit tricky .. 
@@ -157,6 +165,8 @@ class FileSet {
     void initBackgrounds(std::map<fluorInfo, backgroundPars> bgp);
     
     std::map<float, std::map<float, FrameStack*> > frames;      // since this is inconvenient to access I'll have an accessor function
+    std::map<ulong, FrameStack*> frameIds;
+    IdMap* framePosMap;
     std::set<fluorInfo> flInfo;        // the various file sets and things.. 
     // the first photoSensor value for a given channel. 
     // set the values for each frame.. 
@@ -179,6 +189,7 @@ class FileSet {
 
     float frameWidth, frameHeight;
     int pixelHeight, pixelWidth;  // this refers to the frame dimensions and should be the same for all frames.. 
+    int rolloff;                  // the area lost due to the deconvolution. I'm not sure how to get this from the file at the moment
     float maxIntensity;           //
     char* fileName;               // set this at the first time we add a frame.. -- but default to 0 so we know if its been set
 

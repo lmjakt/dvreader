@@ -49,6 +49,7 @@ public slots:
  void setImage(float* data, int x, int y, int col, int row);           // using an rgb coordinate system.. 
  void setBigImage(float* data, int source_x, int source_y, 
 	       int width, int height);
+ void clearTextures();
  void setMagnification(float m);
  void resetMagnification(){
      xscale = 1.0;
@@ -106,8 +107,8 @@ private:
 
     // It seems that the below are always equal to textureWidth and textureHeight, 
     // so I should probably get rid of them.
-    GLint imageWidth, imageHeight;
-    GLint backgroundWidth, backgroundHeight;
+    //GLint imageWidth, imageHeight;
+    //GLint backgroundWidth, backgroundHeight;
 
     GLfloat xCross, yCross;   // draw a cross at these position if something is true..
     bool drawCross;           // 

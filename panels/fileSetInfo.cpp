@@ -54,6 +54,7 @@ void writeInt(ofstream& out, unsigned int value){
 
 FileSetInfo::FileSetInfo(const char* fname){
     stackNo = 0;
+    fileName = fname;
     cout << "FileSetInfo::FileSetInfo reading infrom file : " << fname << endl;
     ok = true;
     ifstream in(fname);
@@ -152,42 +153,47 @@ void FileSetInfo::addFrameInfo(FrameInfo* finfo, float x, float y){
 }
 
 bool FileSetInfo::writeInfo(const char* fname){
-    ofstream out(fname);
-    if(!out){
-	cout << "FileSetInfo::writeInfo unable to open " << fname << "  for writing " << endl;
-	return(false);
+  fileName = fname;
+  ofstream out(fname);
+  if(!out){
+    cout << "FileSetInfo::writeInfo unable to open " << fname << "  for writing " << endl;
+    return(false);
+  }
+  // and then just write in the same order as we read..
+  writeInt(out, magicNumber);
+  writeInt(out, stackNo);
+  //    writeInt(out, (int)stacks.size());
+  writeInt(out, waveNo);
+  writeInt(out, width);
+  writeInt(out, height);
+  for(uint i=0; i < waveLengths.size(); i++){
+    writeInt(out, waveLengths[i]);
+  }
+  map<float, map<float, FrameInfo*> >::iterator ot;
+  map<float, FrameInfo*>::iterator it;  // outer and inner iterators..
+  for(ot = stacks.begin(); ot != stacks.end(); ot++){
+    for(it = (*ot).second.begin(); it != (*ot).second.end(); it++){
+      FrameInfo* finfo = (*it).second;
+      writeFloat(out, (*ot).first);
+      writeFloat(out, (*it).first);
+      writeFloat(out, finfo->xpos);
+      writeFloat(out, finfo->ypos);
+      writeInt(out, finfo->xp);
+      writeInt(out, finfo->yp);
+      writeInt(out, finfo->width);
+      writeInt(out, finfo->height);
+      writeInt(out, finfo->waveNo);
+      cout << "Wrote out finfo with position " << finfo->xp << ", " << finfo->yp << endl;
+      for(uint i=0; i < waveNo; i++){
+	out.write((char*)finfo->projection[i], finfo->width * finfo->height * sizeof(float));
+      }
     }
-    // and then just write in the same order as we read..
-    writeInt(out, magicNumber);
-    writeInt(out, stackNo);
-//    writeInt(out, (int)stacks.size());
-    writeInt(out, waveNo);
-    writeInt(out, width);
-    writeInt(out, height);
-    for(uint i=0; i < waveLengths.size(); i++){
-	writeInt(out, waveLengths[i]);
-    }
-    map<float, map<float, FrameInfo*> >::iterator ot;
-    map<float, FrameInfo*>::iterator it;  // outer and inner iterators..
-    for(ot = stacks.begin(); ot != stacks.end(); ot++){
-	for(it = (*ot).second.begin(); it != (*ot).second.end(); it++){
-	    FrameInfo* finfo = (*it).second;
-	    writeFloat(out, (*ot).first);
-	    writeFloat(out, (*it).first);
-	    writeFloat(out, finfo->xpos);
-	    writeFloat(out, finfo->ypos);
-	    writeInt(out, finfo->xp);
-	    writeInt(out, finfo->yp);
-	    writeInt(out, finfo->width);
-	    writeInt(out, finfo->height);
-	    writeInt(out, finfo->waveNo);
-	    cout << "Wrote out finfo with position " << finfo->xp << ", " << finfo->yp << endl;
-	    for(uint i=0; i < waveNo; i++){
-		out.write((char*)finfo->projection[i], finfo->width * finfo->height * sizeof(float));
-	    }
-	}
-    }
-    return(true);  // well I should check the state of the stream here, but don't remember how, and not sure what to do about it anyway.. 
+  }
+  return(true);  // well I should check the state of the stream here, but don't remember how, and not sure what to do about it anyway.. 
+}
+
+bool FileSetInfo::writeInfo(){
+  return( writeInfo( fileName.c_str() ) );
 }
 
 // the total width of the arrangement

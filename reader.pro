@@ -58,6 +58,9 @@ HEADERS		= \
 		panels/fileSetInfo.h \
 		panels/overlapEditor.h \
 		panels/overlapEditorWindow.h \
+		panels/frameRect.h \
+		panels/borderInformation.h \
+		panels/idMap.h \
 		image/imageFunc.h \
 		image/imageAnalyser.h \
 		image/imageData.h \
@@ -150,6 +153,9 @@ SOURCES		= \
 		panels/fileSetInfo.cpp \
 		panels/overlapEditor.cpp \
 		panels/overlapEditorWindow.cpp \
+		panels/frameRect.cpp \
+		panels/borderInformation.cpp \
+		panels/idMap.cpp \
 		image/imageFunc.cpp \
 		image/imageAnalyser.cpp \
 		image/volumeCache.cpp \

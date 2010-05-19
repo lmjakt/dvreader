@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <set>
+#include <QString>
 
 class FileSet;
 class GLImage;
@@ -30,6 +31,8 @@ class ImageBuilder {
   bool setBackgroundPars(unsigned int wi, int cw, int ch, int cd, float qnt, bool sub);
   void resetRGB();
   void reportParameters();
+  void exportTiff(QString fname);
+  void setRGBImage(float* img, unsigned int width, unsigned int height);
 
  private:
   GLImage* image;
@@ -48,7 +51,6 @@ class ImageBuilder {
   void toRGB(unsigned short* sb, float* rgb, channel_info& ci, unsigned long l);
   unsigned short* background(unsigned int wi, unsigned int slice, bool& ok);
   // hack to overcome mismatched APIs. bugger
-  void setRGBImage(float* img, unsigned int width, unsigned int height);
   void subImage(float* source, float* dest, 
 		unsigned int s_width, unsigned int s_height,
 		unsigned int s_x, unsigned int s_y,

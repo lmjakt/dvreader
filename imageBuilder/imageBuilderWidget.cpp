@@ -27,6 +27,11 @@ ImageBuilderWidget::ImageBuilderWidget(FileSet* fs, vector<channel_info> ch, QWi
   tasks["bg_sub"] = BG_SUB;
   tasks["reset_rgb"] = RESET_RGB;
   tasks["add_mcp"] = ADD_MCP;
+  tasks["export"] = EXPORT;
+  tasks["coverage"] = COVERAGE;
+  tasks["help"] = HELP;
+
+  makeHelpStatements();
 
   QVBoxLayout* vbox = new QVBoxLayout(this);
   vbox->addWidget(output);
@@ -35,6 +40,11 @@ ImageBuilderWidget::ImageBuilderWidget(FileSet* fs, vector<channel_info> ch, QWi
 
 ImageBuilderWidget::~ImageBuilderWidget(){
   delete builder;
+}
+
+void ImageBuilderWidget::setImage(float* image, int w, int h){
+  builder->setRGBImage(image, w, h);
+  delete image;
 }
 
 void ImageBuilderWidget::parseInput(){
@@ -63,6 +73,25 @@ void ImageBuilderWidget::repeatCommand(bool up){
   if(!up && commandPos < commandHistory.size() - 1){
     input->setText( commandHistory[++commandPos] );
   }
+}
+
+void ImageBuilderWidget::makeHelpStatements(){
+  helpStrings["set"] += "set paramtype params params are :";
+  helpStrings["set"] += "\n\tsandb ch scale bias";
+  helpStrings["set"] += "\n\tcolor ch r g b";
+  helpStrings["set"] += "\n\tmax ch max_value";
+  helpStrings["set"] +=  "\n\tbgpar ch w h d qnt sub?";
+
+  helpStrings["slice"] = "slice section ch1 ch2 ..";
+  helpStrings["project"] = "project sec_start sec_end ch1 ch2 ..";
+  helpStrings["report"] = "report";
+  helpStrings["bg_add"] = "bg_add ch section r g b";
+  helpStrings["bg_sub"] = "bg_sub ch section";
+  helpStrings["reset_rgb"] = "reset_rgb";
+  helpStrings["add_mcp"] = "add_mcp ch sec_start sec_end";
+  helpStrings["export"] = "expor filename";
+  helpStrings["coverage"] = "coverage max_count";
+  helpStrings["help"] = "help [command]";
 }
 
 void ImageBuilderWidget::parseInput(vector<QString> words)
@@ -96,6 +125,15 @@ void ImageBuilderWidget::parseInput(vector<QString> words)
     break;
   case ADD_MCP:
     addMCP(words);
+    break;
+  case EXPORT:
+    exportImage(words);
+    break;
+  case COVERAGE:
+    requestCoverage(words);
+    break;
+  case HELP:
+    printHelp(words);
     break;
   default:
     cerr << "ImageBuilderWidget::parseInput(vector<QString>): unknown command " << endl;
@@ -184,6 +222,41 @@ void ImageBuilderWidget::addMCP(vector<QString> words)
   vector<int> ints = getInts(words, 1);
   if(ints.size() == 3)
     builder->addMCP((unsigned int)ints[0], (unsigned int)ints[1], (unsigned int)ints[2]);
+}
+
+void ImageBuilderWidget::exportImage(vector<QString> words)
+{
+  if(words.size() < 3){
+    cerr << "export filetype filename" << endl;
+    return;
+  }
+    
+  if(words[1] == "tiff"){
+    builder->exportTiff(words[2]);
+  }
+}
+
+void ImageBuilderWidget::requestCoverage(vector<QString> words){
+  if(words.size() < 2){
+    cerr << "coverage maxValue";
+    return;
+  }
+  float mv = words[1].toFloat();
+  emit showCoverage(mv);
+}
+
+void ImageBuilderWidget::printHelp(vector<QString> words){
+  if(words.size() > 1 && helpStrings.count(words[1])){
+    output->append(helpStrings[words[1]]);
+    return;
+  }
+  QString helpText;
+  QTextStream qts(&helpText);
+  qts << "Commands:";
+  for(map<QString, Task>::iterator it=tasks.begin();
+      it != tasks.end(); ++it)
+    qts << "\n" << it->first;
+  output->append(helpText);
 }
 
 vector<float> ImageBuilderWidget::getFloats(vector<QString>& words, unsigned int offset){

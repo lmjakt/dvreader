@@ -64,6 +64,7 @@ Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type
 	     bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz)
 {
     threeDBackground = 0;
+    contribMap = 0;
     zp = 0; 
     in = inStream;
     frameOffset = framePos;
@@ -105,14 +106,14 @@ Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type
 	return;
     }
 
-//    cout << "extended header information : " << endl;
-//    cout << "numInt : " << numInt << "  numFloat : " << numFloat << endl;
-//    cout << "ints first: " << endl;
-//    for(int i=0; i < numInt; ++i)
-//      cout << i << " : " << headerInt[i] << endl;
-//    cout << "and then the floats" << endl;
-//    for(int i=0; i < numFloat; ++i)
-//      cout << i << " : " << headerFloat[i] << endl;
+   // cout << "extended header information : " << endl;
+   // cout << "numInt : " << numInt << "  numFloat : " << numFloat << endl;
+   // cout << "ints first: " << endl;
+   // for(int i=0; i < numInt; ++i)
+   //   cout << i << " : " << headerInt[i] << endl;
+   // cout << "and then the floats" << endl;
+   // for(int i=0; i < numFloat; ++i)
+   //   cout << i << " : " << headerFloat[i] << endl;
 
 
     photoSensor = headerFloat[0];
@@ -182,12 +183,9 @@ bool Frame::readToRGB(float* dest, unsigned int source_x, unsigned int source_y,
 		      unsigned int dest_x, unsigned int dest_y, 
 		      unsigned int dest_w, channel_info chinfo,
 		      float* raw)
-//		      float maxLevel, 
-//		      float bias, float scale, float r, float g, float b, bool bg_sub, float* raw){
 {
   // note that the dest has to be already initialised
   // we are only going to add to it..
-  //  cout << "Frame::readToRGB source_x : " << source_x << "  dest_x : " << dest_x << "  width : " << width << "  pwidth : " << pWidth<< endl;
 
   if(width > pWidth || height > pHeight || source_y >= pHeight || source_x >= pWidth){
     cerr << "Frame::readToRGB inappropriate coordinates : " << source_x << "\t" << source_y << "\t" << width << "\t" << height << endl;
@@ -196,28 +194,27 @@ bool Frame::readToRGB(float* dest, unsigned int source_x, unsigned int source_y,
   channelInfo = chinfo;
   // at this point call the appropriate function to read ..
   if(isReal && bno == 4){
-    return(readToRGB_r(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, chinfo, raw));
-    //maxLevel, bias, scale, r, g, b, raw));
+    return(readToRGB_r(dest, source_x, source_y, width, height, 
+		       dest_x, dest_y, dest_w, chinfo, raw));
   }
   if(!isReal && bno == 2){
-    return(readToRGB_s(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w,  chinfo, raw));
-    //		       maxLevel, bias, scale, r, g, b, bg_sub, raw));
+    return(readToRGB_s(dest, source_x, source_y, width, height, 
+		       dest_x, dest_y, dest_w,  chinfo, raw));
   }
   cerr << "Frame::readToRGB unsupported data file type" << endl;
   return(false);
 }
 
-//bool Frame::readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
-//		      unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
-//			bool bg_sub, float maxLevel){
-bool Frame::readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
+bool Frame::readToFloat(float* dest, unsigned int source_x, unsigned int source_y, 
+			unsigned int width, unsigned int height, 
 			unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
 			float maxLevel){
-    // note that the dest has to be already initialised2
+    // note that the dest has to be already initialised
     // we are only going to add to it..
     
     if(width > pWidth || height > pHeight || source_y >= pHeight || source_x >= pWidth){
-	cerr << "Frame::readToRGB inappropriate coordinates : " << source_x << "\t" << source_y << "\t" << width << "\t" << height << endl;
+	cerr << "Frame::readToRGB inappropriate coordinates : " << source_x << "\t" 
+	     << source_y << "\t" << width << "\t" << height << endl;
 	return(false);
     }
     
@@ -228,14 +225,15 @@ bool Frame::readToFloat(float* dest, unsigned int source_x, unsigned int source_
 	//return(readToFloat_r(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, maxLevel));
     }
     if(!isReal && bno == 2){
-      return(readToFloat_s(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, maxLevel));
-      //      return(readToFloat_s(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, bg_sub, maxLevel));
+      return(readToFloat_s(dest, source_x, source_y, width, height, 
+			   dest_x, dest_y, dest_w, maxLevel));
     }
     cerr << "Frame::readToRGB unsupported data file type" << endl;
     return(false);
 }
 
-bool Frame::readToShort(unsigned short* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
+bool Frame::readToShort(unsigned short* dest, unsigned int source_x, unsigned int source_y, 
+			unsigned int width, unsigned int height,
 			unsigned int dest_x, unsigned int dest_y, unsigned int dest_w){
 
   if(width > pWidth || height > pHeight || source_y >= pHeight || source_x >= pWidth){
@@ -247,6 +245,8 @@ bool Frame::readToShort(unsigned short* dest, unsigned int source_x, unsigned in
     cerr << "Frame::readToShort unable to read to short since raw format is not short" << endl;
     return(false);
   }
+  //  unsigned short* buffer = new unsigned short[pWidth * height];
+  // bool sepBuffer = true;
   unsigned short* buffer = dest + (dest_y * dest_w);
   bool sepBuffer = false;
   if(width != dest_w || width != pWidth){
@@ -271,12 +271,12 @@ bool Frame::readToShort(unsigned short* dest, unsigned int source_x, unsigned in
   
   // if sepBuffer we need to copy from buffer to destination
   // this needs to be done line by line.. but we can use memcpy
-  unsigned short* dst = dest + (dest_y * dest_w * 2);
-  unsigned short* source = buffer;
+  unsigned short* dst = dest + (dest_y * dest_w) + dest_x;
+  unsigned short* source = buffer + source_x;
   for(unsigned int yp=0; yp < height; ++yp){
     memcpy((void*)dst, (const void*)source, width*2);
     dst += dest_w;
-    source += width;
+    source += pWidth;
   }
   delete buffer;
   return(true);
@@ -335,17 +335,19 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
   float* dst;
   float bg;  // background estimate
   float v;  // the value we calculate.. 
+  float* map;  // the contribution map
 
 
   // Use a function pointer to distinguish the different variants of functions
   
-  float (Frame::*convertFunction)(unsigned short*, float, float, float, float, float*, unsigned int, unsigned int) = 0;
+  float (Frame::*convertFunction)(unsigned short*, float, float, float, float, float, float*, unsigned int, unsigned int) = 0;
   convertFunction = raw ? &Frame::convert_s_raw : &Frame::convert_s;
   convertFunction = chinfo.contrast ? &Frame::convert_s_contrast : convertFunction;
   
   for(unsigned int yp = 0; yp < height; yp++){
     source = buffer + yp * pWidth + source_x;
     dst = dest + (dest_y * dest_w + yp * dest_w + dest_x) * 3 ; // then increment the counters appopriately.. 
+    map = contribMap + (source_y + yp) * pWidth + source_x; 
     for(unsigned int xp = 0; xp < width; xp++){
       //bg = chinfo.bg_subtract ? chinfo.maxLevel * threeDBackground->bg(xp, yp, zp) : 0;
       bg = chinfo.bg_subtract ? chinfo.maxLevel * background.bg(xp, yp) : 0;
@@ -355,7 +357,7 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
       //v = bias + scale * phSensor_m * (float)(*source) / maxLevel;
       //v = bias + scale * (float)(*source) / (maxLevel * phSensorm);
       
-      v = (*this.*convertFunction)(source, bg, chinfo.bias, chinfo.scale, chinfo.maxLevel, raw, xp, yp);
+      v = (*this.*convertFunction)(source, bg, chinfo.bias, chinfo.scale, chinfo.maxLevel, *map, raw, xp, yp);
 
       //      v = v * phSensor_m;
  
@@ -373,6 +375,7 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
       }
       dst += 3;
       ++source;
+      ++map;
     }
   }
   delete buffer;
@@ -519,4 +522,8 @@ bool Frame::setBackground(int xm, int ym, float qntile){
 void Frame::setBackground(Background* bg, int z_pos){
   threeDBackground = bg;
   zp = z_pos;
+}
+
+void Frame::setContribMap(float* map){
+  contribMap = map;
 }

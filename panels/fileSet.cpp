@@ -23,12 +23,14 @@
 //End Copyright Notice
 
 #include "fileSet.h"
+#include "borderInformation.h"
 #include "../stat/stat.h"
 #include <iostream>
 #include <fstream>
 #include <algorithm>
 #include <string>
 #include <math.h>
+#include "idMap.h"
 #include "../image/background.h"
 #include "../image/imageData.h"
 
@@ -50,6 +52,8 @@ FileSet::FileSet(int* waveLengths, int waveNo, float maxLevel){
     // but since we can just do a count on the frames we don't need to set anything else up.. 
     fileName = 0;
     ifstreamCounter = 0;
+    framePosMap = 0;
+    rolloff = 32;
 }
 
 FileSet::~FileSet(){
@@ -65,6 +69,7 @@ FileSet::~FileSet(){
     for(uint i=0; i < overlapData.size(); i++){
 	delete overlapData[i];
     }
+    delete framePosMap;
 }
 
 bool FileSet::addFrame(string fname, ifstream* in, std::ios::pos_type framePos, 
@@ -83,9 +88,8 @@ bool FileSet::addFrame(string fname, ifstream* in, std::ios::pos_type framePos,
     memcpy((void*)fileName, (void*)fname.c_str(), fname.length());
   }
   if(*fileName != *fname.c_str()){
-    cerr << "FileSet::addFrame fileName has changed, reassigning from " << fileName << " to : " << fname << endl;
+    cerr << "FileSet::addFrame fileName has changed, exiting due to memory corruption : " << fileName << " --> " << fname << endl;
     exit(1);
-    //    fileName = fname.c_str();
   }
   // first use a temporary ifstream as it seems we can't make and delete thousands of ifstreams..
   Frame* frame = new Frame(in, framePos, readPos, extHeadSize, 
@@ -97,7 +101,6 @@ bool FileSet::addFrame(string fname, ifstream* in, std::ios::pos_type framePos,
   }
   fluorInfo finfo(frame->excitation(), frame->emission(), frame->exposure());
   flInfo.insert(finfo);
-  //flInfo.insert(fluorInfo(frame->excitation(), frame->emission(), frame->exposure()));
   if(!photoSensors.count(finfo)){
     photoSensors[finfo] = frame->phSensor();
   }
@@ -149,7 +152,6 @@ bool FileSet::addFrame(string fname, ifstream* in, std::ios::pos_type framePos,
     y = frame->yPos();
     // and then how to insert ..
     frames[x_pos][y_pos] = fstack;
-    //cout << "adding first framestack to FileSet position : " << x << ", " << y << ", " << frame->zPos() << "  dims : " << pixelWidth << ", " << pixelHeight << endl;
     
     //and make sure to insert the x, y and z values..
     x_set.insert(x_pos);
@@ -189,6 +191,13 @@ fluorInfo FileSet::channelInfo(unsigned int pos){
     return(fluorInfo(0, 0, 0));
 }
 
+void FileSet::stackDimensions(int& col_no, int& row_no, int& panelWidth, int& panelHeight){
+  col_no = x_positions.size();
+  row_no = y_positions.size();
+  panelWidth = pixelWidth;
+  panelHeight = pixelHeight;
+}
+
 bool FileSet::getStack(float& xpos, float& ypos){
     // since the x and y positions don't always line up. I'm simply saying if they 
     // differ by less than 0.1% then consider them to be the same. This is an arbitrary choice
@@ -226,9 +235,7 @@ bool FileSet::finalise(){
     // to be complete, we essentially have to have a thingy at each x and y position.. and there should always be an overlap..
     // that is the simplest thing to take into account..
     completeRectangle = true;
-
     frameNo = frames[x_positions[0]][y_positions[0]]->frameNo();
-
     for(uint i=0; i < x_positions.size(); i++){
 	if(!frames.count(x_positions[i])){
 	    cerr << "No framestacks defined for x position x: " << x_positions[i] << endl;  // though this shouldn't be possible..
@@ -276,7 +283,7 @@ bool FileSet::finalise(){
 	}
       }
     }
-    // first check if there is afile..
+    // first check if there is a file..
 
     string infoFile = fileName;
     infoFile.append(".info");
@@ -297,6 +304,7 @@ bool FileSet::finalise(){
 	  }
 	}
       }
+      //      adjustStackBorders();
     }else{
       delete stackInfo;
       // We should do this even if the rectangle is not complete, but we have to be a bit more careful about how we set things
@@ -309,13 +317,12 @@ bool FileSet::finalise(){
 	  float tx = x_positions[i];
 	  float ty = y_positions[j];
 	  frames[tx][ty]->finalise(maxIntensity);    //
-	  //cout << "\n\tADJUSTING POSITIONS" << endl;
 	}
       }
       for(uint i=0; i < x_positions.size(); i++){
 	for(uint j=0; j < y_positions.size(); j++){
 	  cout << "frame " << i << ", " << j << endl;
-	  vector<overlap_data*> o_data = frames[x_positions[i]][y_positions[j]]->adjustNeighbourPositions(15, 32, 40, 38, i, j);
+	  vector<overlap_data*> o_data = frames[x_positions[i]][y_positions[j]]->adjustNeighbourPositions(15, rolloff, 40, 38, i, j);
 	  for(uint k=0; k < o_data.size(); k++){
 	    overlapData.push_back(o_data[k]);
 	  }
@@ -328,12 +335,11 @@ bool FileSet::finalise(){
       for(ot = frames.begin(); ot != frames.end(); ot++){
 	for(it = (*ot).second.begin(); it != (*ot).second.end(); it++){
 	  FrameStack* fstack = (*it).second;
-	  cout << "Making a new FrameInfo at position : " << fstack->left() << ", " << fstack->bottom() << "  ( " << fstack->x_pos() << ", " << fstack->y_pos() << " ) " << endl;
-	  
 	  FrameInfo* finfo = fstack->frameInfo();
 	  stackInfo->addFrameInfo(finfo, (*ot).first, (*it).first);
 	}
       }
+      //      adjustStackBorders();
       stackInfo->writeInfo(infoFile.c_str());   // we should remember it as well, but hey who cares.. 
       
     }
@@ -351,8 +357,73 @@ bool FileSet::finalise(){
 	 << "containing                   : " << pixelHeight << ", " << pixelWidth << endl
 	 << "For a total pixels of        : " << pw << " x " << ph << endl;
     cout << "And completeRectangle is : " << completeRectangle << endl;
-    
+    adjustStackBorders();
     return(completeRectangle);
+}
+
+void FileSet::adjustStackPosition(float xp, float yp, QPoint p){
+  if(!(frames.count(xp) && frames[xp].count(yp))){
+    cerr << "FileSet::adjustStackPosition no stack at : " << xp << "," << yp << endl;
+  }
+  // do something useful..
+  frames[xp][yp]->adjustPosition(p);
+  adjustStackBorders();
+  //  setPosMap();
+}
+
+void FileSet::setPosMap(){
+  cout << "setPosMap using positions " << 0 << "," << 0 << " : " << pw << "," << ph << endl;
+  frameIds.clear();
+  if(!framePosMap){
+    framePosMap = new IdMap(0, 0, pw, ph);
+  }else{
+    framePosMap->reset(0, 0, pw, ph);
+  }
+  ulong id = 1;
+  
+  for(map<float, map<float, FrameStack*> >::iterator ot=frames.begin();
+      ot != frames.end(); ++ot){
+    for(map<float, FrameStack*>::iterator it=(*ot).second.begin();
+	it != (*ot).second.end(); ++it){
+      frameIds.insert(make_pair(id, (*it).second));
+      cout << "Before: left() " << it->second->left() << "  left_border() " << it->second->left_border() << endl;
+      it->second->setBorders();
+      cout << "After:  left() " << it->second->left() << "  left_border() " << it->second->left_border() << endl;
+      framePosMap->setId(id, it->second->left_border(), it->second->bottom_border(), 
+			 it->second->right_border() - it->second->left_border(),
+			 it->second->top_border() - it->second->bottom_border());
+      id *= 2;
+    }
+  }
+  // for(uint yp=0; yp < ph; ++yp){
+  //   cout << yp << "\t";
+  //   for(uint xp=2000; xp < 2100; ++xp){
+  //     cout << framePosMap->id(xp, yp) << " ";
+  //   }
+  //   cout << endl;
+  // }
+  for(map<ulong, FrameStack*>::iterator it=frameIds.begin();
+      it != frameIds.end(); ++it)
+    it->second->setContribMap(framePosMap, it->first);
+  
+}
+
+void FileSet::adjustStackBorders(){
+  cout << "\n\n\n\nADJUST STACK BORDERS \n\n\n" << endl;
+  for(map<float, map<float, FrameStack*> >::iterator ot=frames.begin();
+      ot != frames.end(); ++ot){
+    for(map<float, FrameStack*>::iterator it = (*ot).second.begin();
+	it != (*ot).second.end(); ++it){
+      (*it).second->setBorders();
+    }
+  }
+  setPosMap();
+}
+
+bool FileSet::updateFileSetInfo(){
+  if(stackInfo)
+    return( stackInfo->writeInfo() );
+  return(false);
 }
 
 bool FileSet::readToRGB(float* dest, float xpos, float ypos, float dest_width, 
@@ -392,33 +463,29 @@ bool FileSet::readToRGB(float* dest, unsigned int xpos, unsigned int ypos,
 			unsigned int dest_width, unsigned int dest_height, 
 			unsigned int slice_no, vector<channel_info> chinfo,
 			raw_data* raw){
-//float maxLevel, vector<float> bias, vector<float> scale, 
-//			vector<color_map> colors, bool bg_sub, raw_data* raw){
   // given that each framestack knows it's bordering frame stacks I can just ask them to work it out themselves..
   //****************** remove the below to use 2D background
   //  if(chinfo[0].bg_subtract && !backgrounds.size()){
   //  initBackgrounds();
   //}
   
-    int counter = 0;  // this just counts how many different framestacks contribute to the slice..
-    for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
-	for(map<float, FrameStack*>::iterator fit=(*it).second.begin(); fit != (*it).second.end(); fit++){
-	  	  if((*fit).second->readToRGB(dest, xpos, ypos, dest_width, dest_height, 
-					      slice_no, chinfo, raw)){
-		    //	  	  if((*fit).second->readToRGB(dest, xpos, ypos, dest_width, dest_height, slice_no, maxLevel, bias, scale, colors, bg_sub, raw)){
-		counter++;
-	    }
-	}
+  int counter = 0;  // this just counts how many different framestacks contribute to the slice..
+  for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
+    for(map<float, FrameStack*>::iterator fit=(*it).second.begin(); fit != (*it).second.end(); fit++){
+      if((*fit).second->readToRGB(dest, xpos, ypos, dest_width, dest_height, 
+				  slice_no, chinfo, raw)){
+	counter++;
+      }
     }
-//    cerr << "FileSet::readToRGB buffer read to from " << counter << " filestacks" << endl;
-    return(counter > 0);   // which is nicer than saying return counter.. because...
+  }
+  return(counter > 0);   // which is nicer than saying return counter.. because...
 }
 
 bool FileSet::mip_projection(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int dest_pwidth, unsigned int dest_pheight,
 			     float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, raw_data* raw)
 {
-    // the trickiest part is working out which framestack should contribute to each of these. However, maybe I don't have to do this
-    // here.
+  // the trickiest part is working out which framestack should contribute to each of these. However, maybe I don't have to do this
+  // here.
     
     // given that each framestack knows it's bordering frame stacks I can just ask them to work it out themselves..
     int counter = 0;  // this just counts how many different framestacks contribute to the slice..
@@ -436,20 +503,17 @@ bool FileSet::mip_projection(float* dest, float xpos, float ypos, float dest_wid
 bool FileSet::mip_projection(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height,
 			     float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw)
 {
-    // the trickiest part is working out which framestack should contribute to each of these. However, maybe I don't have to do this
-    // here.
-    
-    // given that each framestack knows it's bordering frame stacks I can just ask them to work it out themselves..
-    int counter = 0;  // this just counts how many different framestacks contribute to the slice..
-    for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
-	for(map<float, FrameStack*>::iterator fit=(*it).second.begin(); fit != (*it).second.end(); fit++){
-	    if((*fit).second->mip_projection(dest, xpos, ypos, dest_width, dest_height, maxLevel, bias, scale, colors, raw)){
-		counter++;
-	    }
-	}
+  // given that each framestack knows it's bordering frame stacks I can just ask them to work it out themselves..
+  int counter = 0;  // this just counts how many different framestacks contribute to the slice..
+  for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
+    for(map<float, FrameStack*>::iterator fit=(*it).second.begin(); fit != (*it).second.end(); fit++){
+      if((*fit).second->mip_projection(dest, xpos, ypos, dest_width, dest_height, maxLevel, bias, scale, colors, raw)){
+	counter++;
+      }
     }
-    cerr << "FileSet::mip_projection buffer read to from " << counter << " filestacks" << endl;
-    return(counter > 0);   // which is nicer than saying return counter.. because...
+  }
+  cerr << "FileSet::mip_projection buffer read to from " << counter << " filestacks" << endl;
+  return(counter > 0);   // which is nicer than saying return counter.. because...
 }
 
 bool FileSet::readToFloat(float* dest, int xb, int yb, int zb, int pw, int ph, int pd, unsigned int waveIndex){
@@ -555,6 +619,17 @@ bool FileSet::readToFloatPro(float* dest, int xb, int iwidth, int yb, int iheigh
 	}
     }
     return(gotSomething);
+}
+
+BorderInfo* FileSet::borderInformation(float x, float y){
+  if(frames.count(x) && frames[x].count(y))
+    return(frames[x][y]->borderInformation());
+  cerr << "FileSet::borderInformation uknown frame location at : " << x << "," << y << endl;
+  return(0);
+}
+
+float* FileSet::paintCoverage(int& w, int& h, float maxCount){
+  return( framePosMap->paintCountsToRGB(w, h, maxCount) );
 }
 
 void FileSet::determineZOffsets(){

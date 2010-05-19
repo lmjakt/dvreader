@@ -26,6 +26,7 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include "../dataStructs.h"
 
 using namespace std;
 
@@ -113,6 +114,7 @@ bool FrameSet::addFrame(Frame* frame){
     return(true);
 }
 
+
 void FrameSet::setBackgrounds(std::map<fluorInfo, Background*> backgrounds, int zp){
   for(map<fluorInfo, Frame*>::iterator it = frames.begin();
       it != frames.end(); it++){
@@ -125,40 +127,37 @@ void FrameSet::setBackgrounds(std::map<fluorInfo, Background*> backgrounds, int 
   }
 }
 
+void FrameSet::setContribMap(float* map){
+  for(std::map<fluorInfo, Frame*>::iterator it = frames.begin();
+      it != frames.end(); ++it){
+    it->second->setContribMap(map);
+  }
+}
+
 bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source_y, 
 			 unsigned int width, unsigned int height,
 			 unsigned int dest_x, unsigned int dest_y, 
 			 unsigned int dest_w, vector<channel_info> chinfo,
 			 raw_data* raw)
-//			 float maxLevel, vector<float> bias, 
-//			 vector<float> scale, vector<color_map> colors, bool bg_sub, raw_data* raw)
 {
     // actually we haven't explicitly defined how the colors and the other things will be treated, but
     //  since we have a map<float, colors> then we can sort of assume that we will use the same ones..
 
-    // if(frames.size() > bias.size() || frames.size() > scale.size() || frames.size() > colors.size()){
-    // 	cerr << "FrameSet::readToRGB unsufficent wavelength information to read to RGB" << endl;
-    // 	return(false);
-    // }
     unsigned int i = 0;
     bool ok = true;
     bool read;
     // the above is a bit ugly, but it makes the following a little less ugly. 
     for(map<fluorInfo, Frame*>::iterator it = frames.begin(); it != frames.end(); it++){
       if( !chinfo[i].include || (!(chinfo[i].color.r + chinfo[i].color.g + chinfo[i].color.b) && !raw) ){
-	//      if( !(colors[i].r + colors[i].g + colors[i].b) && !raw ){
 	++i;
 	continue;
       }
       if(!raw){
 	read = (*it).second->readToRGB(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, 
 				       chinfo[i]);
-	//				       maxLevel, bias[i], scale[i], colors[i].r, colors[i].g, colors[i].b, bg_sub);
       }else{
 	if(read = (*it).second->readToRGB(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, 
 					  chinfo[i], raw->values[i] + raw->positions[i])){
-					  // maxLevel, bias[i], scale[i], colors[i].r, colors[i].g, colors[i].b, bg_sub, 
-	  
 	  raw->positions[i] += (width * height);
 	}
       }
@@ -167,7 +166,6 @@ bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source
 	ok = false;
       }
       i++;
-//	cout << "i updated " << i << endl;
     }
     return(ok);   // so a partial read gives a false..
 }

@@ -35,6 +35,7 @@
 #include <qtabwidget.h>
 #include <q3buttongroup.h>
 #include <qstring.h>
+#include <QPoint>
 //Added by qt3to4:
 #include <QVBoxLayout>
 #include "dvReader.h"
@@ -68,6 +69,7 @@
 #include "image/rectangle.h"
 
 class OverlapEditorWindow;
+class ImageBuilderWidget;
 
 using namespace std;
 
@@ -120,8 +122,12 @@ class DeltaViewer : public QWidget
   void firstImage();
   void lastImage();
   void setImage(int slice);
+  void paintCoverage(float maxCount);
   void setProjection();
-  bool readProjection(ifstream& in);  // read from a file.. 
+  bool readProjection(ifstream& in);  // read from a file..
+  void newStackSelected(float x, float y);
+  void adjustStackPosition(float x, float y, QPoint p);
+  void updateFileSetInfo();
   void paintProjection();
   void exportProjection();
   QColor wiColor(int wi);
@@ -219,6 +225,7 @@ class DeltaViewer : public QWidget
   /// Move this later, bull
   BlobMapperWidgetManager* blobManager;
   BackgroundWindow* backgroundWindow;   
+  ImageBuilderWidget* imageBuilder;
   vector<vector<o_set> > aux_points;   // for quick checks of various functions.
   //      set<BlobMapperWidget*> blobs;
   

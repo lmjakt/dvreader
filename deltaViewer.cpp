@@ -13,6 +13,7 @@
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
+    string infoFile = fileName;
    
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
@@ -112,15 +113,6 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   lastMaximumValue = -1;
   animate = false;
   
-  //   // before anything else, let's try to have a look at the font and see if we can get something
-//   // reasonable
-//   setContentsMargins(1, 1, 1, 1);
-//   QFont widgetFont = font();
-//   cout << "font is set to " << widgetFont.family().latin1() << " points : " << widgetFont.pointSize() << "  pixel : "
-//        << widgetFont.pixelSize() << endl;
-//   widgetFont.setPointSize( widgetFont.pointSize() - 2);
-//   setFont(widgetFont);
-
   if(!ifName){
       cout << "using a file dialog to get a file name" << endl;
       fName = Q3FileDialog::getOpenFileName();
@@ -142,8 +134,12 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   olapEditor = new OverlapEditorWindow();
   olapEditor->resize(1024, 1024);
   olapEditor->setInfo(fileSet->panelInfo());
-  olapEditor->show();
-  //overlapWindow->resize(1200, 12000);
+  connect(olapEditor, SIGNAL(newFrameSelected(float, float)), 
+	  this, SLOT(newStackSelected(float, float)));
+  connect(olapEditor, SIGNAL(adjustFramePos(float, float, QPoint)),
+	  this, SLOT(adjustStackPosition(float, float, QPoint)));
+  connect(olapEditor, SIGNAL(updateFileSetInfo()),
+	  this, SLOT(updateFileSetInfo()));
   if(fileSet->overlaps().size())
       overlapWindow->show();
   
@@ -171,8 +167,6 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   spotMapperWindow = new SpotMapperWindow(this, fileSet->pwidth(), fileSet->pheight(), fileSet->sectionNo(), textureSize);
   spotMapperWindow->resize(1100, 1100);
   //  spotMapperWindow->setFont(widgetFont);
-  cout << "file set is reproting a pixel size of " << fileSet->pwidth() << ", " << fileSet->pheight() << "  giving " << 1 + fileSet->pwidth() / textureSize << "  columns" << endl;
-  cout << "And .. the number of sections is " << fileSet->sectionNo() << endl;
   connect(perimeterWindow, SIGNAL(perimetersFinalised(std::vector<PerimeterSet>, float, int)), spotMapperWindow, SLOT(setPerimeters(std::vector<PerimeterSet>, float, int)) );
   
   glViewer = new GLImage(texColNo, texRowNo, textureSize);   // total of 12 panels.. 
@@ -278,11 +272,9 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   //  setCaption(fileName);  // good for using thingy.. 
       
 
-//  QPushButton* nextButton = new QPushButton("Next", this, "nextButton");
   QPushButton* nextButton = new QPushButton(">", this, "nextButton");
   connect(nextButton, SIGNAL(clicked()), this, SLOT(nextImage()) );
 
-//  QPushButton* previousButton = new QPushButton("Previous", this, "previousButton");
   QPushButton* previousButton = new QPushButton("<", this, "previousButton");
   connect(previousButton, SIGNAL(clicked()), this, SLOT(previousImage()) );
 
@@ -353,7 +345,6 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 
   // Use components hijacked for background subtraction.. 
   useComponents = new QCheckBox("Background subtract", this);
-  //  useComponents = new QCheckBox("Use Individual Components", this);
   connect(useComponents, SIGNAL(toggled(bool)), this, SLOT(useComponentsToggled(bool)) );
 
   objectSums = new DistChooser("Object Intensities", 100);
@@ -392,7 +383,6 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
     colorSet = readColors(opt_commands["colorFile"]);
   
   for(uint i=0; i < fileSet->channelNo(); i++){
-    cout << "constructor reader channelNo " << i << "  inserting into colormap " << fileSet->channel(i) << endl;
     colormap.insert(make_pair(fileSet->channel(i), colorSet[i % colorSet.size()]));  // the default..
   }
 
@@ -415,9 +405,6 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
     connect(choosers[i], SIGNAL(newRanges(float, float)), this, SLOT(changeRanges(float, float)) );
     ostringstream ls;
     ls << finfo.excitation << " -> " << finfo.emission << " : " << finfo.exposure;
-//    ls << fileSet->channel(i) << " (" << finfo.excitation << " -> " << finfo.emission << ")";
-//    QString labelString;
-//    labelString.setNum(fileSet->channel(i));
     colorChoosers.push_back(new ColorChooser(ls.str().c_str(), i, fileSet->channel(i), colormap[fileSet->channel(i)].qcolor(), this));
     colorChoosers[i]->setContentsMargins(1, 1, 1, 1);
     connect(colorChoosers[i], SIGNAL(colorChanged(int, float, float, float)), this, SLOT(setWaveColors(int, float, float, float)) );
@@ -428,23 +415,16 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   }
   setWaveColors();
 
-//  QPushButton* clearButton = new QPushButton("Clear Objects", this, "clearButton");
-//  connect(clearButton, SIGNAL(clicked()), this, SLOT(clearObjects()) );
-  //chooser->show();
-
 
   QLabel* exportLabel = new QLabel("Export", this);
   QPushButton* mergeChannelButton = new QPushButton("Projection", this, "mergeChannelButton");
-//  QPushButton* mergeChannelButton = new QPushButton("Merge Channels", this, "mergeChannelButton");
   connect(mergeChannelButton, SIGNAL(clicked()), this, SLOT(exportProjection()) );
-//  connect(mergeChannelButton, SIGNAL(clicked()), this, SLOT(addMergedChannel()) );
 
   QPushButton* exportSpotsButton = new QPushButton("Spots", this);
   connect(exportSpotsButton, SIGNAL(clicked()), this, SLOT(exportPeaks()) );
 
-
-  //  QPushButton* spotMapperButton = new QPushButton("Map Spots", this);
-  //connect(spotMapperButton, SIGNAL(clicked()), this, SLOT(setSpotsToSpotMapper()) );
+  QPushButton* adjustOverlapsButton = new QPushButton("Adjust Overlaps", this);
+  connect(adjustOverlapsButton, SIGNAL(clicked()), olapEditor, SLOT(show()) );
 
   // input individual offsets... 
   
@@ -488,8 +468,10 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 
   // Make an imagebuilderwidget and stick it at the bottom..
 
-  ImageBuilderWidget* imageBuilder = new ImageBuilderWidget(fileSet, collect_channel_info(), this);
-
+  imageBuilder = new ImageBuilderWidget(fileSet, collect_channel_info(), this);
+  connect(imageBuilder, SIGNAL(showCoverage(float)), 
+	  this, SLOT(paintCoverage(float)) );
+  
   QVBoxLayout* box = new QVBoxLayout(this);
   box->setSpacing(1);
   box->setMargin(1);
@@ -504,18 +486,10 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   playButtonBox->addWidget(stopAnimation);
   playButtonBox->addWidget(nextButton);
   playButtonBox->addWidget(startAnimation);
-  //  QHBoxLayout* play2 = new QHBoxLayout();
-  //  box->addLayout(play2);
-  //  play2->addWidget(startAnimation);
-  //  play2->addWidget(nextButton);
-//  playButtonBox->addWidget(startAnimation);
-//  playButtonBox->addWidget(nextButton);
 
   QGridLayout* sectionBox = new QGridLayout(1, 4);
-//  QHBoxLayout* sectionBox = new QHBoxLayout();
   box->addLayout(sectionBox);
   sectionBox->addWidget(sectionNo, 0, 0, 1, 1, Qt::AlignBottom|Qt::AlignLeft);
-//  sectionBox->addStretch();
   sectionBox->addWidget(sectionSpin, 0, 3);
   sectionBox->setColumnStretch(0, 1);
 
@@ -534,10 +508,6 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   mouseY->setMinimumWidth(minWidth);
   proMouseX->setMinimumWidth(minWidth);
   proMouseY->setMinimumWidth(minWidth);
-  //sectionBox->addWidget(mouseX, 0, 1, 1, 1, Qt::AlignBottom);
-  //sectionBox->addWidget(mouseY, 0, 2, 1, 1, Qt::AlignBottom);
-  
-
 
   QHBoxLayout* showBox = new QHBoxLayout();
   box->addLayout(showBox);
@@ -545,7 +515,6 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   showBox->addWidget(showViewButton);
   showBox->addWidget(showProjectionButton);
 
-  //box->addWidget(magbox);
   QGridLayout* imageInfoGrid = new QGridLayout(box, 2, 4);
   imageInfoGrid->addWidget(offsetsLabel, 0, 0);
   imageInfoGrid->addWidget(xOffset, 0, 1);
@@ -568,9 +537,12 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   box->addLayout(exportBox);
   exportBox->addWidget(exportLabel);
   exportBox->addWidget(mergeChannelButton);
-  //box->addWidget(spotMapperButton);
   exportBox->addWidget(exportSpotsButton);
-  //box->addWidget(clearButton);
+  QHBoxLayout* olapBox = new QHBoxLayout();
+  box->addLayout(olapBox);
+  olapBox->addStretch();
+  adjustOverlapsButton->setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed));
+  olapBox->addWidget(adjustOverlapsButton, Qt::AlignRight);
   QGridLayout* offSetGrid = new QGridLayout(4, 5);
   QHBoxLayout* offSetBox = new QHBoxLayout();
   box->addLayout(offSetBox);
@@ -592,13 +564,10 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 
   box->addStretch();
   
-  // and having done all of that lets set the projection..
-  
   // and lets set the projection..
   setProjection();
 
   // And if we have any optional commands. then do those and exit (this allows us to script the thing)
-  
   if(opt_commands.size()){
       if(opt_commands.count("find_spots")){
 	  cout << "This program has been requested to count spots using parameters in file " << opt_commands["find_spots"] << endl;
@@ -647,18 +616,14 @@ void DeltaViewer::offSetChanged(int id){
 }
 
 void DeltaViewer::setWaveColors(){
-//    vector<QColor> cols;
     for(uint i=0; i < colorChoosers.size(); i++){
 	float r, g, b;
 	int wl = colorChoosers[i]->wlength();
 	colorChoosers[i]->color(&r, &g, &b);
 	colormap.insert(make_pair(wl, color_map(r, g, b)));
-	cout << "set Wave Colors inserting into color map " << wl << "  " << r << "," << g << "," << b << endl;
     }
     // but don't update image.. as this is used mostly only for the init..
     setLinePlotterColors();
-//    spotWindow->setLineColors(cols);
-//    linePlotter->setColors(cols);
     paintProjection();
 }
 
@@ -667,30 +632,23 @@ void DeltaViewer::setWaveColors(int wi, float r, float g, float b){
     colormap[wl] = color_map(r, g, b);
     displayImage();
     displaySlices();
-    cout << "slices displayed " << endl;
     setLinePlotterColors();
     paintProjection();
 }
 
 void DeltaViewer::setLinePlotterColors(){
-    cout << "\tsetLinePlotterColors begin" << endl;
     vector<QColor> cols;
     vector<QString> channels;
     for(uint i=0; i < colorChoosers.size(); i++){
 	cols.push_back(colorChoosers[i]->color());
 	channels.push_back(colorChoosers[i]->displayLabel());
     }
-    cout << "\t\tmade cols and channels" << endl;
     spotWindow->setLineColors(cols);
-    cout << "\t\tsetLineColors done " << endl;
     spotWindow->setChannels(channels);
-    cout << "\t\tspotWindow channels set " << endl;
-//    linePlotter->setColors(cols);
 }
 
 
 void DeltaViewer::addMergedChannel(){
-    cout << "Attempting to make a merged channel" << endl;
     // for this we need to tell the reader to merge channels, 
     // set up a new color chooser, and a new dist chooser so that
     // we can manipulate the colours and things..
@@ -712,7 +670,6 @@ void DeltaViewer::addMergedChannel(){
     if(m < 2){
 	cerr << "no sense in merging less than two channels.. bybye" << endl;
     }
-//    reader->addMergeChannel(mch, m);   // should probably make this boolean so I can check for size.. 
 
     colorChoosers.push_back(new ColorChooser(labelString, colorChoosers.size(), 0, QColor(255, 255, 255), this));
     colorBox->addWidget(colorChoosers.back());
@@ -727,42 +684,11 @@ void DeltaViewer::addMergedChannel(){
     
     choosers.push_back(new DistChooser(ss.str().c_str(), 100));
     ss << " (&" << c << ")";
-//choosers.back()->resize(choosers[0]->size());
     chooserTabs->addTab(choosers.back(), ss.str().c_str());
     connect(choosers.back(), SIGNAL(newRanges(float, float)), this, SLOT(changeRanges(float, float)) );
-//    reader->setImageData();
     displayImage();   // hmmmm... this is bound to give us some problem.. eh. 
     setLinePlotterColors();
 }
-
-//void DeltaViewer::findObjects(int wl){
-//wl = wl;//   // first find the minValue from the relevant distchooser..
-//   float minValue = 0;
-//   for(int i=0; i < reader->channelNo(); i++){
-//     if(reader->channel(i) == wl){
-//       minValue = choosers[i]->tMin();
-//     }
-//   }
-//   // assume everything worked..
-//   // for now, use a fraction of 1.. which just takes everything with thingy..
-//   float minFraction = 1.0;
-//   float minIncludeFraction = 1.0;
-//   int boxSize = 1;
-//   cout << "calling findObjects " << wl << "  " << minValue << "  " << minFraction << endl;
-//   //reader->findObjects(wl, minValue, minFraction, minIncludeFraction, boxSize);
-  
-//   // get the sums.. of the objects..
-//   vector<float> object_sums = reader->objectSums(wl);
-//   // find max value..
-//   float mx = 0;
-//   for(int i=0; i < object_sums.size(); i++){
-//     if(object_sums[i] > mx){ mx = object_sums[i]; }
-//   }
-//   mx = mx * 1.1;   // which is a better way of doing it..
-//   objectSums->setData(object_sums, 0, mx, true);
-//   objectSums->show();
-//}
-    
 
 void DeltaViewer::nextImage(){
     setImage(++currentSliceNo);
@@ -801,19 +727,9 @@ void DeltaViewer::setImage(int slice){
       }
       float r, g, b;
       colorChoosers[i]->color(&r, &g, &b);
-      //      chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
-      //				     useComponents->isChecked(), colorChoosers[i]->subtractColor()) );
       chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
 				     colorChoosers[i]->includeInMerger(), colorChoosers[i]->subtractColor()) );
     }
-
-    // this should be set somewhere else, but for now..
-    // and since I need to give a vector of a colour map rather than a map.. 
-    // vector<color_map> cv;
-    // for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
-    //   //	cout << "color map wave length = " << (*it).first << "  color " << (*it).second.r << "," << (*it).second.g << "," << (*it).second.b << endl;
-    // 	cv.push_back((*it).second);
-    // }
 
     // but more importantly do something to actually update the image.. 
     float* data = new float[textureSize * textureSize * 3];
@@ -823,8 +739,14 @@ void DeltaViewer::setImage(int slice){
     }
     raw = 0;
 
+
+    // This necessary since overlapping panels can give too many numbers..
+    int col_no, row_no, panelWidth, panelHeight;
+    fileSet->stackDimensions(col_no, row_no, panelWidth, panelHeight);
     if(updateDist->isOn())
-	raw = new raw_data(fileSet->channelNo(), currentView.pw * currentView.ph);
+      raw = new raw_data(fileSet->channelNo(), col_no * row_no * panelWidth * panelHeight);
+    //    if(updateDist->isOn())
+    //	raw = new raw_data(fileSet->channelNo(), currentView.pw * currentView.ph);
     
 
     int rowCounter = 0;
@@ -838,14 +760,10 @@ void DeltaViewer::setImage(int slice){
 	    int tw = xb + textureSize < currentView.px + currentView.pw ? textureSize : (currentView.px + currentView.pw) - xb;
 	    memset((void*)data, 0, textureSize * textureSize * 3 * sizeof(float));
 	
-	    //	    cout << "calling fileset reatToRGB with " << xb << "," << yb << " : " << tw << "x" << th << endl;
 	    if(fileSet->readToRGB(data, xb, yb, tw, th, currentSliceNo, chinfo, raw)){
-	      //	    if(fileSet->readToRGB(data, xb, yb, tw, th, currentSliceNo, maxLevel, biases, scales, cv, useComponents->isChecked(), raw)){
 		textureCounter++;
 		paintBlobs(data, xb, yb, currentSliceNo, tw, th);
 		paint(data, aux_points, Rectangle(xb, yb, tw, th), currentSliceNo, color_map(0.1, 0.1, 0.1) );
-//		for(set<BlobMapperWidget*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
-//		    paintBlobs(data, xb, yb, currentSliceNo, tw, th, (*it));
 		glViewer->setImage(data, tw, th, colCounter, rowCounter);
 	    }
 	    colCounter++;
@@ -855,8 +773,6 @@ void DeltaViewer::setImage(int slice){
     delete data;
     glViewer->updateGL();
 
-//    cout << "end of deltaViewer setImage textureCounter = " << textureCounter << endl;
-//    cout << "calling updateGL" << endl;
     if(raw){
 	calculateDistribution();
     }
@@ -865,8 +781,12 @@ void DeltaViewer::setImage(int slice){
     if(xPosition || yPosition){
 	plotLines();
     }
+}
 
-	
+void DeltaViewer::paintCoverage(float maxCount){
+  int w, h;
+  float* image = fileSet->paintCoverage(w, h, maxCount);
+  imageBuilder->setImage(image, w, h);
 }
 
 bool DeltaViewer::readToRGB(float* dest, int xb, int yb, unsigned int tw, unsigned int th, unsigned int slice_no){
@@ -888,12 +808,7 @@ bool DeltaViewer::readToRGB(float* dest, int xb, int yb, unsigned int tw, unsign
       chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
 				     useComponents->isChecked(), colorChoosers[i]->subtractColor()) );
     }
-    // vector<color_map> cv;
-    // for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
-    // 	cv.push_back((*it).second);
-    // }
     return(fileSet->readToRGB(dest, (uint)xb, (uint)yb, tw, th, slice_no, chinfo, 0) );
-    
 }
 
 bool DeltaViewer::readToRGBPro(float* dest, int xb, int yb, unsigned int tw, unsigned int th){
@@ -910,28 +825,11 @@ void DeltaViewer::int_color(int i, float& r, float& g, float& b){
   r = float( (i * m) % max ) / float(max);
   g = float( (i * m + 50) % max ) / float(max);
   b = float( (i * m + 75) % max ) / float(max);
-
 }
 
 void DeltaViewer::setProjection(){
     // first check if we have a projection file..
 
-//     QString ofName = fName;
-//     ofName.append(".pro");
-//     cout << "opening file : " << ofName.latin1() << endl;
-//     ifstream in(ofName.latin1());
-//     if(in){
-// 	// read the thing to a thingy.. 
-// 	if(readProjection(in)){
-// 	    return;
-// 	}
-// 	cerr << "Failed to read projection from " << ofName.latin1() << endl;
-//     }
-    // and if that don't work, well try again..
-
-    // first obtain means and standard deviations for each channel. (This kind of information would be better stored), but anyway..
-    // This is a bit ugly, but there you go..
-    
     int margin = 25;
     int w = completeArea.pw - margin * 2;
     int h = completeArea.ph - margin * 2;
@@ -992,15 +890,13 @@ void DeltaViewer::setProjection(){
 	    // 1. convert the coordinates to float coordinates, since this is more convenient for handling file stacks
 	    // 2. get the appropriate data from fileSet
 	    // 3. set image in glviewer (specifying which thingy and so on.. 
-	    float xf = fileSet->xpos() + float(xb) * currentView.xscale;
-	    float wf = tw * currentView.xscale;
+	    //float xf = fileSet->xpos() + float(xb) * currentView.xscale;
+	    //float wf = tw * currentView.xscale;
 	    cout << "making projection for : " << colCounter << "," << rowCounter << " requesting " 
-		 << xf << "," << yf << " w: " << wf << "  h: " << hf 
 		 << "  pixels : " << xb << "," << yb << "   " << tw << "," << th << endl; 
 	    memset((void*)data, 0, textureSize * textureSize * 3 * sizeof(float));
 	    
 	    if(fileSet->mip_projection(data, xb, yb, textureSize, textureSize, maxLevel, biases, scales, cv, projection_data.back())){
-//	    if(fileSet->mip_projection(data, xf, yf, wf, hf, textureSize, textureSize, maxLevel, biases, scales, cv, projection_data.back())){
 		textureCounter++;
 		// and in this case let's copy data to the appropriate texture..
 		projection->setImage(data, textureSize, textureSize, colCounter, rowCounter);
@@ -1012,27 +908,6 @@ void DeltaViewer::setProjection(){
     delete data;
 //    if(projection->isVisible())
     projection->updateGL();
-
-//     // at this point write to file..
-//     ofstream out(ofName.latin1(), ios::binary);
-//     if(!out){
-// 	cerr << "DeltaViewer::setProjection unable to open projection file" << endl;
-// 	return;
-//     }
-//     int cno = fileSet->channelNo();
-    
-//     out.write((char*)&completeArea.pw, sizeof(int));
-//     out.write((char*)&completeArea.ph, sizeof(int));
-//     out.write((char*)&cno, sizeof(int));
-//     out.write((char*)&textureSize, sizeof(int));
-//     unsigned int panelNo = projection_data.size();
-//     out.write((char*)&panelNo, sizeof(int));
-//     for(uint i=0; i < panelNo; i++){
-// 	for(int j=0; j < cno; j++){
-// 	    out.write((char*)projection_data[i]->values[j], textureSize * textureSize * sizeof(float));
-// 	}
-//     }
-//     out.close();
 
 }
 
@@ -1068,6 +943,8 @@ void DeltaViewer::paintProjection(){
 //	int th = yb + textureSize < completeArea.py + completeArea.ph ? textureSize : (completeArea.py + completeArea.ph) - yb;
 
 	for(int xb = completeArea.px; xb < completeArea.px + completeArea.pw; xb += textureSize){
+	  memset((void*)data, 0, sizeof(float) * 3 * textureSize * textureSize);
+	  fileSet->mip_projection(data, xb, yb, textureSize, textureSize, maxLevel, biases, scales, cv);
 	    // check that width is not too big.. 
 
 //	    int tw = xb + textureSize < completeArea.px + completeArea.pw ? textureSize : (completeArea.px + completeArea.pw) - xb;
@@ -1076,20 +953,22 @@ void DeltaViewer::paintProjection(){
 	    // 1. convert the coordinates to float coordinates, since this is more convenient for handling file stacks
 	    // 2. get the appropriate data from fileSet
 	    // 3. set image in glviewer (specifying which thingy and so on.. 
-	    memset((void*)data, 0, textureSize * textureSize * 3 * sizeof(float));
-	    for(int y=0; y < textureSize; y++){
-		for(int x=0; x < textureSize; x++){
-		    for(uint w=0; w < scales.size(); w++){   // the wavelenght index..
-			float v = biases[w] + scales[w] * projection_data[rowCounter * texColNo + colCounter] ->values[w][y * textureSize + x];
-			if(v > 0){
-			    dptr = data + 3 * (y * textureSize + x);
-			    dptr[0] += v * cv[w].r;
-			    dptr[1] += v * cv[w].g;
-			    dptr[2] += v * cv[w].b;
-			}
-		    }
-		}
-	    }
+
+	    // memset((void*)data, 0, textureSize * textureSize * 3 * sizeof(float));
+	    // for(int y=0; y < textureSize; y++){
+	    // 	for(int x=0; x < textureSize; x++){
+	    // 	    for(uint w=0; w < scales.size(); w++){   // the wavelenght index..
+	    // 		float v = biases[w] + scales[w] * projection_data[rowCounter * texColNo + colCounter] ->values[w][y * textureSize + x];
+	    // 		if(v > 0){
+	    // 		    dptr = data + 3 * (y * textureSize + x);
+	    // 		    dptr[0] += v * cv[w].r;
+	    // 		    dptr[1] += v * cv[w].g;
+	    // 		    dptr[2] += v * cv[w].b;
+	    // 		}
+	    // 	    }
+	    // 	}
+	    // }
+
 	    paintPeaks(data, xb, yb, textureSize, textureSize);
 	    paintBlobs(data, xb, yb, 0, textureSize, textureSize, true);
 	    paintParameterData(data, xb, yb, textureSize, textureSize);
@@ -1673,6 +1552,24 @@ bool DeltaViewer::readProjection(ifstream& in){
     // if we are here just call paintProjection and return true..
     paintProjection();
     return(true);
+}
+
+void DeltaViewer::newStackSelected(float x, float y){
+  cout << "Deltaviewer new Stack selected at " << x << "," << y << endl;
+  olapEditor->setBorderImages( fileSet->borderInformation(x, y) );
+}
+
+void DeltaViewer::adjustStackPosition(float x, float y, QPoint p){
+  fileSet->adjustStackPosition(x, y, p);
+  setProjection();
+  //  paintProjection();
+  setImage(currentSliceNo);
+}
+
+void DeltaViewer::updateFileSetInfo(){
+  cout << "Update File set info trying to do something useful" << endl;
+  if(!fileSet->updateFileSetInfo())
+    cerr << "Unable to update file Set info" << endl;
 }
 
 void DeltaViewer::setSliceNo(int n){
