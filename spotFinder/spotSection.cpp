@@ -63,6 +63,11 @@ SpotSection::SpotSection(QWidget* parent, const char* name)
 }
 
 
+// all members have spot section as a parent, so may not need to be deleted.
+// If I implement the destructor, I may need to destroy everything.
+// SpotSection::~SpotSection(){
+// }
+
 void SpotSection::setDrop(simple_drop& drop){
     currentDrop = drop;
     // all drops are cubes.. with sides of length 2 * radius + 1;

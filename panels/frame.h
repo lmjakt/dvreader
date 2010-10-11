@@ -39,18 +39,6 @@ typedef unsigned int uint;
 
 // a small background struct. Only to be used by the Frame Class. Not to be passed around.
 
-// now defined in ../datastructs/a_pos.h
-/* // background can do with a pos struct (area_pos = a_pos) */
-/* struct a_pos { */
-/*   int x, y; */
-/*   a_pos(){ */
-/*     x = y = 0; */
-/*   } */
-/*   a_pos(int X, int Y){ */
-/*     x = X; y = Y; */
-/*   } */
-/* }; */
-
 struct td_bg {
   int x_m, y_m;
   int w, h;          // not using unsigned ints, since I get into so much trouble with such.
@@ -66,6 +54,22 @@ struct td_bg {
   ~td_bg(){
     delete background;
     delete bg_pos;
+  }
+};
+
+struct panel_bias {
+  float scale;
+  short bias;
+  panel_bias(){
+    scale = 1.0;
+    bias = 0;
+  }
+  panel_bias(float s, short b){
+    scale = s;
+    bias = b;
+  }
+  bool biassed(){
+    return( (scale != 1.0) || bias );
   }
 };
 
@@ -98,6 +102,7 @@ class Frame {
       photoSensorStandard = phs;
       phSensor_m = photoSensorStandard / photoSensor;
     }
+    void setBias(panel_bias* pb);
     unsigned int p_width(){
 	return(pWidth);
     }
@@ -116,23 +121,19 @@ class Frame {
 		   unsigned int dest_x, unsigned int dest_y, 
 		   unsigned int dest_w, channel_info chinfo, 
 		   float* raw=0);
-    //		   float maxLevel, 
-    //		   float bias, float scale, float r, float g, float b, bool bg_sub, float* raw=0); 
 
-
-    //    bool readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
-    //		     unsigned int dest_x, unsigned int dest_y, unsigned int dest_w,  
-    //		     bool bg_sub, float maxLevel); 
     bool readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
 		     unsigned int dest_x, unsigned int dest_y, unsigned int dest_w,  
-		     float maxLevel); 
+		     float maxLevel, bool use_cmap=false); 
 
     bool readToShort(unsigned short* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
 		     unsigned int dest_x, unsigned int dest_y, unsigned int dest_w);
     // NOTE the constructor will make a number of assumptions about the structure of the extended header. If these are not met, then 
     // it will set some flag to indicate failure.. 
     void setBackground(Background* bg, int z_pos);
+    // there is also a private function that does something a bit similar.. hmm. 
     void setContribMap(float* map);
+    void setBackgroundPars(int xm, int ym, float qnt, bool subtract_bg);
 
     private :
 	
@@ -144,6 +145,9 @@ class Frame {
     unsigned short bno;  // the number of bytes for each value
     bool isReal;         // if true then count values as floats or doubles (note that bno=2 and isReal=true shouldn't be possible)
     bool isBigEndian;  // byte order .. (assume small endian unless otherwise noted)
+
+    panel_bias* panelBias; // defaults to 0 (i.e. NULL); if we have and it is biassed we should use it in readToFloat and readToRGB (but not readToShort)
+                           // this pointer is shared, and should not be deleted by frame.
 
     // the positions of the image in um.
     float x, y, z;        // the position of the frame (read from the header).. 
@@ -167,7 +171,7 @@ class Frame {
     // a three dimensional object Background instead..
     // a background object
     td_bg background; 
-    Background* threeDBackground;
+    Background* threeDBackground;  // Not used at the moment.. 
     channel_info channelInfo; // set by the readToRGB function.
 
     // assume float information..
@@ -176,38 +180,43 @@ class Frame {
 		     unsigned int dest_x, unsigned int dest_y, 
 		     unsigned int dest_w, channel_info chinfo,
 		     float* raw=0);
-    //		     float maxLevel, 
-    //		     float bias, float scale, float r, float g, float b, float* raw=0); 
     // assume short information in file 
     bool readToRGB_s(float* dest, unsigned int source_x, unsigned int source_y, 
 		     unsigned int width, unsigned int height, 
 		     unsigned int dest_x, unsigned int dest_y, 
 		     unsigned int dest_w, channel_info chinfo,
 		     float* raw=0);
-    //		     float maxLevel, 
-    //		     float bias, float scale, float r, float g, float b, bool bg_sub, float* raw=0);
 
-    //    bool readToFloat_s(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
-    //	       unsigned int dest_x, unsigned int dest_y, unsigned int dest_w,  
-    //	       bool bg_sub, float maxLevel); 
     bool readToFloat_s(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height, 
 		       unsigned int dest_x, unsigned int dest_y, unsigned int dest_w,  
-		       float maxLevel); 
+		       float maxLevel, bool use_cmap); 
 
 
     void swapBytes(char* data, unsigned int wn, unsigned int ws);
 
-    bool setBackground(int xm, int ym, float qntile);   // xm, ym and qntile need to be settable.
-
-    // functions that can be used to convert the raw 2 byte numbers to the relevant numbers.
+    //    bool setBackground(int xm, int ym, float qntile);   // xm, ym and qntile need to be settable.
+    bool setBackground();   // xm, ym and qntile need to be settable.
+    
+    void applyBiasToShort(unsigned short* data, int length);  // if there is a bias, it applies the bias, but not the scale. (??!!!)
+    // functions that can be used to convert the raw 2 byte numbers to reasonable floats
     float convert_s(unsigned short* source, float bg, float bias, float scale, 
 		    float maxLevel, float contrib, float* raw, unsigned int xp, unsigned int yp){
       return( contrib * (bias + scale * ((float)*source - bg) / maxLevel) );
     }
+    float convert_s_pb(unsigned short* source, float bg, float bias, float scale, 
+		       float maxLevel, float contrib, float* raw, unsigned int xp, unsigned int yp){
+      return( panelBias->scale * contrib * (bias + scale * ((float)(*source + panelBias->bias) - bg) / maxLevel) );
+    }
+    
     float convert_s_raw(unsigned short* source, float bg, float bias, float scale, 
 			float maxLevel, float contrib, float* raw, unsigned int xp, unsigned int yp){
       *raw = (float(*source) - bg) / maxLevel;
       return(contrib *(bias + scale * ((float)*source - bg) / maxLevel));
+    }
+    float convert_s_raw_pb(unsigned short* source, float bg, float bias, float scale, 
+			   float maxLevel, float contrib, float* raw, unsigned int xp, unsigned int yp){
+      *raw = panelBias->scale * (float(*source + panelBias->bias) - bg) / maxLevel;
+      return( panelBias->scale * contrib * (bias + scale * ((float)(*source + panelBias->bias) - bg) / maxLevel) );
     }
     float convert_s_contrast(unsigned short* source, float bg, float bias, float scale, 
 			     float maxLevel, float contrib, float* raw, unsigned int xp, unsigned int yp){
@@ -226,6 +235,10 @@ class Frame {
     float to_float(unsigned short* source, float bg, 
 		   float maxLevel, unsigned int xp, unsigned int yp){
       return( (float(*source) - bg) / maxLevel );
+    }
+    float to_float_pb(unsigned short* source, float bg, 
+		   float maxLevel, unsigned int xp, unsigned int yp){
+      return( (float(*source + panelBias->bias) - bg) * panelBias->scale / maxLevel );
     }
     /// the 1.0 following the maxLevel indicates the contribution. Probably a temporary hack..
     float to_float_contrast(unsigned short* source, float bg, 

@@ -55,7 +55,7 @@ OverlapViewer::OverlapViewer(unsigned int textureSize, QWidget* parent, const ch
     float* tempBuffer = new float[texSize * texSize * 3];
     memset((void*)tempBuffer, 0, texSize * texSize * 3 * sizeof(float));
 //    glImage->setImage(tempBuffer, texSize, texSize, 0, 0);
-    delete tempBuffer;
+    delete []tempBuffer;
   
     // the spinboxes and stuff..
     dxBox = new QSpinBox(this, "dxBox");

@@ -25,20 +25,23 @@
 #ifndef FILESET_H
 #define FILESET_H
 
-#include "frameStack.h"
+//#include "frameStack.h"
 #include "../dataStructs.h"
-#include "fileSetInfo.h"
+#include "stack_stats.h"
+//#include "fileSetInfo.h"
 //#include "../image/background.h"
 #include <map>
 #include <vector>
 #include <string>
-
+#include <QPoint>
 
 /////////// the following introduces circular dependancies 
 class Background;
 class ImageData;
 class BorderInfo;
 class IdMap;
+class FrameStack;
+class FileSetInfo;
 
 // Background objects contain a reference to an imageData object; the imageData object
 // provides some higher level access functions for the FileSet Object, and has a pointer
@@ -59,7 +62,7 @@ class IdMap;
 
 class FileSet {
     public :
-	FileSet(int* waveLengths, int waveNo, float maxLevel);
+  FileSet(int* waveLengths, int waveNo, float maxLevel, int xy_margin);
     ~FileSet();
 
     bool addFrame(std::string fname, std::ifstream* in, std::ios::pos_type framePos, 
@@ -70,14 +73,17 @@ class FileSet {
     bool finalise();   // checks for a complete rectangle and sets up the x, y, and z_position vectors
     void adjustStackPosition(float xp, float yp, QPoint P);
     void setPosMap();
+    void setPanelBias(unsigned int waveIndex, unsigned int column, unsigned int row, float scale, short bias); 
+    void setBackgroundPars(unsigned int waveIndex, int xm, int ym, float qnt, bool bg_subtract);
     void adjustStackBorders();
     bool updateFileSetInfo();
 
-    bool readToRGB(float* dest, float xpos, float ypos, float dest_width, 
-		   float dest_height, unsigned int slice_no, unsigned int dest_pwidth, 
-		   unsigned int dest_pheight,
-		   std::vector<channel_info> chinfo, raw_data* raw=0);
-    //		   float maxLevel, std::vector<float> bias, 
+    /* bool readToRGB(float* dest, float xpos, float ypos, float dest_width,  */
+    /* 		   float dest_height, unsigned int slice_no, unsigned int dest_pwidth,  */
+    /* 		   unsigned int dest_pheight, */
+    /* 		   std::vector<channel_info> chinfo, raw_data* raw=0); */
+ 
+   //		   float maxLevel, std::vector<float> bias 
     //		   std::vector<float> scale, 
     //		   std::vector<color_map> colors, bool bg_sub, raw_data* raw=0);
 
@@ -87,13 +93,23 @@ class FileSet {
 		   raw_data* raw=0);
     //		   float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, bool bg_sub, raw_data* raw=0);
 
-    bool mip_projection(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int dest_pwidth, unsigned int dest_pheight,
-		       float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0);
+    /* bool mip_projection(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int dest_pwidth, unsigned int dest_pheight, */
+    /* 		       float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0); */
 
     bool mip_projection(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height,
 			float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0);
-    bool readToFloat(float* dest, int xb, int yb, int zb, int pw, int ph, int pd, unsigned int waveIndex);  // reads a block of voxels into destination.. 
-    bool readToShort(unsigned short* dest, int xb, int yb, unsigned int slice, int pw, int ph, unsigned int waveIndex); 
+
+    bool readToFloat(float* dest, int xb, int yb, int zb, int pw, int ph, int pd, unsigned int waveIndex, bool use_cmap=false);  // reads a block of voxels into destination.. 
+    bool readToShort(unsigned short* dest, int xb, int yb, unsigned int slice, int pw, int ph, unsigned int waveIndex);
+    // the following reads the whole frame into dest; c and r are row and colum respectively.. 
+    bool readToShort(unsigned short* dest, unsigned int c, unsigned int r, unsigned int slice, unsigned int waveIndex);
+    
+    // get some stats for a specified frame stack. c and r are column and row as above.. 
+    stack_stats stackStats(unsigned int c, unsigned int r, int xb, int yb, 
+			   int s_width, int s_height, unsigned int waveIndex);
+    stack_stats stackStats(unsigned int c, unsigned int r, int xb, int yb, int zb,
+			   int s_width, int s_height, int s_depth, unsigned int waveIndex);
+
     bool readToFloatPro(float* dest, int xb, int iwidth, int yb, int iheight, int wave);     // the projection (but checks to make sure no negativ values).. 
     // wave in readtofloatPro is waveindex (and it is checked, but nothing happens if too large) 
     // we then also need a whole load of accessor functions to allow us to make sense of the data
@@ -191,6 +207,7 @@ class FileSet {
     int pixelHeight, pixelWidth;  // this refers to the frame dimensions and should be the same for all frames.. 
     int rolloff;                  // the area lost due to the deconvolution. I'm not sure how to get this from the file at the moment
     float maxIntensity;           //
+    int xyMargin;                 // needed to create framestacks.. 
     char* fileName;               // set this at the first time we add a frame.. -- but default to 0 so we know if its been set
 
     float x, y;   // the beginning of the area covered (the lowest values by default)..

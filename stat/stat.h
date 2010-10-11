@@ -95,7 +95,10 @@ float std_dev(std::vector<float>& v);
 bool mean_std(float& mean, float& std_dev, float* v, int l);
 float min(std::vector<float>& v);
 float max(std::vector<float>& v);
+void range(float* f, float& min, float& max, unsigned int l);
+
 float med(std::vector<float> v);   // return the median.. use slow sorting function.. -- don't use a reference as we'll sort the vector.. 
+float mode_average(float* f, unsigned int l, unsigned int d, float min=0, float max=0);
 
 // a function for calculating variance and mean from a distribution of values (or some such thing that seems similar).
 bool dist_stats(float& mean, float& var, std::vector<float>& values, float minValue, float maxValue);

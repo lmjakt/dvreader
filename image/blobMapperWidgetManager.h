@@ -25,6 +25,7 @@ class BlobMapperWidgetManager : public QWidget
     void addBlobMapper(BlobMapper* bm, fluorInfo& fInfo, std::string fName, QColor c);
     std::set<BlobMapperWidget*> blobMapperWidgets();
     void exportSuperBlobs(std::string fname);
+    float* two_dim_model(int& xy_radius, int& z_radius);   // makes a model for all active painted blobs.
 
     public slots:
 	void makeSuperBlobs();

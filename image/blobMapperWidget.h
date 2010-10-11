@@ -49,6 +49,7 @@ class BlobMapperWidget : public QWidget
 
   std::set<blob*>& blobs();
   BlobMapper* blobMapper();
+  float* two_dim_model(int& xy_radius, int& z_radius);
   RepIcon::BlobRepresentation blobRep();
   void color(float& r, float& g, float& b);
   QColor color();

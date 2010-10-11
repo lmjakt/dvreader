@@ -27,12 +27,11 @@
 // some statistical functions like, hope this works..
 #include <qglobal.h>
 #include <math.h>
-//#include <algo.h>
 #include <vector>
 #include "stat.h"
 #include <iostream>
 #include <stdlib.h>
-
+#include <string.h> 
 #include <algorithm>   
 
 
@@ -200,6 +199,19 @@ float max(vector<float>& v){
   return(maximum);
 }
 
+void range(float* f, float& min, float& max, unsigned int l){
+  if(!l){
+    min = max = 0;
+    return;
+  }
+  min = max = f[0];
+  for(uint i=0; i < l; ++i){
+    min = min > f[i] ? min : f[i];
+    max = max < f[i] ? max : f[i];
+  }
+  return;
+}
+
 float med(vector<float> v){
   float med = 0;
   if(!v.size()){
@@ -214,6 +226,41 @@ float med(vector<float> v){
     return(v[v.size()/2]);
   }
   return( (v[v.size()/2] + v[v.size()/2 - 1])/2);
+}
+
+float mode_average(float* f, unsigned int l, unsigned int d, float min, float max){
+  if(max == min || min > max)
+    range(f, min, max, l);
+  if(!l || (min == max))
+    return(min);
+  float r = max - min;
+  if(!d)
+    d = 100;
+  float fd = (float)(d-1);
+  float* counts = new float[d];
+  memset((void*)counts, 0, sizeof(float) * d);
+  // the use of roundf in this code causes the positions
+  // to act like centroids. The first and last positions
+  // will be undercounted, but there is not much I can do
+  // about that.
+  int out_of_range = 0;
+  int nan_count = 0;
+  for(uint i=0; i < l; ++i){
+    if(f[i] > max || f[i] < min){
+      out_of_range++;
+      continue;
+    }
+    if(f[i] != f[i])
+      nan_count++;
+    counts[ (int)roundf((fd * (f[i] - min)) / r) ]++;
+  }
+  int max_i = 0;
+  for(int i=0; i < d; ++i){
+    max_i = counts[i] > counts[max_i] ? i : max_i;
+  }
+  cout << endl;
+  // and then convert max_i to a value.
+  return( min + r * (float(max_i) / fd) );
 }
 
 float euclidean(vector<float>& v1, vector<float>& v2){

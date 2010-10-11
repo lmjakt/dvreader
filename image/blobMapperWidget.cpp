@@ -88,6 +88,10 @@ BlobMapper* BlobMapperWidget::blobMapper(){
     return(mapper);
 }
 
+float* BlobMapperWidget::two_dim_model(int& xy_radius, int& z_radius){
+  return(mapper->two_dim_model(xy_radius, z_radius));
+}
+
 RepIcon::BlobRepresentation BlobMapperWidget::blobRep(){
     return( icons[currentRep].rep);
 }

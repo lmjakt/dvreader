@@ -63,8 +63,18 @@ Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type
 	     short numInt, short numFloat, unsigned short byteSize, 
 	     bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz)
 {
+  // we should try to remove all references to threeDBackground as we gave up on it previously
     threeDBackground = 0;
+    // Instead use td_background (two dimensional specific to the frame)
+    background.x_m = 16;
+    background.y_m = 16;
+    background.quantile = 0.2;
+    background.w = width;
+    background.h = height;
+    // Instead of setting it elsewhere.. 
+
     contribMap = 0;
+    panelBias = 0;
     zp = 0; 
     in = inStream;
     frameOffset = framePos;
@@ -101,8 +111,8 @@ Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type
     in->read((char*)headerFloat, numFloat * 4); // and again this is dependant on various things..
    if(in->fail()){
 	cerr << "Frame::Frame failed to read extended header" << endl;
-	delete headerInt;
-	delete headerFloat;
+	delete []headerInt;
+	delete []headerFloat;
 	return;
     }
 
@@ -125,17 +135,13 @@ Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type
     excitationWavelength = headerFloat[10];
     emissionWavelength = headerFloat[11];
     
-    delete headerInt;
-    delete headerFloat;
+    delete []headerInt;
+    delete []headerFloat;
 
     isOk = true;
 
     // DIC images set the excitation and emisson to -50 and -50. So doesn't make so much sense.
-//     if(excitationWavelength > 300 && excitationWavelength < 1000 && emissionWavelength > 300 && emissionWavelength < 1300){ // stupid check, but..
-// 	isOk = true;
-//     }else{
-//       cerr << "Strange header information obtained : excite " << excitationWavelength << "  emit " << emissionWavelength << endl;
-//     }
+    // to check the values here
 }
 
 Frame::~Frame(){
@@ -178,6 +184,10 @@ float Frame::exposure(){
     return(exposureTime);
 }
 
+void Frame::setBias(panel_bias* pb){
+  panelBias = pb;
+}
+
 bool Frame::readToRGB(float* dest, unsigned int source_x, unsigned int source_y, 
 		      unsigned int width, unsigned int height, 
 		      unsigned int dest_x, unsigned int dest_y, 
@@ -208,7 +218,7 @@ bool Frame::readToRGB(float* dest, unsigned int source_x, unsigned int source_y,
 bool Frame::readToFloat(float* dest, unsigned int source_x, unsigned int source_y, 
 			unsigned int width, unsigned int height, 
 			unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
-			float maxLevel){
+			float maxLevel, bool use_cmap){
     // note that the dest has to be already initialised
     // we are only going to add to it..
     
@@ -226,7 +236,7 @@ bool Frame::readToFloat(float* dest, unsigned int source_x, unsigned int source_
     }
     if(!isReal && bno == 2){
       return(readToFloat_s(dest, source_x, source_y, width, height, 
-			   dest_x, dest_y, dest_w, maxLevel));
+			   dest_x, dest_y, dest_w, maxLevel, use_cmap));
     }
     cerr << "Frame::readToRGB unsupported data file type" << endl;
     return(false);
@@ -258,7 +268,7 @@ bool Frame::readToShort(unsigned short* dest, unsigned int source_x, unsigned in
   in->read((char*)buffer, pWidth * height * 2);
   if(in->fail()){
     if(sepBuffer)
-      delete buffer;
+      delete []buffer;
     cerr << "Frame::readToShort unable to read from offset : "
 	 << startPos << " for " << pWidth * height * 2 << " bytes" << endl;
     in->clear();
@@ -266,6 +276,7 @@ bool Frame::readToShort(unsigned short* dest, unsigned int source_x, unsigned in
   }
   if(isBigEndian)
     swapBytes((char*)buffer, pWidth * height, 2);
+  applyBiasToShort(buffer, pWidth * height);
   if(!sepBuffer)
     return(true);
   
@@ -278,7 +289,7 @@ bool Frame::readToShort(unsigned short* dest, unsigned int source_x, unsigned in
     dst += dest_w;
     source += pWidth;
   }
-  delete buffer;
+  delete []buffer;
   return(true);
 
 }
@@ -304,19 +315,15 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
   // 3. Go through all values in the read position, do the transformation and 
 
   // The commented section refers to the use of a two dimensional background subtraction
-  if(chinfo.bg_subtract && !background.x_m){
+  if(chinfo.bg_subtract && !background.background){
     //cout << "Frame::readToRGB_s background subtraction requested: creating background object" << endl;
+    // changing from true to false to true avoids an infinite loop or exit (as setBackground calls readToFloat which checks background).
     channelInfo.bg_subtract = false;
-    setBackground(16, 16, 0.2);
+    setBackground();
+    //    setBackground(16, 16, 0.2);
     channelInfo.bg_subtract = true;
   }
 
-  // if(chinfo.bg_subtract && !threeDBackground){
-  //   cerr << "Frame::readToRGB_s background subtraction requested, but no background object" << endl;
-  //   exit(1);
-  // }
-
-  //cout << "Frame::readToRGB_s wave: " << excitationWavelength << "  photoS : " << photoSensor << "  photoS_m " << phSensor_m << endl;
   unsigned short* buffer = new unsigned short[pWidth * height];   // which has to be 
   std::ios::pos_type startPos = frameOffset + (std::ios::pos_type)(pWidth * 2 * source_y);
   in->seekg(startPos);
@@ -341,17 +348,21 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
   // Use a function pointer to distinguish the different variants of functions
   
   float (Frame::*convertFunction)(unsigned short*, float, float, float, float, float, float*, unsigned int, unsigned int) = 0;
-  convertFunction = raw ? &Frame::convert_s_raw : &Frame::convert_s;
-  convertFunction = chinfo.contrast ? &Frame::convert_s_contrast : convertFunction;
-  
+  if(!panelBias || !panelBias->biassed()){
+    convertFunction = raw ? &Frame::convert_s_raw : &Frame::convert_s;
+    convertFunction = chinfo.contrast ? &Frame::convert_s_contrast : convertFunction;
+  }else{
+    convertFunction = raw ? &Frame::convert_s_raw_pb : &Frame::convert_s_pb;
+    convertFunction = chinfo.contrast ? &Frame::convert_s_contrast : convertFunction;
+  }  
   for(unsigned int yp = 0; yp < height; yp++){
     source = buffer + yp * pWidth + source_x;
     dst = dest + (dest_y * dest_w + yp * dest_w + dest_x) * 3 ; // then increment the counters appopriately.. 
     map = contribMap + (source_y + yp) * pWidth + source_x; 
     for(unsigned int xp = 0; xp < width; xp++){
       //bg = chinfo.bg_subtract ? chinfo.maxLevel * threeDBackground->bg(xp, yp, zp) : 0;
-      bg = chinfo.bg_subtract ? chinfo.maxLevel * background.bg(xp, yp) : 0;
-
+      bg = chinfo.bg_subtract ? background.bg(xp, yp) : 0;
+      //      bg = chinfo.bg_subtract ? chinfo.maxLevel * background.bg(xp, yp) : 0;
       // variants on how to use the data provided
       //	*raw = (float(*source) - bg)/maxLevel;
       //v = bias + scale * phSensor_m * (float)(*source) / maxLevel;
@@ -378,7 +389,7 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
       ++map;
     }
   }
-  delete buffer;
+  delete []buffer;
   // at which point we seem to have done everything required..
   return(true);
 }
@@ -391,15 +402,18 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
 bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int source_y, 
 			  unsigned int width, unsigned int height, 
 			  unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
-			  float maxLevel){
+			  float maxLevel, bool use_cmap){
   // 1. First make an appropriately sized buffer
   // 2. Seek to the appropriate position, and read into the buffer (necessary to do full width, but the height can ofcourse be done separately)
   // 3. Go through all values in the read position, do the transformation and 
   
-  if(channelInfo.bg_subtract && !background.x_m){
+  if(channelInfo.bg_subtract && !background.background){
     //  if(channelInfo.bg_subtract && !threeDBackground){
-    cerr << "Frame::readToRGB_s background subtraction requested, but no background object" << endl;
-    exit(1);
+    channelInfo.bg_subtract=false;
+    setBackground();
+    channelInfo.bg_subtract=true;
+    cerr << "Frame::readToFloat_s background subtraction requested, but no background object" << endl;
+    //    exit(1);
   }
   
   // The contrast function can't handle a single X-line (which is frequently asked for)
@@ -433,22 +447,35 @@ bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int sourc
   float bg = 0;
   
   float (Frame::*convertFunction)(unsigned short*, float, float, unsigned int, unsigned int) = 0;
-  convertFunction = channelInfo.contrast ? &Frame::to_float_contrast : &Frame::to_float;
-  
+  if(panelBias && panelBias->biassed()){
+    convertFunction = &Frame::to_float_pb;
+  }else{
+    convertFunction = channelInfo.contrast ? &Frame::to_float_contrast : &Frame::to_float;
+  }
+  float* cmap;
+  float value;
   for(unsigned int yp = 0; yp < height; yp++){
     source = buffer + yp * pWidth + source_x;
     dst = dest + (dest_y * dest_w + yp * dest_w + dest_x); // then increment the counters appopriately.. 
+    cmap = contribMap + (yp + source_y) * pWidth + source_x;
     for(unsigned int xp = 0; xp < width; xp++){
       //bg = channelInfo.bg_subtract ? channelInfo.maxLevel * threeDBackground->bg(xp, yp, zp) : 0;
       bg = channelInfo.bg_subtract ? background.bg(xp, yp) : 0;
 
       //      *dst = float(*source) / maxLevel;
       //*dst = (float(*source) - bg)/maxLevel;
-      *dst = (*this.*convertFunction)(source, bg, channelInfo.maxLevel, xp, yp);
-
-      *dst = *dst < 0 ? 0 : *dst;
+      //      *dst = (*this.*convertFunction)(source, bg, channelInfo.maxLevel, xp, yp);
+      value =  (*this.*convertFunction)(source, bg, maxLevel, xp, yp);
+      value = value < 0 ? 0 : value;
+      if(!use_cmap){
+	*dst = value;
+      }else{
+	*dst += (*cmap * value);
+      }
+      //*dst = *dst < 0 ? 0 : *dst;
       ++dst;
       ++source;
+      ++cmap;
     }
   }
   
@@ -470,53 +497,57 @@ void Frame::swapBytes(char* data, unsigned int wn, unsigned int ws){    // swaps
     delete word;
 }
 
-bool Frame::setBackground(int xm, int ym, float qntile){
-  if( xm >= pWidth || 
-      ym >= pHeight || 
-      qntile < 0 || 
-      qntile >= 1.0 )
-    {
-      cerr << "Frame::setBackground called with bad parameters : " << xm << ", " << ym << ", " << qntile << endl;
-      return(false);
-    }
-    cout << "Setting background " << endl;
-    //  a bit ugly, but we'll need a float buffer. Since we don't know what maxlevel might get called,
-    // we use 1.
-    float* buffer = new float[pWidth * pHeight];
-    // The 'false' below is VERY important, otherwise we'll end up in an infinite loop. 
-    //    if(! readToFloat(buffer, 0, 0, pWidth, pHeight, 0, 0, pWidth, false, 1.0) ){
-    if(! readToFloat(buffer, 0, 0, pWidth, pHeight, 0, 0, pWidth, 1.0) ){
-      cerr << "Frame::setBackground unable to readToFloat : " << endl;
-      delete buffer;
-      return(false);
-    }
-    delete background.background;  // this should be ok, even if it is 0 according to something I read
-    background.x_m = xm; background.y_m = ym; background.w = pWidth; background.h = pHeight; background.quantile = qntile;
-    int bg_size =  (pWidth / xm) * (pHeight / ym);
-    int bw = pWidth / xm;
-    int bh = pHeight / ym;
-    background.background = new float[ bg_size ];
-    memset((void*)background.background, 0, sizeof(float) * bg_size);
-    background.bg_pos = new a_pos[ bg_size ];
+//bool Frame::setBackground(int xm, int ym, float qntile){
+bool Frame::setBackground(){
+  // x_m, y_m quantile are now set in setBackgroundPars and their values checked there
+  // otherwise hard coded values are set in the Frame constructor.
+  int xm = background.x_m;
+  int ym = background.y_m;
 
-    // we need to get the background from each cell separately.
-    for(int by=0; by < bh; ++by){
-      for(int bx=0; bx < bw; ++bx){
-	vector<float> rect;
-	rect.reserve(xm * ym);
-	for(int dy=0; dy < ym && (dy + by * ym) < pHeight; ++dy){
-	  for(int dx=0; dx < xm && (dx + bx * xm) < pWidth; ++dx){
-	    rect.push_back(buffer[ (dy + by * ym) * pWidth + (dx + bx * xm)]);
-	    //	    rect.push_back(phSensor_m * buffer[ (dy + by * ym) * pWidth + (dx + bx * xm)]);
-	  }
+  // if( xm >= pWidth || 
+  //     ym >= pHeight || 
+  //     qntile < 0 || 
+  //     qntile >= 1.0 )
+  //   {
+  //     cerr << "Frame::setBackground called with bad parameters : " << xm << ", " << ym << ", " << qntile << endl;
+  //     return(false);
+  //   }
+  //  a bit ugly, but we'll need a float buffer. Since we don't know what maxlevel might get called,
+  // we use 1.
+  float* buffer = new float[pWidth * pHeight];
+  if(! readToFloat(buffer, 0, 0, pWidth, pHeight, 0, 0, pWidth, 1.0) ){
+    cerr << "Frame::setBackground unable to readToFloat : " << endl;
+    delete buffer;
+    return(false);
+  }
+  delete background.background;  // this should be ok, even if it is 0 according to something I read
+  // the following are already set.. 
+  //    background.x_m = xm; background.y_m = ym; background.w = pWidth; background.h = pHeight; background.quantile = qntile;
+  int bg_size =  (pWidth / background.x_m) * (pHeight / background.y_m);
+  int bw = pWidth / background.x_m;
+  int bh = pHeight / background.y_m;
+  background.background = new float[ bg_size ];
+  memset((void*)background.background, 0, sizeof(float) * bg_size);
+  background.bg_pos = new a_pos[ bg_size ];
+  
+  // we need to get the background from each cell separately.
+  for(int by=0; by < bh; ++by){
+    for(int bx=0; bx < bw; ++bx){
+      vector<float> rect;
+      rect.reserve(xm * ym);
+      for(int dy=0; dy < ym && (dy + by * ym) < (int)pHeight; ++dy){
+	for(int dx=0; dx < xm && (dx + bx * xm) < (int)pWidth; ++dx){
+	  rect.push_back(buffer[ (dy + by * ym) * pWidth + (dx + bx * xm)]);
+	  //	    rect.push_back(phSensor_m * buffer[ (dy + by * ym) * pWidth + (dx + bx * xm)]);
 	}
-	sort(rect.begin(), rect.end());
-	background.background[ by * bw + bx ] = rect[uint( float(rect.size()) * qntile )];
-	background.bg_pos[by * bw + bx].x = ((bx+1) * xm) - xm/2; 
-	background.bg_pos[by * bw + bx].y = ((by+1) * ym) - ym/2;
       }
+      sort(rect.begin(), rect.end());
+      background.background[ by * bw + bx ] = rect[uint( float(rect.size()) * background.quantile )];
+      background.bg_pos[by * bw + bx].x = ((bx+1) * xm) - xm/2; 
+      background.bg_pos[by * bw + bx].y = ((by+1) * ym) - ym/2;
     }
-    return(true); 
+  }
+  return(true); 
 }
 
 void Frame::setBackground(Background* bg, int z_pos){
@@ -524,6 +555,32 @@ void Frame::setBackground(Background* bg, int z_pos){
   zp = z_pos;
 }
 
+void Frame::applyBiasToShort(unsigned short* data, int length){
+  if(!panelBias || !panelBias->bias)
+    return;
+  short bias = panelBias->bias;
+  unsigned short* end = data + length;
+  for(unsigned short* ptr=data; ptr < end; ++ptr)
+    (*ptr) += bias;
+}
+
 void Frame::setContribMap(float* map){
   contribMap = map;
+}
+
+void Frame::setBackgroundPars(int xm, int ym, float qnt, bool subtract_bg){
+  // first check if the same..
+  channelInfo.bg_subtract = subtract_bg;
+  if(background.x_m == xm && background.y_m == ym && background.quantile == qnt)
+    return;
+  
+  if(xm > 0 && xm < (int)pWidth / 2
+     && ym > 0 && ym < (int)pHeight / 2
+    && qnt >= 0 && qnt <= 1.0){  
+    background.x_m = xm;
+    background.y_m = ym;
+    background.quantile = qnt;
+    delete []background.background;
+    background.background = 0;
+  }
 }

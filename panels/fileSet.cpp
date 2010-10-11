@@ -24,11 +24,13 @@
 
 #include "fileSet.h"
 #include "borderInformation.h"
+#include "frameStack.h"
+#include "fileSetInfo.h"
+#include "frame.h"
 #include "../stat/stat.h"
 #include <iostream>
 #include <fstream>
 #include <algorithm>
-#include <string>
 #include <math.h>
 #include "idMap.h"
 #include "../image/background.h"
@@ -36,11 +38,12 @@
 
 using namespace std;
 
-FileSet::FileSet(int* waveLengths, int waveNo, float maxLevel){
+FileSet::FileSet(int* waveLengths, int waveNo, float maxLevel, int xy_margin){
     wave_lengths = waveLengths;
     wave_no = waveNo;
     maxIntensity = maxLevel;
     waves.resize(waveNo);
+    xyMargin = xy_margin > 0 ? xy_margin : 0;
     for(unsigned int i=0; i < waves.size(); i++){
 	waves[i] = wave_lengths[i];
     }
@@ -53,7 +56,7 @@ FileSet::FileSet(int* waveLengths, int waveNo, float maxLevel){
     fileName = 0;
     ifstreamCounter = 0;
     framePosMap = 0;
-    rolloff = 32;
+    rolloff = 32;      // This is only used when calling the overlap adjustment function (automatic one). We should try to get rid of it.
 }
 
 FileSet::~FileSet(){
@@ -122,7 +125,7 @@ bool FileSet::addFrame(string fname, ifstream* in, std::ios::pos_type framePos,
       cerr << "FileSet::addFrame failed to create new filestream on new stack counter " << ifstreamCounter << endl;
       exit(1);
     }
-    fstack = new FrameStack(wave_lengths, wave_no, newStream, maxIntensity);   // in which case we should not delete or change the ifstream around.. 
+    fstack = new FrameStack(wave_lengths, wave_no, newStream, maxIntensity, xyMargin);   // in which case we should not delete or change the ifstream around.. 
   }else{
     fstack = frames[x_pos][y_pos];
   }
@@ -386,26 +389,32 @@ void FileSet::setPosMap(){
     for(map<float, FrameStack*>::iterator it=(*ot).second.begin();
 	it != (*ot).second.end(); ++it){
       frameIds.insert(make_pair(id, (*it).second));
-      cout << "Before: left() " << it->second->left() << "  left_border() " << it->second->left_border() << endl;
       it->second->setBorders();
-      cout << "After:  left() " << it->second->left() << "  left_border() " << it->second->left_border() << endl;
       framePosMap->setId(id, it->second->left_border(), it->second->bottom_border(), 
 			 it->second->right_border() - it->second->left_border(),
 			 it->second->top_border() - it->second->bottom_border());
       id *= 2;
     }
   }
-  // for(uint yp=0; yp < ph; ++yp){
-  //   cout << yp << "\t";
-  //   for(uint xp=2000; xp < 2100; ++xp){
-  //     cout << framePosMap->id(xp, yp) << " ";
-  //   }
-  //   cout << endl;
-  // }
-  for(map<ulong, FrameStack*>::iterator it=frameIds.begin();
-      it != frameIds.end(); ++it)
-    it->second->setContribMap(framePosMap, it->first);
-  
+
+  // framePosMap will call setContribMap for each frameStack
+  framePosMap->setContribMaps(frameIds, 15.0);
+
+}
+
+void FileSet::setPanelBias(unsigned int waveIndex, unsigned int column, unsigned int row, float scale, short bias){
+  if(row < y_positions.size() && column < x_positions.size()){
+    if(frames.count(x_positions[column]) && frames[x_positions[column]].count(y_positions[row]))
+      frames[x_positions[column]][y_positions[row]]->setPanelBias(waveIndex, scale, bias);
+  }
+}
+
+void FileSet::setBackgroundPars(unsigned int waveIndex, int xm, int ym, float qnt, bool bg_subtract){
+  for(map<float, map<float, FrameStack*> >::iterator ot=frames.begin(); ot !=frames.end(); ++ot){
+    for(map<float, FrameStack*>::iterator it = ot->second.begin(); it != ot->second.end(); ++it){
+      it->second->setBackgroundPars(waveIndex, xm, ym, qnt, bg_subtract);
+    }
+  }
 }
 
 void FileSet::adjustStackBorders(){
@@ -426,38 +435,38 @@ bool FileSet::updateFileSetInfo(){
   return(false);
 }
 
-bool FileSet::readToRGB(float* dest, float xpos, float ypos, float dest_width, 
-			float dest_height, unsigned int dest_pwidth, 
-			unsigned int dest_pheight, unsigned int sliceNo,
-			vector<channel_info> chinfo, raw_data* raw)
-//			float maxLevel, vector<float> bias, vector<float> scale, 
-//			vector<color_map> colors, bool bg_sub, raw_data* raw)
-{
-  // Note: I don't think this function is actually used anymore, as the we use pixel level positioning these days.
-  // so should try getting rid of it.. 
-    // the trickiest part is working out which framestack should contribute to each of these. However, maybe I don't have to do this
-    // here.
+// bool FileSet::readToRGB(float* dest, float xpos, float ypos, float dest_width, 
+// 			float dest_height, unsigned int dest_pwidth, 
+// 			unsigned int dest_pheight, unsigned int sliceNo,
+// 			vector<channel_info> chinfo, raw_data* raw)
+// //			float maxLevel, vector<float> bias, vector<float> scale, 
+// //			vector<color_map> colors, bool bg_sub, raw_data* raw)
+// {
+//   // Note: I don't think this function is actually used anymore, as the we use pixel level positioning these days.
+//   // so should try getting rid of it.. 
+//     // the trickiest part is working out which framestack should contribute to each of these. However, maybe I don't have to do this
+//     // here.
   
-  //**************************************
-  // Temporarily remove this to use 2 d background subtraction.
-  // If bg_sub is true, but we don't have any backgrounds, then set up the backgrounds
-  //  if(chinfo[0].bg_subtract && !backgrounds.size()){
-  // initBackgrounds();
-  //}
+//   //**************************************
+//   // Temporarily remove this to use 2 d background subtraction.
+//   // If bg_sub is true, but we don't have any backgrounds, then set up the backgrounds
+//   //  if(chinfo[0].bg_subtract && !backgrounds.size()){
+//   // initBackgrounds();
+//   //}
 
-    // given that each framestack knows it's bordering frame stacks I can just ask them to work it out themselves..
-    int counter = 0;  // this just counts how many different framestacks contribute to the slice..
-    for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
-	for(map<float, FrameStack*>::iterator fit=(*it).second.begin(); fit != (*it).second.end(); fit++){
-	  if((*fit).second->readToRGB(dest, xpos, ypos, dest_width, dest_height, dest_pwidth, dest_pheight, sliceNo, 
-				      chinfo, raw)){
-		counter++;
-	    }
-	}
-    }
-//    cerr << "FileSet::readToRGB buffer read to from " << counter << " filestacks" << endl;
-    return(counter > 0);   // which is nicer than saying return counter.. because...
-}
+//     // given that each framestack knows it's bordering frame stacks I can just ask them to work it out themselves..
+//     int counter = 0;  // this just counts how many different framestacks contribute to the slice..
+//     for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
+// 	for(map<float, FrameStack*>::iterator fit=(*it).second.begin(); fit != (*it).second.end(); fit++){
+// 	  if((*fit).second->readToRGB(dest, xpos, ypos, dest_width, dest_height, dest_pwidth, dest_pheight, sliceNo, 
+// 				      chinfo, raw)){
+// 		counter++;
+// 	    }
+// 	}
+//     }
+// //    cerr << "FileSet::readToRGB buffer read to from " << counter << " filestacks" << endl;
+//     return(counter > 0);   // which is nicer than saying return counter.. because...
+// }
 
 bool FileSet::readToRGB(float* dest, unsigned int xpos, unsigned int ypos, 
 			unsigned int dest_width, unsigned int dest_height, 
@@ -481,24 +490,24 @@ bool FileSet::readToRGB(float* dest, unsigned int xpos, unsigned int ypos,
   return(counter > 0);   // which is nicer than saying return counter.. because...
 }
 
-bool FileSet::mip_projection(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int dest_pwidth, unsigned int dest_pheight,
-			     float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, raw_data* raw)
-{
-  // the trickiest part is working out which framestack should contribute to each of these. However, maybe I don't have to do this
-  // here.
+// bool FileSet::mip_projection(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int dest_pwidth, unsigned int dest_pheight,
+// 			     float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, raw_data* raw)
+// {
+//   // the trickiest part is working out which framestack should contribute to each of these. However, maybe I don't have to do this
+//   // here.
     
-    // given that each framestack knows it's bordering frame stacks I can just ask them to work it out themselves..
-    int counter = 0;  // this just counts how many different framestacks contribute to the slice..
-    for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
-	for(map<float, FrameStack*>::iterator fit=(*it).second.begin(); fit != (*it).second.end(); fit++){
-	    if((*fit).second->mip_projection(dest, xpos, ypos, dest_width, dest_height, dest_pwidth, dest_pheight, maxLevel, bias, scale, colors, raw)){
-		counter++;
-	    }
-	}
-    }
-    cerr << "FileSet::mip_projection buffer read to from " << counter << " filestacks" << endl;
-    return(counter > 0);   // which is nicer than saying return counter.. because...
-}
+//     // given that each framestack knows it's bordering frame stacks I can just ask them to work it out themselves..
+//     int counter = 0;  // this just counts how many different framestacks contribute to the slice..
+//     for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
+// 	for(map<float, FrameStack*>::iterator fit=(*it).second.begin(); fit != (*it).second.end(); fit++){
+// 	    if((*fit).second->mip_projection(dest, xpos, ypos, dest_width, dest_height, dest_pwidth, dest_pheight, maxLevel, bias, scale, colors, raw)){
+// 		counter++;
+// 	    }
+// 	}
+//     }
+//     cerr << "FileSet::mip_projection buffer read to from " << counter << " filestacks" << endl;
+//     return(counter > 0);   // which is nicer than saying return counter.. because...
+// }
 
 bool FileSet::mip_projection(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height,
 			     float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw)
@@ -516,7 +525,7 @@ bool FileSet::mip_projection(float* dest, int xpos, int ypos, unsigned int dest_
   return(counter > 0);   // which is nicer than saying return counter.. because...
 }
 
-bool FileSet::readToFloat(float* dest, int xb, int yb, int zb, int pw, int ph, int pd, unsigned int waveIndex){
+bool FileSet::readToFloat(float* dest, int xb, int yb, int zb, int pw, int ph, int pd, unsigned int waveIndex, bool use_cmap){
     // first do some sanity checks..
     if(!(pw > 0 && ph > 0 && pd > 0)){
 	cerr << "FileSet::readToFloat at least one dimension is non positive : " << pw << ", " << ph << ", " << pd << endl;
@@ -534,7 +543,7 @@ bool FileSet::readToFloat(float* dest, int xb, int yb, int zb, int pw, int ph, i
     map<float, FrameStack*>::iterator it;
     for(ot = frames.begin(); ot != frames.end(); ot++){
 	for(it = (*ot).second.begin(); it != (*ot).second.end(); it++){
-	    if((*it).second->readToFloat(dest, xb, pw, yb, ph, zb, pd, waveIndex, maxIntensity)){
+	  if((*it).second->readToFloat(dest, xb, pw, yb, ph, zb, pd, waveIndex, maxIntensity, use_cmap)){
 		gotSomething = true;
 	    }
 	}
@@ -555,6 +564,46 @@ bool FileSet::readToShort(unsigned short* dest, int xb, int yb, unsigned int sli
   }
   return(gotSomething);
 }
+
+bool FileSet::readToShort(unsigned short* dest, unsigned int c, unsigned int r, unsigned int slice, unsigned int waveIndex){
+  if(c >= x_positions.size() || r >= y_positions.size()){
+    cerr << "FileSet::readToShort c or r too large: " << c << ", " << r << endl;
+    return(false);
+  }
+  if(frames.count(x_positions[c]) && frames[x_positions[c]].count(y_positions[r]))
+    return(frames[x_positions[c]][y_positions[r]]->readToShort(dest, slice, waveIndex));
+
+  cerr << "Unable to locate frame at pos: " << c << "," << r << "  : " << x_positions[c] << "," << y_positions[r] << endl;
+  return(false);
+}
+
+stack_stats FileSet::stackStats(unsigned int c, unsigned int r, int xb, int yb,
+					int s_width, int s_height, unsigned int waveIndex)
+{
+  stack_stats empty_stats;
+  if(c >= x_positions.size() || r >= y_positions.size()){
+    cerr << "FileSet::stackStats c or r too large: " << c << ", " << r << endl;
+    return(empty_stats);
+  }
+  if(frames.count(x_positions[c]) && frames[x_positions[c]].count(y_positions[r]))
+    return(frames[x_positions[c]][y_positions[r]]->stackStats(xb, yb, s_width, s_height, waveIndex));
+  return(empty_stats);
+}
+
+
+stack_stats FileSet::stackStats(unsigned int c, unsigned int r, int xb, int yb, int zb,
+				int s_width, int s_height, int s_depth, unsigned int waveIndex)
+{
+  stack_stats empty_stats;
+  if(c >= x_positions.size() || r >= y_positions.size()){
+    cerr << "FileSet::stackStats c or r too large: " << c << ", " << r << endl;
+    return(empty_stats);
+  }
+  if(frames.count(x_positions[c]) && frames[x_positions[c]].count(y_positions[r]))
+    return(frames[x_positions[c]][y_positions[r]]->stackStats(xb, yb, zb, s_width, s_height, s_depth, waveIndex));
+  return(empty_stats);
+}
+
 
 void FileSet::borders(int& left, int& right, int& bottom, int& top){
     bool gotSomething = false;

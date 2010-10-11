@@ -80,26 +80,28 @@ struct pos {
 
 
 struct fluorInfo {  // information about fluoresence
-    float excitation;
-    float emission;
-    float exposure;
-    fluorInfo(){
-	excitation = emission = exposure = 0;
-    }
-    fluorInfo(float ex, float em, float exp){
-	excitation = ex;
-	emission = em;
-	exposure = exp;
-    }
-    // and a sorting operator
-    friend bool operator <(const fluorInfo& a, const fluorInfo& b){
-	if(a.emission == b.emission)
-	    return(a.excitation < b.excitation);
-	return(a.emission < b.emission);
-    }
-    friend bool operator ==(const fluorInfo& a, const fluorInfo& b){
-	return(a.emission == b.emission && a.excitation == b.excitation);
-    }
+  float excitation;
+  float emission;
+  float exposure;
+  fluorInfo(){
+    excitation = emission = exposure = 0;
+  }
+  fluorInfo(float ex, float em, float exp){
+    excitation = ex;
+    emission = em;
+    exposure = exp;
+  }
+  // and a sorting operator
+  friend bool operator <(const fluorInfo& a, const fluorInfo& b){
+    if(a.emission == b.emission && a.excitation == b.excitation)
+      return(a.exposure < b.exposure);
+    if(a.emission == b.emission)
+      return(a.excitation < b.excitation);
+    return(a.emission < b.emission);
+  }
+  friend bool operator ==(const fluorInfo& a, const fluorInfo& b){
+    return(a.emission == b.emission && a.excitation == b.excitation && a.exposure == b.exposure);
+  }
 };
 
 

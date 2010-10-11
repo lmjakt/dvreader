@@ -1,5 +1,6 @@
 #include "blobMapperWidgetManager.h"
 #include "coordConverter.h"
+#include "../util/matrix.h"
 #include <QComboBox>
 #include <QPushButton>
 #include <QHBoxLayout>
@@ -9,6 +10,7 @@
 #include <QSize>
 #include <fstream>
 #include <limits.h>
+#include <string.h>
 
 using namespace std;
 
@@ -265,6 +267,24 @@ void BlobMapperWidgetManager::exportSuperBlobs(){
     if(fname.isNull())
 	return;
     exportSuperBlobs(fname.latin1());
+}
+
+float* BlobMapperWidgetManager::two_dim_model(int& xy_radius, int& z_radius){
+  xy_radius = abs(xy_radius);
+  z_radius = abs(z_radius);
+  if(!xy_radius || !z_radius)
+    return(0);
+  unsigned int ml = (z_radius * 2 + 1) * (xy_radius + 1);
+  float* model = new float[ml]; 
+  memset((void*)model, 0, sizeof(float) * ml);
+  for(set<BlobMapperWidget*>::iterator it=blobWidgets.begin(); it != blobWidgets.end(); ++it){
+    if((*it)->blobRep() == RepIcon::NO_REP)
+      continue;
+    float* temp_model = (*it)->two_dim_model(xy_radius, z_radius);  // We should use a copy and compare.. 
+    increment_matrix(model, temp_model, ml);
+    delete []temp_model;
+  }
+  return(model);
 }
 
 void BlobMapperWidgetManager::exportSuperBlobs(string fname){

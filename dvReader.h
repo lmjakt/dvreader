@@ -65,7 +65,7 @@ class DVReader
 {
     
     public :
-    DVReader(const char* fName, float maxlevel);
+  DVReader(const char* fName, float maxlevel, int xy_margin);
   ~DVReader();
   // then public functions..
   enum FileFormat { 
@@ -153,6 +153,7 @@ class DVReader
 //  imageData* image;            // contains the data in float format and handles things like getting data in and out..
   FileSet* fileSet;            // accesses the file or files containing the data and interprets these in a reasonable manner ?
   float maxLevel;
+  int xyMargin;
   //  groupObject** objects;         // one object for each pixel. Don't seperate for individual wavelengths yet. Not enough memory
   std::ios::pos_type headerSize;   // this is usually 1024, but might be different I suppose.. 
   std::ios::pos_type sectionSize;

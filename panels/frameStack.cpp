@@ -23,6 +23,8 @@
 //End Copyright Notice
 
 #include "frameStack.h"
+#include "frameSet.h"
+#include "frame.h"
 #include "../image/imageFunc.h"
 #include "idMap.h"
 #include <fstream>
@@ -32,15 +34,18 @@
 
 using namespace std;
 
-int rolloff = 36;
+// somehow we need rolloff and margin, though to be honest I've quite forgotten what each one does
+// 
+int rolloff = 36; //36; // use margin instead ??? 
 
-FrameStack::FrameStack(int* waveLengths, int waveNo, ifstream* inStream, float maxLevel){
+FrameStack::FrameStack(int* waveLengths, int waveNo, ifstream* inStream, float maxLevel, int xy_margin){
     maxIntensity = maxLevel;
     wave_lengths = waveLengths;
     wave_no = waveNo;
     fwaves.resize(wave_no);
     focalPlanes.resize(wave_no);
     frameInformation = 0;
+    margin = xy_margin > 0 ? xy_margin : 0;
     for(int i=0; i < wave_no; i++){
 	fwaves[i] = float(wave_lengths[i]);
 	focalPlanes[i] = 0;
@@ -104,31 +109,54 @@ void FrameStack::setBackgrounds(std::map<fluorInfo, Background*> backgrounds){
     sections[i]->setBackgrounds(backgrounds, i);
 }
 
+void FrameStack::setPanelBias(unsigned int wi, float scale, short bias){
+  cout << "FrameStack::setPanelBias : " << wi << " (wave_no=" << wave_no << ")  " << scale << "\t" << bias << endl;
+  if(wi >= wave_no)
+    return;
+  if(panelBiasMap.count(wi)){
+    panelBiasMap[wi]->scale = scale;
+    panelBiasMap[wi]->bias = bias;
+    return;
+  }
+  panel_bias* pb = new panel_bias(scale, bias);
+  for(uint i=0; i < sections.size(); ++i)
+    sections[i]->setPanelBias(pb, wi);
+  panelBiasMap.insert(make_pair(wi, pb));
+}
+
+void FrameStack::setBackgroundPars(unsigned int wi, int xm, int ym, float qnt, bool bg_subtract){
+  if(wi >= wave_no)
+    return;
+  for(uint i=0; i < sections.size(); ++i)
+    sections[i]->setBackgroundPars(wi, xm, ym, qnt, bg_subtract);
+}
+
 bool FrameStack::addFrame(Frame* frame){
-  //cout << "FrameStack::addFrame excite : " << frame->excitation() << endl;
-    if(!frame->ok()){
-	cerr << "FrameStack::addFrame frame reports itself as being not ok. bummer" << endl;
-	return(false);
+  //cout << "FrameStack::addFrame excite : " << frame->excitation() << "--> " << frame->emission()
+  //    << "  z pos : " << frame->zPos() << endl;
+  if(!frame->ok()){
+    cerr << "FrameStack::addFrame frame reports itself as being not ok. bummer" << endl;
+    return(false);
+  }
+  if(!width){
+    // just insert the frame into this one and set the appropriate parameters..
+    x = frame->xPos();
+    y = frame->yPos();
+    z_begin = z_end = frame->zPos();
+    width = frame->sampleWidth();
+    height = frame->sampleHeight();
+    pWidth = frame->p_width();
+    pHeight = frame->p_height();
+    
+    // then make a new frameSet and add the frame to that..
+    FrameSet* fset = new FrameSet(wave_lengths, wave_no);
+    if(!fset->addFrame(frame)){
+      cerr << "FrameStack : unable to add frame to newly created frameset" << endl;
+      return(false);
     }
-    if(!width){
-	// just insert the frame into this one and set the appropriate parameters..
-	x = frame->xPos();
-	y = frame->yPos();
-	z_begin = z_end = frame->zPos();
-	width = frame->sampleWidth();
-	height = frame->sampleHeight();
-	pWidth = frame->p_width();
-	pHeight = frame->p_height();
-	
-	// then make a new frameSet and add the frame to that..
-	FrameSet* fset = new FrameSet(wave_lengths, wave_no);
-	if(!fset->addFrame(frame)){
-	    cerr << "FrameStack : unable to add frame to newly created frameset" << endl;
-	    return(false);
-	}
-	sectionMap.insert(make_pair(z_begin, fset));
-	return(true);
-    }
+    sectionMap.insert(make_pair(z_begin, fset));
+    return(true);
+  }
     // if we have width then we have to determine whether or not this frame belongs to this frameStack..
     // it's x and y positions should be the same.. if not then we have to let the owner of this object take
     // care of it..
@@ -204,9 +232,19 @@ void FrameStack::printFrames(){
     }
 }
 
+void FrameStack::setContribMap(float* map){
+  if(contribMap)
+    delete contribMap;
+  contribMap = map;
+  for(uint i=0; i < sections.size(); ++i)
+    sections[i]->setContribMap(contribMap);
+}
 
-// This function needs to take into consideration the rolloff of the
-// image. Unfortunately I've not found any record for it anywhere.
+/* The below function has been replaced by a function in the idMap itself
+   The new function does a gradual merging of overlapping panels 
+   The contribMap is simply set directly from idMap */
+// // This function needs to take into consideration the rolloff of the
+// // image. Unfortunately I've not found any record for it anywhere.
 void FrameStack::setContribMap(IdMap* idmap, ulong id){
   // int rolloff = 0; // set at the beginning of this file
   if(!contribMap)
@@ -325,6 +363,12 @@ void FrameStack::setBorders(){
   // topBorder = topNeighbour ? ((topNeighbour->bottom() + top()) / 2) : top();
 }
 
+int FrameStack::nearestBorderGlobal(int x, int y){
+  int dx = x - leftBorder < rightBorder - x ? x - leftBorder : rightBorder - x;
+  int dy = y - bottomBorder < topBorder - y ? y - bottomBorder : topBorder - y;
+  return( dx < dy ? dx : dy );
+}
+
 vector<overlap_data*> FrameStack::adjustNeighbourPositions(unsigned int secNo, unsigned int rolloff, int instep, int window, int px, int py){
 
     cout << "FrameStack::adjustNeighbourPositions wavelegnth " << endl;
@@ -345,7 +389,7 @@ vector<overlap_data*> FrameStack::adjustNeighbourPositions(unsigned int secNo, u
     }
 
     ImageFunc iFunc;
-    int margin = 50;
+    //int margin = 50;
 
     if(rightNeighbour && !rightNeighbour->adjustedNeighbours()){   // then we may change the position of the right neighbour.. 
 //	cout << "lx : " << lx << "  neighbour xpos : " << rightNeighbour->x_pos() << "\t  dx " << dx << endl;
@@ -581,78 +625,6 @@ offsets FrameStack::findNeighbourOffset(FrameStack* neighbour, float* neighbourA
     return(off);
 }
 
-bool FrameStack::readToRGB(float* dest, float xpos, float ypos, float dest_width, 
-			   float dest_height, unsigned int dest_pwidth, 
-			   unsigned int dest_pheight, unsigned int slice_no,
-			   vector<channel_info> chinfo, raw_data* raw)
-//  			   float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, bool bg_sub, raw_data* raw)
-{
-  if(!finalised){
-	cerr << "FrameStack::readToRGB Trying to read into buffer from unfinalised framestack. Will finalise, but this suggests error in code" << endl;
-	finalise(chinfo[0].maxLevel);
-    }
-    if(slice_no >= sections.size()){
-	cerr << "FrameStack::readToRGB slice_no larger then sections size. slice_no : " << slice_no << " sections size : " << sections.size() << endl;
-	return(false);
-    }
-    // in fact since we are only going to assign from the non-overlapping region, well 1/2 the overlapping region..
-//    cout << "\tFrameStack::readToRGB overlaps : left " << leftOverlap << "   right : " << rightOverlap << "  bottom " << bottomOverlap << "  top " << topOverlap << endl;
-    float lx1 = x + leftOverlap/2.0;
-    float lx2 = x + width - rightOverlap/2.0;
-    float ly1 = y + bottomOverlap/2.0;
-    float ly2 = y + height - topOverlap/2.0;
-
-    // at this point we need to determine which pixels we want to add to the thingy..
-    if(!( lx2 > xpos && lx1  < (xpos + dest_width) ) ){
-	return(false);
-    }
-    if(!( ly2 > ypos && ly1 < (ypos + dest_height) ) ){
-	return(false);
-    }
-    
-    // so now we have an overlap.. we have to work out the local coordinates of that overlap..
-    float x1, x2, y1, y2;
-    x1 = xpos < lx1 ? lx1 : xpos;
-    x2 = (xpos + dest_width) > lx2 ? lx2 : (xpos + dest_width);
-    y1 = ypos < ly1 ? ly1 : ypos;
-    y2 = (ypos + dest_height) > ly2 ? ly2 : (ypos + dest_height);
-
-    /// now all we need to do is to translate this into pixel positions, both in the rgb buffer (dest) and in the local buffer.
-    /// then just call the underlying functions and we should be fine..
-    float dx = float(pWidth)/width;
-    float dy = float(pHeight)/height;
-    unsigned int ix, iw, iy, ih, dix, diy;     // i for int, but d for destination
-    ix = (unsigned int)((x1 - x) * dx);
-    iw = (unsigned int)((x2 - x1) * dx);
-    iy = (unsigned int)((y1 - y) * dy);
-    ih = (unsigned int)((y2 - y1) * dy);
-
-    dix = (unsigned int)((x1 - xpos) * dx);
-    diy = (unsigned int)((y1 - ypos) * dy);   // d stands for destiation.. 
-
-    
-
-    // by definition, the scale of the the two have to be the same, -anything else would be too difficult to handle
-    
-    // make sure that we are not going out of bounds..
-    if(dix + iw > dest_pwidth){
-	cerr << "FrameStack::readToRGB dix + iw > dest_pwidth adjusting by subtracting " << (dest_pwidth - (dix + iw)) << "  from  " << iw << endl;
-	iw = dest_pwidth - dix;   // which should make things ok ..
-    }
-    if(diy + ih > dest_pheight){
-	cerr << "FrameStack::readToRGB diy + h > dest_pheight adjusting by subtracting " << (dest_pheight - (diy + ih)) << "  from " << ih << endl;
-	ih = dest_pheight - diy;
-    }
-    
-    // and then we should be able to call the relevant function in the appropriate fileset..
-    //   cout << "\n call Function with " << ix << ", " << iy << ", " << iw << ", " << ih << ", " << dix << ", " << diy << ", " << dest_pwidth << endl;
-
-    return(sections[slice_no]->readToRGB(dest, ix, iy, iw, ih, dix, diy, dest_pwidth, 
-					 chinfo, raw));
-    //					 maxLevel, bias, scale, colors, raw));
-    //    return(sections[slice_no]->readToRGB(dest, ix, iy, iw, ih, dix, diy, dest_pwidth, maxLevel, bias, scale, colors, raw));
-    
-}
 
 bool FrameStack::readToRGB(float* dest, int xpos, int ypos, 
 			   unsigned int dest_width, unsigned int dest_height, 
@@ -673,124 +645,6 @@ bool FrameStack::readToRGB(float* dest, int xpos, int ypos,
     return(false);
 }
 
-
-bool FrameStack::mip_projection(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int dest_pwidth, unsigned int dest_pheight, 
-				float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw)
-{
-
-    // for each colour make a float array containing the maximum intensity at that x-y position
-    // then add to dest in the approrpriate manner (check out frame.cpp to see how to do this).
-
-    // Frist work out where to get the numbers from .. 
-
-    if(!finalised){
-	cerr << "FrameStack::readToRGB Trying to read into buffer from unfinalised framestack. Will finalise, but this suggests error in code" << endl;
-	finalise(maxLevel);
-    }
-
-    float lx1 = x + leftOverlap/2.0;
-    float lx2 = x + width - rightOverlap/2.0;
-    float ly1 = y + bottomOverlap/2.0;
-    float ly2 = y + height - topOverlap/2.0;
-    
-    // at this point we need to determine which pixels we want to add to the thingy..
-    if(!( lx2 > xpos && lx1  < (xpos + dest_width) ) ){
-	return(false);
-    }
-    if(!( ly2 > ypos && ly1 < (ypos + dest_height) ) ){
-	return(false);
-    }
-
-        // so now we have an overlap.. we have to work out the local coordinates of that overlap..
-    float x1, x2, y1, y2;
-    x1 = xpos < lx1 ? lx1 : xpos;
-    x2 = (xpos + dest_width) > lx2 ? lx2 : (xpos + dest_width);
-    y1 = ypos < ly1 ? ly1 : ypos;
-    y2 = (ypos + dest_height) > ly2 ? ly2 : (ypos + dest_height);
-
-    /// now all we need to do is to translate this into pixel positions, both in the rgb buffer (dest) and in the local buffer.
-    /// then just call the underlying functions and we should be fine..
-    float dx = float(pWidth)/width;
-    float dy = float(pHeight)/height;
-    unsigned int ix, iw, iy, ih, dix, diy;     // i for int, but d for destination
-    ix = (unsigned int)((x1 - x) * dx);
-    iw = (unsigned int)((x2 - x1) * dx);
-    iy = (unsigned int)((y1 - y) * dy);
-    ih = (unsigned int)((y2 - y1) * dy);
-
-    dix = (unsigned int)((x1 - xpos) * dx);
-    diy = (unsigned int)((y1 - ypos) * dy);   // d stands for destiation.. 
-
-    // by definition, the scale of the the two have to be the same, -anything else would be too difficult to handle
-    
-    // make sure that we are not going out of bounds..
-    if(dix + iw > dest_pwidth){
-	cerr << "FrameStack::readToRGB dix + iw > dest_pwidth adjusting by subtracting " << (dest_pwidth - (dix + iw)) << "  from  " << iw << endl;
-	iw = dest_pwidth - dix;   // which should make things ok ..
-    }
-    if(diy + ih > dest_pheight){
-	cerr << "FrameStack::readToRGB diy + h > dest_pheight adjusting by subtracting " << (dest_pheight - (diy + ih)) << "  from " << ih << endl;
-	ih = dest_pheight - diy;
-    }
-    
-    // and then make the two buffers that we need..
-    float* buffer = new float[iw * ih];
-    float* mip_buffer = new float[iw * ih];
-
-    cout << "made buffers with size " << iw << " * " << ih << " = " << iw * ih << endl;
-   
-    bool ok = true;
-    // and then go through the thingys and set stuff up..
-    for(uint i=0; i < fwaves.size(); i++){
-//	cout << "FrameStack::mip_projection wavelength : " << i << " : " << fwaves[i] << endl;
-	memset(buffer, 0, sizeof(float) * iw * ih);
-	memset(mip_buffer, 0, sizeof(float) * iw * ih);
-	for(uint j=0; j < sections.size(); j++){
-//	    cout << "\tsection : " << j << endl;
-	  ///////// CHANGE HERE TO REMOVE BACKGROUND CORRECTION, OR TO MAKE OPTIONAL.. FOR PROJECTION 
-	  if(!sections[j]->readToFloat(buffer, ix, iy, iw, ih, 0, 0, iw, maxLevel, i)){
-//	    if(!sections[j]->readToFloat(buffer, 0, 0, iw, ih, 0, 0, iw, maxLevel, fwaves[i])){
-		ok = false;
-		cerr << "FrameStack::mip_projection unable to read from section : " << j << "  wavelength : " << fwaves[i] << " (" << i << ")" << endl;
-	    }else{
-		for(uint k=0; k < iw * ih; k++){
-		    mip_buffer[k] = mip_buffer[k] < buffer[k] ? buffer[k] : mip_buffer[k];
-		}
-	    }
-	}
-	/// and at this point we have to map the positions in the mip_buffer to the destination buffer.. this is a bit of a pain to say the least..
-	/// and we have to convert all the values like we normally do..
-//	cout << "Made the mip_buffer  now let's map to original " << endl;
-	float* source;
-	float* dst;
-	float* rdst = 0;  // this is the raw destination.. 
-	for(unsigned int yp = 0; yp < ih; yp++){
-	    source = mip_buffer + yp * iw;
-	    dst = dest + (diy * dest_pwidth + dix + yp * dest_pwidth) * 3;
-	    if(raw){
-		rdst = raw->values[i] + (diy * dest_pwidth + dix + yp * dest_pwidth);
-	    }
-	    for(unsigned int xp = 0; xp < iw; xp++){
-		float v = bias[i] + scale[i] * (*source);
-		if(v > 0){
-		    dst[0] += v * colors[i].r;
-		    dst[1] += v * colors[i].g;
-		    dst[2] += v * colors[i].b;
-		}
-		if(raw){
-		    *rdst = (*source);
-		}
-		++rdst;
-		++source;
-		dst += 3;
-	    }
-	}
-    }
-    cout << "about to delete buffer " << endl;
-    delete buffer;
-    delete mip_buffer;
-    return(ok);
-}
 
 bool FrameStack::mip_projection(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height,
 				float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, raw_data* raw){
@@ -989,7 +843,7 @@ BorderArea* FrameStack::borderArea(FrameStack* nbor, int x, int y, int w, int h)
 }
 
 float* FrameStack::make_mip_projection(unsigned int wi, float maxLevel, vector<float>& contrast){
-  unsigned int margin = 32;  // but we should be supplying this from somewhere else ? -ideally we should make it a property of the frameStack .. 
+  //unsigned int margin = 32;  // but we should be supplying this from somewhere else ? -ideally we should make it a property of the frameStack .. 
                                // actually this is the rolloff and I need to fix this somewhere.. 
   float* proj = new float[pWidth * pHeight];
   memset((void*)proj, 0, sizeof(float) * pWidth * pHeight);
@@ -1020,8 +874,7 @@ bool FrameStack::readToFloat(float* dest, unsigned int xb, unsigned int iwidth, 
 }
 
 bool FrameStack::readToFloat(float* dest, int xb, int iwidth, int yb, 
-		 int iheight, int zb, int idepth,  unsigned int waveIndex, float maxLevel){   // simply read the appropriate pixels into a volume.. 
-  cout << "FrameStack::readToFloat number 2" << endl;
+			     int iheight, int zb, int idepth,  unsigned int waveIndex, float maxLevel, bool use_cmap){   // simply read the appropriate pixels into a volume.. 
     // check that zb and idepth are ok.. zb must be > 0 and < sections.size..
     if(zb < 0 || zb >= int(sections.size()) || idepth <= 0 || zb + idepth > int(sections.size())){
 	cerr << "FrameStack unsuitable z-sections requested : " << zb << "  -->  " << zb + idepth << endl;
@@ -1039,7 +892,7 @@ bool FrameStack::readToFloat(float* dest, int xb, int iwidth, int yb,
     // then just go through the z sections and call readToFloat on each one..
     bool ok = true;
     for(int zp=zb; zp < zb + idepth; ++zp){
-      if(!sections[zp]->readToFloat(dst, source_x, source_y, subWidth, subHeight, dest_x, dest_y, iwidth, maxIntensity, waveIndex)){
+      if(!sections[zp]->readToFloat(dst, source_x, source_y, subWidth, subHeight, dest_x, dest_y, iwidth, maxIntensity, waveIndex, use_cmap)){
 	ok = false;
 	//	    cout << "-//\\-" << endl;
       }
@@ -1065,6 +918,77 @@ bool FrameStack::readToShort(unsigned short* dest,unsigned int xb, unsigned int 
   return(sections[secNo]->readToShort(dest, (unsigned int)source_x, (unsigned int)source_y, 
 				      subWidth, subHeight, 
 				      (unsigned int)dest_x, (unsigned int)dest_y, iwidth, waveIndex));
+}
+
+bool FrameStack::readToShort(unsigned short* dest, unsigned int secNo, unsigned int waveIndex){
+  if(secNo >= sections.size())
+    return(false);
+  return(sections[secNo]->readToShort(dest, 0, 0, pWidth, pHeight, 0, 0, pWidth, waveIndex));
+}
+
+stack_stats FrameStack::stackStats(int xb, int yb, int s_width, int s_height, unsigned int waveIndex){
+  return(stackStats(xb, yb, 0, s_width, s_height, (int)sections.size(), waveIndex));
+}
+
+stack_stats FrameStack::stackStats(int xb, int yb, int zb, int s_width, int s_height, int s_depth, unsigned int waveIndex){
+  stack_stats stats;
+  if(xb < 0 || yb < 0 || s_width <= 0 || s_height <= 0 || s_depth <= 0){
+    cerr << "FrameStack::stackStats some negative dimension" << endl;
+    return(stats);
+  }
+  if(xb + s_width > (int)pWidth || yb + s_height > (int)pHeight || (unsigned int)zb + s_depth > sections.size()){
+    cerr << "FrameStack::stackStats some coordinates requested outside of frameStack" << endl;
+    return(stats);
+  }
+  unsigned short* s_buffer = new unsigned short[s_width * s_height];
+  vector<unsigned short> all_shorts;
+  double sum = 0;
+  all_shorts.reserve(s_width * s_height * s_depth);
+  for(uint i=zb; i < zb + s_depth; ++i){
+    memset((void*)s_buffer, 0, sizeof(unsigned short) * s_width * s_height);
+    if(!sections[i]->readToShort(s_buffer, (unsigned int)xb, (unsigned int)yb, 
+				 (unsigned int)s_width, (unsigned int)s_height, 0, 0, 
+				 (unsigned int)s_width, waveIndex)){
+      // delete stuff and return empty..
+      cerr << "FrameStack::stackStats Unable to read short from frame" << endl;
+      delete []s_buffer;
+      return(stats);
+    }
+    for(int j=0; j < (s_width * s_height); ++j){
+	all_shorts.push_back(s_buffer[j]);
+	sum += (double)s_buffer[j];
+    }
+  }
+  stats.mean = (unsigned short)(sum / (double)all_shorts.size());
+  sort(all_shorts.begin(), all_shorts.end());
+  stats.median = all_shorts[ all_shorts.size() / 2 ];
+  // make 20 quantiles for the thingy..
+  int qnt_no = 20;
+  for(int i=0; i < qnt_no; ++i){
+    stats.levels.push_back( float(i)/(float)qnt_no);
+    stats.qntiles.push_back( all_shorts[ (i * all_shorts.size()) / qnt_no ] );
+  }
+  stats.minimum = all_shorts[0];
+  stats.maximum = all_shorts.back();
+  // and get the mode average as well.
+  // use a vector of length 1000 to approximate.
+  unsigned int d_length = 1000;
+  vector<unsigned int> counts(d_length, 0);
+  // use of a rounding function would probably give a better estimate
+  // but it's not very likely to affect the mode for our distributions.. 
+  for(unsigned int i=0; i < all_shorts.size(); ++i)
+    counts[ ((d_length-1) * (all_shorts[i] - stats.minimum)) / (stats.maximum - stats.minimum) ]++;
+
+  unsigned int max_count = 0;
+  stats.mode = 0;
+  for(unsigned int i=0; i < counts.size(); ++i){
+    if(counts[i] > max_count){
+      max_count = counts[i];
+      stats.mode = ((stats.maximum - stats.minimum) * i) / counts.size();
+    }
+  }
+  delete []s_buffer;
+  return(stats);
 }
 
 void FrameStack::normalise_y(float* values, unsigned int w, unsigned int h){

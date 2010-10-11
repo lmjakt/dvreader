@@ -80,6 +80,9 @@ ClusterWindow::~ClusterWindow(){
     if(clusterProcess){
 	delete clusterProcess;
     }
+    delete plotter;
+    delete shapePlotter;
+    delete dropSection;
 }
 
 void ClusterWindow::generateColors(int l){

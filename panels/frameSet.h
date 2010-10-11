@@ -45,6 +45,8 @@ class FrameSet {
     // since the frame constructor does the actual parsing of the file, create the frame first, then check if it 
     void setBackgrounds(std::map<fluorInfo, Background*> backgrounds, int zp);
     void setContribMap(float* map);
+    void setPanelBias(panel_bias* pb, unsigned int waveIndex);
+    void setBackgroundPars(unsigned int waveIndex, int xm, int ym, float qnt, bool bg_subtract);
     // we also need a whole load of accessor functions, and wrappers for the frame functions.. 
     float z_pos(){
 	return(z);
@@ -64,36 +66,22 @@ class FrameSet {
     int num_colors(){
 	return(frames.size());
     }
-//    bool hasWavelength(float wl){
-//	return(frames.count(wl));
-//    }
 
     bool readToRGB(float* dest, unsigned int source_x, unsigned int source_y, 
 		   unsigned int width, unsigned int height,
 		   unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
 		   std::vector<channel_info> chinfo, raw_data* raw=0);
-    //		   float maxLevel, std::vector<float> bias, 
-    //		   std::vector<float> scale, std::vector<color_map> colors, 
-    //		   bool bg_sub, raw_data* raw=0);
-//    bool readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
-//		   unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, float maxLevel, float waveLength);
- 
     bool readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
 		   unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
-		     float maxLevel, unsigned int waveIndex);
+		     float maxLevel, unsigned int waveIndex, bool use_cmap=false);
     bool readToShort(unsigned short* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
 		     unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
 		     unsigned int waveIndex);
-    //    bool readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
-    //		   unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
-    //		     bool bg_sub, float maxLevel, unsigned int waveIndex);
-   
 
-    private :
-	std::map<fluorInfo, Frame*> frames;    // we have one for each wavelength..
+ private:
+    std::map<fluorInfo, Frame*> frames;    // we have one for each wavelength..
     std::vector<fluorInfo> fInfo;              // 
     // We also want to know what our position is .. ? 
-//    std::set<fluorInfo> waves;             // check if we are supposed to know about the given wavelength.. 
     unsigned int pWidth, pHeight;       // the pixel height..
     float x, y, z, w, h;                // the physical position and size of the frameSet (obtain these from the first frame).
 };

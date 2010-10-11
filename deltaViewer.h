@@ -51,7 +51,7 @@
 #include "flatViewer/flatView.h"
 //#include "linGraph/plotWidget.h"
 #include "linGraph/distPlotter.h"
-#include "colorChooser.h"
+//#include "colorChooser.h"
 #include "parameterChooser.h"
 #include "dataStructs.h"
 #include <vector>
@@ -70,6 +70,8 @@
 
 class OverlapEditorWindow;
 class ImageBuilderWidget;
+class ValueLabels;
+class ColorChooser;
 
 using namespace std;
 
@@ -101,16 +103,21 @@ class DeltaViewer : public QWidget
   Q_OBJECT
     
     public :
-  DeltaViewer(std::map<std::string, std::string> opt_commands, const char* ifName=0,  QWidget* parent=0, const char* name=0);
+  DeltaViewer(std::map<std::string, std::string> opt_commands, int xyMargin, const char* ifName=0,  QWidget* parent=0, const char* name=0);
   ~DeltaViewer(){
     delete imageAnalyser;
     delete reader;
+    delete glViewer;
+    delete projection;
+    delete objectSums;
+    delete spotChooserTabs;
   }
   bool readToRGB(float* dest, int xb, int yb, unsigned int tw, unsigned int th, unsigned int slice_no);
   bool readToRGBPro(float* dest, int xb, int yb, unsigned int tw, unsigned int th);
   void int_color(int i, float& r, float& g, float& b);
   
  private :
+  void setHome();
   void setRanges(QString text);  // take a word or a line or something and set the parameters.. 
   QString readRanges();
   std::vector<color_map> readColors(std::string fname);
@@ -197,7 +204,8 @@ class DeltaViewer : public QWidget
   void findContrasts(int wi, float value);   // not sure what the value represents, but.. 
   void mapBlobs(int wi, float minEdge);
   void mapBlobs(int wi, float minEdge, int xw, int yw, int zw, float pcnt);
-  
+  void makeBlobModel(int xy_radius, int z_radius);
+
   void mapCavities(int wi, int xr, int yr, int zr, float P, float DP);
   void findSets(int wi, int minSize, int maxSize, float minValue);
   
@@ -220,7 +228,8 @@ class DeltaViewer : public QWidget
   void paramDataColorChanged(int wl, float r, float g, float b);
   
   void setBackgroundPars(std::map<fluorInfo, backgroundPars> bgPars);
-  
+  void setChooserMaxValue(float mv);
+
  private :
   /// Move this later, bull
   BlobMapperWidgetManager* blobManager;
@@ -274,6 +283,7 @@ class DeltaViewer : public QWidget
   TabWidget* chooserTabs;
   std::vector<DistChooser*> choosers;  // one for each wavelength..
   std::vector<ChannelOffset> waveOffsets;
+  float chooserMaxValue;
   DistChooser* objectSums;
   std::vector<ColorChooser*> colorChoosers;  // although maybe a map would be appropriate for these two.. oh well. think
                                              // about it later.. 
@@ -302,6 +312,9 @@ class DeltaViewer : public QWidget
   QLabel* proMouseX;
   QLabel* proMouseY;
   
+  // and a widget that gives some numbers (connect to show intensities of things)
+  ValueLabels* sliceSignals;
+
   // so we can add stuff..
   QVBoxLayout* colorBox;
   

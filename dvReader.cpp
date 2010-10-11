@@ -38,7 +38,7 @@ const int maxSignal = 4096; // for the camera we are using
                             // if the measurement is a short. 
                             // constrain floats between 0 and 1.. 
 
-DVReader::DVReader(const char* fName, float maxlevel){
+DVReader::DVReader(const char* fName, float maxlevel, int xy_margin){
     // set some values just in case..
     margin = 50;
     //imageData = 0;
@@ -51,6 +51,7 @@ DVReader::DVReader(const char* fName, float maxlevel){
 	fm = ICS_V1;
     }
     maxLevel = maxlevel;
+    xyMargin = xy_margin > 0 ? xy_margin : 0;  // but if xy_margin > width / 2, then we crash.. 
 //  cout << "fileFormat is : " << fm << endl;
     sameEndian = true;   // but change if later.. 
     readDataFromFile(fName, fm);
@@ -287,7 +288,12 @@ bool DVReader::readDVFile(const char* fName){
 
     // First make the fileSet structure, then read the header and fill in all the bits of the file set..
     // 
-    fileSet = new FileSet(waves, (int)nw, maxLevel);
+    // note that FileSet will crash (through FrameStack) if xyMargin > min(nx, ny) / 2
+    // if this should be the case then change xyMargin to 0..
+    int minDim = nx > ny ? ny : nx;
+    xyMargin = minDim / 3 > minDim ? xyMargin : 0;  // make 1/3 the mininum, then 1/3 of the image left.
+
+    fileSet = new FileSet(waves, (int)nw, maxLevel, xyMargin);
     // and let's have a temporary filestream..
     ifstream* in2 = new ifstream(fName);
     if(!(*in2)){
@@ -303,7 +309,8 @@ bool DVReader::readDVFile(const char* fName){
 	std::ios::pos_type readPos = headerSize + (std::ios::pos_type)((nint + nreal) * 4 * i);
 	std::ios::pos_type extHeadSize = next;  // I think.. 
 	bool bigEnd = !sameEndian;   // but this is indeed very bad way of doing it.. 
-	if(!fileSet->addFrame(fName, in2, framePos, readPos, extHeadSize, nint, nreal, pSize, isReal, bigEnd, nx, ny, dx, dy, dz)){
+	if(!fileSet->addFrame(fName, in2, framePos, readPos, extHeadSize, 
+			      nint, nreal, pSize, isReal, bigEnd, nx, ny, dx, dy, dz)){
 	    cerr << "DVreader unable to add frame to file set will die here for debugging.." << endl;
 	    exit(1);
 	}

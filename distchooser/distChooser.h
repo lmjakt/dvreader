@@ -84,15 +84,11 @@ class DistChooser : public QWidget
       return(statisticName);
   }
   public slots:
-    //    void setData(vector<int> ind, vector<float> vf);    // set the data and plot..
-    //    void setData(vector<float> vf);                       // make the indices all the same..
+  void setData(float* f, unsigned int l, float minV, float maxV, bool updateThresholds);  // a STUPID wrapper
   void setData(vector<float> vf, float minV, float maxV, bool updateThresholds=true);
   //void setLog(bool useLog);                   // plot log or 
   void setAxis(int as);   // sets the current axis..  (if between 0 and 3);
   void setParams(float dmin, float dmax, float tmin, float tmax);
-/*   bool isLog(){ */
-/*     return(logValues); */
-/*   } */
 
   protected :
     void paintEvent(QPaintEvent *e);   // for the update and draw functions..
@@ -104,9 +100,7 @@ class DistChooser : public QWidget
   private :
     void setData();          // internal for updating after changes to divs.. 
   vector<float> values;    // I don't think I need this, we can probably remove it later. but have a feeling it might be good to be able to call it. 
-  //  vector<int> indices;     // the indices
   vector<int> counts;        // the distribution !
-  //vector<int> logCounts;     // the log distribution !
   int lastX;
   int lastY;          // for tracking mouse movement.
   int divs;           // the number of divisions in the distribution.. hmm. 

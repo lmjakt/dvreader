@@ -34,6 +34,7 @@ class SpotSection : public QWidget
     Q_OBJECT
 	public :
 	SpotSection(QWidget* parent=0, const char* name=0);
+	//	~SpotSection();
 
     void setDrop(simple_drop& drop);
     

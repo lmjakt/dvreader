@@ -31,9 +31,6 @@
 using namespace std;
 
 FrameSet::FrameSet(int* waveLengths, int waveNo){
-//    for(int i=0; i < waveNo; i++){
-//	waves.insert(waveLengths[i]);
-//    }
     pWidth = pHeight = 0;
     x = y = z = w = h = 0;
 }
@@ -69,12 +66,6 @@ bool FrameSet::addFrame(Frame* frame){
 	delete frame;
 	return(false);
     }
-    // check if the wavelength of the frame is acceptable..
-//    if(!waves.count(frame->emission())){
-//	cerr << "FrameSet::addFrame Frame reports an unknown emission wavelength : " << frame->emission() << endl;
-//	delete frame;
-//	return(false);
-//    }
     // then check if we have some frames already..
     fluorInfo fluor(frame->excitation(), frame->emission(), frame->exposure());
     if(!frames.size()){
@@ -93,7 +84,8 @@ bool FrameSet::addFrame(Frame* frame){
     // If we are here then we have to make sure that the positioning is correct
     // and that we haven't already defined a frame for this wavelength..
     if(frames.count(fluor)){
-	cerr << "FrameSet addFrame. Frame already defined for emission wavelength : " << frame->emission() << "  and excitation " << frame->excitation() << frame<< endl;
+      cerr << "FrameSet addFrame. Frame already defined for emission wavelength : " 
+	   << frame->emission() << "  and excitation " << frame->excitation() << "  frame address: " << frame << endl;
 	delete frame;
 	return(false);
     }
@@ -134,6 +126,16 @@ void FrameSet::setContribMap(float* map){
   }
 }
 
+void FrameSet::setPanelBias(panel_bias* pb, unsigned int waveIndex){
+  if(waveIndex < fInfo.size() && frames.count(fInfo[waveIndex]))
+    frames[fInfo[waveIndex]]->setBias(pb);
+}
+
+void FrameSet::setBackgroundPars(unsigned int waveIndex, int xm, int ym, float qnt, bool bg_subtract){
+  if(waveIndex < fInfo.size() && frames.count(fInfo[waveIndex]))
+    frames[fInfo[waveIndex]]->setBackgroundPars(xm, ym, qnt, bg_subtract);
+}
+
 bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source_y, 
 			 unsigned int width, unsigned int height,
 			 unsigned int dest_x, unsigned int dest_y, 
@@ -170,12 +172,9 @@ bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source
     return(ok);   // so a partial read gives a false..
 }
 
-//bool FrameSet::readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
-//		   unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
-//		   bool bg_sub, float maxLevel, unsigned int waveIndex){
 bool FrameSet::readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
 			   unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
-			   float maxLevel, unsigned int waveIndex){
+			   float maxLevel, unsigned int waveIndex, bool use_cmap){
     if(waveIndex >= fInfo.size()){
 	cerr << "FrameSet::readToFloat waveIndex is too large : " << waveIndex << endl;
 	return(false);
@@ -185,8 +184,7 @@ bool FrameSet::readToFloat(float* dest, unsigned int source_x, unsigned int sour
 	cerr << "FrameSet::readToFloat unknown wavelength : " << waveIndex << endl;
 	return(false);
     }
-    //    return((*it).second->readToFloat(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, bg_sub, maxLevel));
-    return((*it).second->readToFloat(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, maxLevel));
+    return((*it).second->readToFloat(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, maxLevel, use_cmap));
 }
 
 bool FrameSet::readToShort(unsigned short* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
@@ -201,6 +199,5 @@ bool FrameSet::readToShort(unsigned short* dest, unsigned int source_x, unsigned
     cerr << "FrameSet::readToShort unknown wavelength : " << waveIndex << endl;
     return(false);
   }
-  //    return((*it).second->readToFloat(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, bg_sub, maxLevel));
   return((*it).second->readToShort(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w));
 }

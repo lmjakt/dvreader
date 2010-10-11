@@ -61,6 +61,7 @@ HEADERS		= \
 		panels/frameRect.h \
 		panels/borderInformation.h \
 		panels/idMap.h \
+		panels/stack_stats.h \
 		image/imageFunc.h \
 		image/imageAnalyser.h \
 		image/imageData.h \
@@ -85,6 +86,9 @@ HEADERS		= \
 		image/backgroundWindow.h \
 		image/rectangle.h \
 		image/two_d_background.h \
+		image/spectralResponse.h \
+		image/gaussian.h \
+		image/blobModel.h \
 		cavity/cavityBall.h \
 		cavity/cavityBallInputWidget.h \
 		cavity/cavityMapper.h \
@@ -96,10 +100,15 @@ HEADERS		= \
 		distanceMapper/objectComparer.h \
 		customWidgets/fSpinBox.h \
 		customWidgets/clineEdit.h \
+		customWidgets/valueLabels.h \
 		abstract/space.h \
 		tiff/tiffReader.h \
 		imageBuilder/imageBuilder.h \
-		imageBuilder/imageBuilderWidget.h
+		imageBuilder/imageBuilderWidget.h \
+		imageBuilder/p_parameter.h \
+		imageBuilder/f_parameter.h \
+	       	imageBuilder/centerFinder.h \
+		util/matrix.h	
 SOURCES		= \
 		dvReader.cpp \
 		deltaViewer.cpp \
@@ -177,6 +186,9 @@ SOURCES		= \
 		image/backgroundWidget.cpp \
 		image/backgroundWindow.cpp \
 		image/two_d_background.cpp \
+		image/spectralResponse.cpp \
+		image/gaussian.cpp \
+		image/blobModel.cpp \
 		cavity/cavityBall.cpp \
 		cavity/cavityBallInputWidget.cpp \
 		cavity/cavityMapper.cpp \
@@ -186,10 +198,16 @@ SOURCES		= \
 		distanceMapper/pointDrawer.cpp \
 		distanceMapper/objectComparer.cpp \
 		customWidgets/fSpinBox.cpp \
+		customWidgets/valueLabels.cpp \
 		abstract/space.cpp \
 		tiff/tiffReader.cpp \
 		imageBuilder/imageBuilder.cpp \
 		imageBuilder/imageBuilderWidget.cpp \
+		imageBuilder/p_parameter.cpp \
+		imageBuilder/f_parameter.cpp \
+		imageBuilder/centerFinder.cpp \
+		util/matrix.cpp \
+		globalVariables.cpp \
 		main.cpp
 TARGET		= reader
 

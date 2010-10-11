@@ -6,6 +6,7 @@
     This file is part of the dvReader application.
     dvReader is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
+	return(y);
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
  
@@ -16,7 +17,8 @@
     string infoFile = fileName;
    
     You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
+    along with this program; if not, write to the Free Software#include "globalVariables.h"
+
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  
     PS. If you can think of a better name, please let me know...
@@ -45,9 +47,12 @@
 #include <sstream>
 #include <vector>
 #include <set>
+#include <globalVariables.h>
+#include <colorChooser.h>
 #include <q3buttongroup.h>
 #include <qradiobutton.h>
 #include <q3filedialog.h>
+#include <stdlib.h>
 #include "button/arrowButton.h"
 #include "kcluster/kClusterProcess.h"
 #include "tiff/tiffReader.h"    // this is one screwed up class so use with care !! 
@@ -59,6 +64,7 @@
 #include "cavity/cavityMapper.h"
 #include "imageBuilder/imageBuilderWidget.h"
 #include "panels/overlapEditorWindow.h"
+#include "customWidgets/valueLabels.h"
 
 ////////// temporary for checking what it looks like.. 
 #include "cavity/cavityBall.h"
@@ -107,7 +113,7 @@ void ChannelOffset::changeOffset(int offsetDirection){
   }
 }
 
-DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, QWidget* parent, const char* name)
+DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const char* ifName, QWidget* parent, const char* name)
   : QWidget(parent, name)
 {
   lastMaximumValue = -1;
@@ -125,7 +131,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
       fName = ifName;
   }
   cout << "trying to open file " << ifName << endl;
-  reader = new DVReader(ifName, maxLevel);
+  reader = new DVReader(ifName, maxLevel, xyMargin);
   reader->printInfo();
   fileSet = reader->fileData();   // then use fileData to do everything.. 
   imageAnalyser = new ImageAnalyser(fileSet);
@@ -360,6 +366,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   tabsName = ifName;
   tabsName.append(" Channels");
   chooserTabs->setCaption(tabsName);
+  chooserMaxValue = 1.0; // defaults to 1.0.
   
   // ok, a little magic to chose appropriate colours. basically try to make the bluest colours for
   // the shortest wawelength..
@@ -388,6 +395,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 
   channelOffsets = new Q3ButtonGroup(1, Qt::Horizontal, "channel", this);
   // make one DistChooser for each channel ..
+  vector<QColor> channelColors;
   for(unsigned int i=0; i < fileSet->channelNo(); i++){
     ostringstream ss;
     ostringstream s2;
@@ -412,9 +420,10 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 
     scales.push_back(1.0);
     biases.push_back(0.0);  // the simplest way.. 
+    channelColors.push_back(colormap[fileSet->channel(i)].qcolor());
   }
   setWaveColors();
-
+  sliceSignals = new ValueLabels(channelColors, this);
 
   QLabel* exportLabel = new QLabel("Export", this);
   QPushButton* mergeChannelButton = new QPushButton("Projection", this, "mergeChannelButton");
@@ -468,10 +477,18 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 
   // Make an imagebuilderwidget and stick it at the bottom..
 
-  imageBuilder = new ImageBuilderWidget(fileSet, collect_channel_info(), this);
+
+  imageBuilder = new ImageBuilderWidget(fileSet, collect_channel_info());
+  imageBuilder->resize(500, 500);
   connect(imageBuilder, SIGNAL(showCoverage(float)), 
 	  this, SLOT(paintCoverage(float)) );
-  
+  connect(imageBuilder, SIGNAL(setChooserMax(float)), this, SLOT(setChooserMaxValue(float)) );
+  connect(imageBuilder, SIGNAL(getBlobModel(int, int)), this, SLOT(makeBlobModel(int, int)));
+
+  QPushButton* imageBuilderButton = new QPushButton("image builder", this);
+  connect(imageBuilderButton, SIGNAL(clicked()), imageBuilder, SLOT(show()) );
+
+	  
   QVBoxLayout* box = new QVBoxLayout(this);
   box->setSpacing(1);
   box->setMargin(1);
@@ -508,6 +525,8 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   mouseY->setMinimumWidth(minWidth);
   proMouseX->setMinimumWidth(minWidth);
   proMouseY->setMinimumWidth(minWidth);
+
+  box->addWidget(sliceSignals);
 
   QHBoxLayout* showBox = new QHBoxLayout();
   box->addLayout(showBox);
@@ -560,7 +579,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
   box->addWidget(updateDist);
   box->addWidget(useComponents);
 
-  box->addWidget(imageBuilder);
+  box->addWidget(imageBuilderButton);
 
   box->addStretch();
   
@@ -581,7 +600,8 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, const char* ifName, Q
 	readRangesFromFile(QString(opt_commands["rangeFile"].c_str()));
   }
 
-
+  currentSliceNo = fileSet->sectionNo() / 2;
+  setImage(currentSliceNo);
 
   glViewer->show();
   projection->show();
@@ -630,6 +650,7 @@ void DeltaViewer::setWaveColors(){
 void DeltaViewer::setWaveColors(int wi, float r, float g, float b){
     int wl = colorChoosers[wi]->wlength();
     colormap[wl] = color_map(r, g, b);
+    sliceSignals->setColor((unsigned int)wi, QColor( (int)(r * 255), (int)(g * 255), int(b * 255) ) );
     displayImage();
     displaySlices();
     setLinePlotterColors();
@@ -770,7 +791,7 @@ void DeltaViewer::setImage(int slice){
 	}
 	rowCounter++;
     }
-    delete data;
+    delete []data;
     glViewer->updateGL();
 
     if(raw){
@@ -830,7 +851,9 @@ void DeltaViewer::int_color(int i, float& r, float& g, float& b){
 void DeltaViewer::setProjection(){
     // first check if we have a projection file..
 
-    int margin = 25;
+    //int margin = xyMargin;
+    int margin = 0;
+
     int w = completeArea.pw - margin * 2;
     int h = completeArea.ph - margin * 2;
 
@@ -852,7 +875,7 @@ void DeltaViewer::setProjection(){
 	    cerr << "Unable to get mean and standard deviation for projection values" << endl;
 	}
     }
-    delete fpro;
+    delete []fpro;
     for(uint i=0; i < projection_means.size(); ++i){
 	cout << "Channel : " << fileSet->channel(i) << "\t mean : " << projection_means[i] << "\tstd : " << projection_stds[i] << endl;
     }
@@ -905,7 +928,7 @@ void DeltaViewer::setProjection(){
 	}
 	rowCounter++;
     }
-    delete data;
+    delete []data;
 //    if(projection->isVisible())
     projection->updateGL();
 
@@ -978,7 +1001,7 @@ void DeltaViewer::paintProjection(){
 	}
 	rowCounter++;
     }
-    delete data;
+    delete []data;
     projection->updateGL();
 }
 
@@ -1712,24 +1735,9 @@ void DeltaViewer::calculateDistribution(){
 	    v[i][j] = raw->values[i][j];
 	}
 
-	choosers[i]->setData(v[i], 0, 1, false);
+	choosers[i]->setData(v[i], 0, chooserMaxValue, false);
 
     }
-//   int n = reader->width() * reader->height();
-//   float* imageData = reader->frameData();
-//   int wn = reader->channelNo();
-//   vector<vector<float> > v(wn);
-//   for(int i=0; i < wn; i++){
-//     v[i].resize(n);
-//   }
-//   for(int i = 0; i < n; i++){
-//     for(int j =0; j < wn; j++){
-//       v[j][i] = imageData[j + i * wn];
-//     }
-//   }
-//   for(int i=0; i < wn; i++){
-//     choosers[i]->setData(v[i], 0, 1, false);
-//   }
 
 }
 
@@ -1774,6 +1782,18 @@ void DeltaViewer::setBackgroundPars(std::map<fluorInfo, backgroundPars> bgPars){
   setImage(currentSliceNo);
 }
 
+void DeltaViewer::setChooserMaxValue(float mv){
+  chooserMaxValue = mv;
+  // how to cause an update.? 
+  bool wasOff = !(updateDist->isChecked());
+  updateDist->setChecked(true);
+  setImage(currentSliceNo);
+  if(wasOff)
+    updateDist->setChecked(false);
+  changeRanges(0, 1.0);  // note that changeRanges ignorese these parameters.
+  
+}
+
 void DeltaViewer::newMagnification(float mag){
     // set the text of magnification appropriately.
     QString magString;
@@ -1796,6 +1816,17 @@ void DeltaViewer::newMousePosition(int xp, int yp){
     ys.setNum(yp);
     mouseX->setText(xs);
     mouseY->setText(ys);
+    // The below doesn't work well, because imageAnalyser assumes that you
+    // won't be looking at more than one wavelength at a time.
+    // hence it ends up making a new cache everytime 4 times at every point
+    // and since that means reading in four pages, that's really screwed.
+    // lets see if this causes problems..
+    float p;
+    for(uint i=0; i < colorChoosers.size(); ++i){
+      if( fileSet->readToFloat(&p, xp, yp, (unsigned int)currentSliceNo, 1, 1, 1, i) )
+    	sliceSignals->setValue(i, p);
+    }
+
 }
 
 void DeltaViewer::newProMousePosition(int xp, int yp){
@@ -1820,8 +1851,10 @@ void DeltaViewer::changeRanges(float mn, float mx){
     float Max = choosers[i]->vMax();  // which isn't actually necessarily true, but..
     cout << endl << "Max : " << Max << "\tnew min : " << min << "  max : " << max << endl;
 
-    float scaleFactor = Max / (max - min);
-    float biasFactor = -scaleFactor * (min / Max);
+    float scaleFactor = 1.0 / (max - min);
+    //    float scaleFactor = Max / (max - min);
+    //    float biasFactor = -scaleFactor * (min / Max);
+    float biasFactor = -scaleFactor * (min);
     bFactors[i] = biasFactor;
     sFactors[i] = scaleFactor;
     cout << "setting scale to : " << scaleFactor << "  bias : " << biasFactor << endl << endl;
@@ -1955,7 +1988,12 @@ void DeltaViewer::readRangesFromFile(QString fileName){
   setRanges(ranges);
 }
   
-  
+void DeltaViewer::setHome(){
+  // string user_home = getenv("HOME");
+  // user_home.append("/.dvreader");
+  // dvreader_home = user_home.c_str();
+}
+
 
 void DeltaViewer::setRanges(QString text){
   QTextStream ts(&text, QIODevice::ReadOnly);
@@ -2247,6 +2285,18 @@ void DeltaViewer::mapBlobs(int wi, float minValue, int xw, int yw, int zw, float
 	blobManager->show();
     }
     blobManager->addBlobMapper(bm, fInfo, fName.latin1(), wiColor(wi));
+}
+
+void DeltaViewer::makeBlobModel(int xy_radius, int z_radius){
+  cout << "DeltaViewer makeBlobModel : " << xy_radius << ", " << z_radius << endl;
+  int xy_r = xy_radius;
+  int z_r = z_radius;
+  float* model = blobManager->two_dim_model(xy_radius, z_radius);
+  if(xy_r != xy_radius || z_r != z_radius){
+    cerr << "makeBlobModel problem lets die" << endl;
+    exit(1);
+  }
+  imageBuilder->setGreyImage(model, (xy_radius + 1), (2 * z_radius + 1));
 }
 
 void DeltaViewer::mapCavities(int wi, int xr, int yr, int zr, float P, float DP){

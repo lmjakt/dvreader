@@ -25,24 +25,28 @@
 #ifndef FRAMESTACK_H
 #define FRAMESTACK_H
 
-#include "frame.h"
-#include "frameSet.h"
+//#include "frame.h"
+//#include "frameSet.h"
 #include "fileSetInfo.h"
 #include "../dataStructs.h"
 #include "borderInformation.h"
+#include "stack_stats.h"
 #include <map>
 #include <vector>
 #include <fstream>
 
 class Background;
 class IdMap;
+class Frame;
+class FrameSet;
+struct panel_bias;
 
 class FrameStack {
     public :
   //	enum POSITION {
   //	    LEFT, TOP, RIGHT, BOTTOM
   //	};
-    FrameStack(int* waveLengths, int waveNo, std::ifstream* inStream, float maxLevel);
+  FrameStack(int* waveLengths, int waveNo, std::ifstream* inStream, float maxLevel, int xy_margin);
     ~FrameStack();
     
     bool addFrame(const char* fname, std::ios::pos_type framePos, std::ios::pos_type readPos, std::ios::pos_type extHeadSize,
@@ -51,6 +55,8 @@ class FrameStack {
 
     bool addFrame(Frame* frame);
     void setBackgrounds(std::map<fluorInfo, Background*> backgrounds);
+    void setPanelBias(unsigned int wi, float scale, short bias);
+    void setBackgroundPars(unsigned int wi, int xm, int ym, float qnt, bool bg_subtract);
     // returns 0, if the frame is added to this stack
     // otherwise returns another frameStack
     std::ifstream* fileStream(){
@@ -111,7 +117,8 @@ class FrameStack {
     FrameInfo* frameInfo(){
 	return(frameInformation);
     }
-    void setContribMap(IdMap* idmap, ulong id);
+    void setContribMap(float* map);
+    void setContribMap(IdMap* idmap, ulong id);  // DEPRECATED GET RID OF IF THE ABOVE THING WORKS
     int left(){
 	return(pixelX);
     }
@@ -148,13 +155,14 @@ class FrameStack {
     // AT THE MOMENT THIS FUNCTION is trusting and doesn't check to make sure the numbers make any sense.. but.. 
 
     void setBorders();  // uses neighbours to set the borders. Should be called after all adjustments
-
+    int nearestBorderGlobal(int x, int y);
 
     // and a function for setting the neighbour
     bool setNeighbour(FrameStack* neibour, int pos, bool recip=true);   // pos is 0, 1, 2, 3 going from left neighbour to bottom neighbour in clockwise order
-    std::vector<overlap_data*> adjustNeighbourPositions(unsigned int secNo, unsigned int rolloff, int instep, int window, int px, int py);         // do something smart to check the relative positions of the neighbours.. .. px and py are the panel positions of the panel being called.. 
-//    std::vector<overlap_data*> adjustNeighbourPositions(unsigned int secNo, float wavelength, unsigned int rolloff, int instep, int window, int px, int py);         // do something smart to check the relative positions of the neighbours.. .. px and py are the panel positions of the panel being called.. 
-    offsets findNeighbourOffset(FrameStack* neighbour, float* neighbourArea, int nx1, int ny1, float* thisArea, int x1, int y1, int& areaW, int& areaH);  // goes through all colors.. 
+    // do something smart to check the relative positions of the neighbours.. .. px and py are the panel positions of the panel being called.. 
+    std::vector<overlap_data*> adjustNeighbourPositions(unsigned int secNo, unsigned int rolloff, int instep, int window, int px, int py);         
+
+    offsets findNeighbourOffset(FrameStack* neighbour, float* neighbourArea, int nx1, int ny1, float* thisArea, int x1, int y1, int& areaW, int& areaH); 
 
     void determineFocalPlanes(unsigned int rolloff);  // determine the focal planes for each frameStack.. 
     void adjustPosition(int dx, int dy, POSITION n, float setAdjustmentFlag=0);
@@ -173,42 +181,32 @@ class FrameStack {
 	}
 	return(false);
     }
-//    void adjustPosition(float dx, float dy);
-
-
-    // only works if the neighbours have been set.. 
-    // rolloff is the rolloff area created by the deconvolution..
-    // instep is the number of pixels within this rolloff position that we will take the line from
-    // window is the +/- area that we'll search 
-    // This function does no errorchecking of the position, but assuming that the relative position is correct it does something.. 
-    bool readToRGB(float* dest, float xpos, float ypos, float dest_width, 
-		   float dest_height, unsigned int dest_pwidth, 
-		   unsigned int dest_pheight, unsigned int slice_no,
-		   std::vector<channel_info> chinfo, raw_data* raw=0);
-    //		   float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, bool bg_sub, raw_data* raw=0);
 
     bool readToRGB(float* dest, int xpos, int ypos, 
 		   unsigned int dest_width, unsigned int dest_height, unsigned int slice_no, 
 		   std::vector<channel_info> chinfo, raw_data* raw=0); 
-    //		   std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, bool bg_sub, raw_data* raw=0);
 
-
-    bool mip_projection(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int dest_pwidth, unsigned int dest_pheight,
-			float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0);
 
     bool mip_projection(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height,
 			float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0);
 
     // the below function is used when determining the position of the frame stack
-    // do not use it for other purposes.
+    // do not use it for other purposes. (it does not call global_to_local, requires local coordinates?)
     bool readToFloat(float* dest, unsigned int xb, unsigned int iwidth, unsigned int yb, 
     		     unsigned int iheight, unsigned int secNo, unsigned int waveIndex, float maxLevel);   // simply read the appropriate pixels in.. 
 
     bool readToFloat(float* dest, int xb, int iwidth, int yb, 
-		     int iheight, int zb, int idepth,  unsigned int waveIndex, float maxLevel);   // simply read the appropriate pixels into a volume.. 
-    bool readToShort(unsigned short* dest,unsigned int xb, unsigned int iwidth, unsigned int yb, 
+		     int iheight, int zb, int idepth,  unsigned int waveIndex, float maxLevel, bool use_cmap=false);   // simply read the appropriate pixels into a volume.. 
+    bool readToShort(unsigned short* dest, unsigned int xb, unsigned int iwidth, unsigned int yb, 
 		     unsigned int iheight, unsigned int secNo, unsigned int waveIndex);
+
+    // reads the whole frame info. Assumes that dest is the right size.
+    bool readToShort(unsigned short* dest, unsigned int secNo, unsigned int waveIndex);
       
+    // return stack_stats for a subset of the image (to reduce the size of data needed to calculate stuff.
+    stack_stats stackStats(int xb, int yb, int s_width, int s_height, unsigned int waveIndex);
+    stack_stats stackStats(int xb, int yb, int zb, int s_width, int s_height, int s_depth, unsigned int waveIndex);
+
     bool readToFloatPro(float* dest, unsigned int xb, unsigned int iwidth, unsigned int yb, 
 			unsigned int iheight, unsigned int wave);   // simply read the appropriate pixels in.. 
 
@@ -231,6 +229,7 @@ class FrameStack {
     // raw_data if defined should have enough space for all the appropriate wavelengths and pixels
 
     private :
+    std::map<unsigned int, panel_bias*> panelBiasMap; // set when setting things.
     std::map<float, FrameSet*> sectionMap;   // this will organise everything into some sort of reasonable state..
     std::vector<FrameSet*> sections;         // do I actually use this.. ? 
     std::ifstream* in;
@@ -253,7 +252,8 @@ class FrameStack {
     unsigned int pWidth, pHeight;   // pixel height and pixel number.
     int pixelX, pixelY;    // the begin position in pixel coordinates (this has to be set by the owner as frameStack itself can't know
     float maxIntensity;
-
+    int margin;             // the amount of margin in the xy_space. Set at the beginning of construction.
+    
     int* wave_lengths;
     int wave_no;            // for making frameSets...
     std::vector<float> fwaves;  // for useful things.. 

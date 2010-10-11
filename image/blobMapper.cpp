@@ -1,5 +1,7 @@
 #include "blobMapper.h"
+#include "blobModel.h"
 #include <iostream>
+#include <fstream>
 #include <stdlib.h>
 
 using namespace std;
@@ -544,6 +546,17 @@ blob* BlobMapper::peaksWithinBlob(blob* b, BlobMapper* mapper){
     return(ob);
 }
 
+// Accumulates a model from all currently active blobs
+// then returns the things.. 
+float* BlobMapper::two_dim_model(int& s_range, int& z_radius){
+  BlobModel bm(0, 0, 0, 1.0, s_range, z_radius);
+  for(set<blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
+    if((*it)->active)
+      setModel(&bm, *it);
+  }
+  return(bm.model(s_range, z_radius));  // if s_range or z_radius is < 0 they'll be converted to positive values
+}
+
 float BlobMapper::g_value(off_set p){
     int x, y, z;
     toVol(p, x, y, z);
@@ -708,4 +721,15 @@ void BlobMapper::deleteBlobs(set<blob*> b){
     for(set<blob*>::iterator it=b.begin(); it != b.end(); ++it)
 	delete (*it);
     b.clear();
+}
+
+// add points to a blob model.
+void BlobMapper::setModel(BlobModel* model, blob* b){
+  int x, y, z;
+  toVol(b->peakPos, x, y, z);
+  model->setPeak(x, y, z, value(x, y, z));
+  for(uint i=0; i < b->points.size(); ++i){
+    toVol(b->points[i], x, y, z);
+    model->addPoint(x, y, z, value(x, y, z));
+  }    
 }

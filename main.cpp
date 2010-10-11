@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include <map>
 #include <vector>
+#include <string>
 
 using namespace std;
 
@@ -46,7 +47,8 @@ int main(int argc, char** argv){
     int c;
     map<string, string> opt_commands;
     vector<char*> non_options;
-    while( (c = getopt(argc, argv, "-s:b:d:-c:-r:")) != -1){
+    int xyMargin = 32;
+    while( (c = getopt(argc, argv, "-s:b:d:-c:-r:m:")) != -1){
       switch(c){
       case 's':
 	opt_commands["find_spots"] = optarg;
@@ -63,6 +65,9 @@ int main(int argc, char** argv){
       case 'r':
 	opt_commands["rangeFile"] = optarg;
 	break;
+      case 'm':
+	xyMargin = atoi(optarg);
+	break;
       case 1 :
 	non_options.push_back(optarg);
       break;
@@ -77,6 +82,7 @@ int main(int argc, char** argv){
 //     for(map<string, string>::iterator it=opt_commands.begin(); it != opt_commands.end(); ++it)
 // 	cout << (*it).first << " : " << (*it).second << endl;
 //     exit(1);
+
     
     // make a qapplication..
     QApplication::setStyle("cleanlooks");
@@ -87,7 +93,7 @@ int main(int argc, char** argv){
     if(non_options.size()){
 	ifName = non_options[0];
     }
-    DeltaViewer viewer(opt_commands, ifName);
+    DeltaViewer viewer(opt_commands, xyMargin, ifName);
     viewer.setContentsMargins(0, 0, 0, 0);
     app.setMainWidget(&viewer);
     viewer.show();

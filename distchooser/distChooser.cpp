@@ -59,6 +59,7 @@ DistChooser::DistChooser(string sName, int ds, QWidget* parent, const char* name
   highT = 1;     // default, select whole range..
   min = Min = 0;
   max = Max = 1;
+  maxCount = 1;  // avoid divide by 0;
   isZoomed = false;
   counts.resize(divs);          // initialises the vectors to a count of 0 if I remember correctly. 
   //logCounts.resize(divs);
@@ -69,7 +70,7 @@ DistChooser::DistChooser(string sName, int ds, QWidget* parent, const char* name
   values.resize(0);       // just make sure.. !
   lastX = 0;
   lastY = 0;              // just in case something goes horribly wrong.
-
+  
   setBackgroundMode(Qt::NoBackground);
 
   //  setPaletteBackgroundColor(QColor(201, 206, 221));       // a real light blue almost white. maybe it's terrible, but I feel like trying. 
@@ -93,21 +94,14 @@ DistChooser::~DistChooser(){
   // do nothing 
 }
 
-// void DistChooser::setData(vector<float> vf, float minV, float maxV, bool updateThresholds){
-//   // vector<int> ind(vf.size(), 1);
-//   values = vf;
-//   //indices = ind;        // hmm, surely there's a better way of doing that,, memcpy,, if t'was a normal array,, still
+void DistChooser::setData(float* f, unsigned int l, float minV, float maxV, bool updateThresholds){
+  // Need to rearrange this, but have not got so much time at the moment..
+  vector<float> v(l);
+  for(uint i=0; i < l; ++i)
+    v[i] = f[i];
+  setData(v, minV, maxV, updateThresholds);
+}
 
-//   setData();
-// }
-
-// void DistChooser::setData(vector<float> vf){
-//   vector<int> ind(vf.size(), 1);
-//   setData(ind, vf);
-// }
-
-//void DistChooser::setData(vector<int> ind, vector<float> vf){
-//void DistChooser::setData(vector<float> vf){
 void DistChooser::setData(vector<float> vf, float minV, float maxV, bool updateThresholds){
   //indices = ind;
   values = vf;
@@ -124,25 +118,11 @@ void DistChooser::setData(vector<float> vf, float minV, float maxV, bool updateT
     lowT = 0;
     highT = 1;
   }
-//   Min = values[0];
-//   Max = values[0];
-//   for(int i=0; i < values.size(); i++){
-//       if(Min > values[i]) { Min = values[i]; }
-//     if(Max < values[i]) { Max = values[i]; }
-//   }
-//   if(!isZoomed){
-//     min = Min;
-//     max = Max;
-//   }
-//   lowT = 0;
-//   highT = 1;          // set the thresholds so that everything is sorted.. 
+
   setData();
 }
 
 void DistChooser::setData(){
-  //cout << "Setting the data for dist Chooser " << endl;
-  //cout << "Setting data for " << statisticName << "\tvalues size " << values.size() << endl;
-  //cout << endl <<  "beginning of set data " << endl;
   if(values.size() == 0){ return; }
   counts.resize(divs);
   for(int i=0; i < divs; i++){
@@ -157,27 +137,14 @@ void DistChooser::setData(){
     }
   }
   maxCount = counts[0];
-  //logMaxCount = logCounts[0];
   for(int i=0; i < divs; i++){
     if(maxCount < counts[i]) { maxCount = counts[i]; }
-    //if(logMaxCount < logCounts[i]) { logMaxCount = logCounts[i]; }
   }
 
-
-  // in fact, that is all we need to do. 
-  // cout << endl << endl << "THIS IS JUST at the end of setData, aand height is " << height() << endl << endl;
   update();        // which causes the thing to plot.. 
 }
 
-// void DistChooser::setLog(bool useLog){
-//   logValues = useLog;
-// }
-
 void DistChooser::paintEvent(QPaintEvent* e){
-  //cout << "painting the distribution " << endl;
-  //     << "maxCount is " << maxCount << endl;
-  // well paint the bugger..
-
   if(!maxCount){ maxCount = 1; }   // avoid divide by 0.. 
   int pointsize = qApp->font().pointSize();
   QPixmap pix(width(), height());
@@ -207,13 +174,6 @@ void DistChooser::paintEvent(QPaintEvent* e){
   for(int i=0; i < divs; i++){
     int x = lm + (int)( (float)w*((float)i/(float)divs));
     int y = ys;      // the default (i.e. 0 value)
-//     if(logValues){
-//       if(logMaxCount){
-// 	y = ys - (int)((float)h * ((float)logCounts[i]/(float)logMaxCount));
-// 	//	y = height() - (int)((float)height()* ((float)logCounts[i]/(float)logMaxCount));
-//       }
-//     }else{
-//    
     y = ys - (int)((float)h * ((float)counts[i]/(float)maxCount));
 
     
@@ -245,9 +205,6 @@ void DistChooser::paintEvent(QPaintEvent* e){
   
   int xTickno = width() / 60;
   int yTickno = height() / 30;
-  //cout << "x ticks : " << xTickno << "\ty ticks : " << yTickno << endl; 
-  //  int xTickno = 5;
-  //int yTickno = 5;    // later adjust these dependent on the dimensions of the widget
   QString tickLabel;  // for the numbers
   int tickLength = 5;
   int tickCount;   // the count.. 
@@ -258,9 +215,6 @@ void DistChooser::paintEvent(QPaintEvent* e){
       p->drawLine(lm, y, lm-tickLength, y);
       tickCount = (i * maxCount)/yTickno;
       tickLabel.setNum(tickCount);
-      //    tickLabel.sprintf("%1.1e", (float)tickCount);
-      //cout << tickLabel << "\t: and the count " << tickCount << endl;
-      //cout << "and M_E defined in math.h is " << M_E << endl;
       p->drawText(0, y - 5, lm-2-tickLength, 16, Qt::AlignRight, tickLabel);
     }
   }
@@ -269,19 +223,14 @@ void DistChooser::paintEvent(QPaintEvent* e){
   double tickValue;
   if(xTickno > 0){
     for(int i=0; i <= xTickno; i++){
-      //  cout << " x tick calculation.. hmm. i : " << i << endl;
       int x = lm + (i * w)/xTickno;
       p->drawLine(x, ys, x, ys+tickLength);
       // and now work out the value
       tickValue = ((float)((float)i/(float)xTickno) * (max - min)) + min;      // this now is the log value we can pow that by M_E,, 
       tickLabel.sprintf("%1.1e", tickValue);
-      //cout << "\t\tend of x calculation " << endl;
-      p->drawText(x-20, ys + tickLength + 2, 40, 16, Qt::AlignHCenter, tickLabel);
+      p->drawText(x-width(), ys + tickLength + 2, 2*width(), 16, Qt::AlignHCenter, tickLabel);
     }
   }
-  //cout << "Max : " << max << "\tlog Max : " << log(max) << "\tMin : " << min << "\tlog(Min) : " << log(min) << endl;
-  // lets draw some statistics in the corner. Reserve 100 pixels from the righthand side and draw there
-  // just use the tickLabel QString for the labels..
   int textSpace = 115;
   int rowHeight = 11;
   int topSpace = 8;
@@ -323,8 +272,6 @@ void DistChooser::paintEvent(QPaintEvent* e){
     tickLabel.prepend("Selected :");
     topSpace += rowHeight;
     p->drawText(width()-textSpace, topSpace, textSpace, rowHeight, Qt::AlignLeft, tickLabel);
-  //cout << "lowT : " << lowT << "\thighT : " << highT << endl;
-  //cout << "total num: " << tooLowNo + tooHighNo + selectedNo << endl;
   }
   /// whoa this is getting a little long.. oh well never mind.. OK, draw some little boxes we can use as buttons..
   // in the right hand side margin..
