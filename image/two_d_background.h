@@ -10,13 +10,23 @@ class Two_D_Background
   Two_D_Background();
   ~Two_D_Background();
 
+  bool setParameters(float qnt, int cw, int ch);
+  bool setBackground(int w, int h, unsigned short* data);
+  bool setBackground(int w, int h, float* data);
+  bool backgroundSet();
+
   bool setBackground(float qnt, int cw, int ch, int w, int h, float* data);
   bool setBackground(float qnt, int cw, int ch, int w, int h, unsigned short* data);
   
   // inline this to make it faster (eg if making a whole image background slice)
   float bg(int x, int y){
+    if(!background)
+      return(0);
     int xb = (x - cell_width/2) / cell_width;
     int yb = (y - cell_height/2) / cell_height;
+    
+    //int xb = x  / cell_width;
+    //int yb = y  / cell_height;
     
     // as long as x and y are not negative, then the smallest value we'll get here will
     // be -0.5, which will be rounded to 0. So this should be a safe way of finding the appropriate

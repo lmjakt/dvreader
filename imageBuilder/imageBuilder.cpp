@@ -2,6 +2,7 @@
 #include "panels/fileSet.h"
 #include "opengl/glImage.h"
 #include "centerFinder.h"
+#include "imStack.h"
 #include "../dataStructs.h"
 #include "../image/two_d_background.h"
 #include "../image/spectralResponse.h"
@@ -15,10 +16,13 @@
 #include <iostream>
 #include <stdlib.h>
 #include <sstream>
+#include <unistd.h>
+#include <QTextStream>
 
 using namespace std;
 
-ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch)
+ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* parent)
+  : QObject(parent)
 {
   data = fs;
   texture_size = 1024;  // this must be an even 2^n
@@ -56,7 +60,15 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch)
   general_functions["set_frame_bgpar"] = &ImageBuilder::setFrameBackgroundPars;
   general_functions["find_center"] = &ImageBuilder::findCenter;
   general_functions["f_project"] = &ImageBuilder::build_fprojection;
+  general_functions["fg_project"] = &ImageBuilder::build_fgprojection;
   general_functions["add_slice"] = &ImageBuilder::addSlice;
+  general_functions["blur_stack"] = &ImageBuilder::blurStack;
+  general_functions["deblur_stack"] = &ImageBuilder::deBlurStack;
+  general_functions["loop_stack"] = &ImageBuilder::loopStack;
+  general_functions["loop_xz"] = &ImageBuilder::loopXZ;
+  general_functions["stack_xz"] = &ImageBuilder::stack_xzSlice;
+  general_functions["stack_yz"] = &ImageBuilder::stack_yzSlice;
+  general_functions["set_stack_par"] = &ImageBuilder::setStackPar;
   //general_functions["p_mean"] = &ImageBuilder::p_mean_panel;  // may be useful to do things like blurring.
 
 }
@@ -68,6 +80,9 @@ ImageBuilder::~ImageBuilder()
   delete []sBuffer;
   // I may need to delete the distributions separately, not sure,,
   delete distTabs;
+  for(map<QString, ImStack*>::iterator it=imageStacks.begin();
+      it != imageStacks.end(); ++it)
+    delete (*it).second;
 }
 
 bool ImageBuilder::buildSlice(std::set<unsigned int> wi, unsigned int slice)
@@ -241,6 +256,10 @@ void ImageBuilder::build_fprojection(f_parameter& par)
   par.param("w", width); par.param("h", height); par.param("x", x); par.param("y", y);
   par.param("cmap", use_cmap);
 
+  QString stackName;
+  bool saveStack = par.param("f_stack", stackName);
+  if(saveStack)
+    cerr << "build_fprojection no stack saving mechanism set yet. Use fg_project with r=0 instead" << endl;
   bool clear = true;
   par.param("clear", clear);
   if(clear)
@@ -259,6 +278,93 @@ void ImageBuilder::build_fprojection(f_parameter& par)
   }
   setRGBImage(rgbData, data->pwidth(), data->pheight());  // hmm 
   delete []pbuffer;
+}
+
+void ImageBuilder::build_fgprojection(f_parameter& par)
+{
+  unsigned int wi;
+  if(!par.param("wi", wi)){
+    cerr << "ImageBuilder::build_fgprojection need to specify wave indes (wi)" << endl;
+    return;
+  }
+  if(wi > channels.size()){
+    cerr << "ImageBuilder::build_fgprojection wave index too large" << endl;
+    return;
+  }
+  unsigned int radius;
+  if(!par.param("radius", radius) && !par.param("r", radius)){
+    cerr << "Need to specify gaussian radius (r or radius)" << endl;
+    return;
+  }
+  bool use_cmap = true;
+  par.param("cmap", use_cmap);
+
+  bool clear = true;  // do we clear the rgbImage ? 
+  par.param("clear", clear); 
+
+  uint x=0; 
+  uint y=0;
+  uint z=0;
+  uint w = data->pwidth();
+  uint h = data->pheight();
+  uint d = data->sectionNo();
+  ///// but using these defaults is a bit dangerous as this function will require 
+  ///// a 3 * w * h * d * sizeof(float) memory. (The 3d gaussian takes two, and
+  ///// one for the original stack..
+  //    and then a few different ones for the various bits and pieces..
+  
+  par.param("x", x); par.param("y", y); par.param("z", z);
+  par.param("w", w); par.param("h", h); par.param("d", d);
+  
+  // sanity check.
+  x = (int)x >= data->pwidth() ? 0 : x;
+  y = (int)y >= data->pheight() ? 0 : y;
+  z = (int)z >= data->sectionNo() ? 0 : z;
+  w = (int)(x + w) < data->pwidth() ? w : (data->pwidth() - x);
+  h = (int)(y + h) < data->pheight() ? h : (data->pheight() - y);
+  d = (int)(z + d) < data->sectionNo() ? d : (data->sectionNo() - z);
+  if(!w || !h || !d){
+    cerr << "ImageBuilder::build_fgprojection bad dimensions specified" << endl;
+    return;
+  }
+  // which should be safe though we might run out of memory.. 
+  float* stack = new float[w * h * d];
+  memset((void*)stack, 0, sizeof(float) * w * h * d);
+  // and then simply ..
+  if(!data->readToFloat(stack, x, y, z, w, h, d, wi, use_cmap)){
+    delete []stack;
+    cerr << "ImageBuilder::fg_projection unable to read from panels. " << endl;
+    return;
+  }
+
+  unsigned int blur_repeat = 1;
+  par.param("brep", blur_repeat);
+  float* bl_stack = stack;
+  if(radius){
+    for(uint i=0; i < blur_repeat; ++i){
+      bl_stack = gaussian_blur_3d(stack, w, h, d, radius);
+      delete []stack;
+      stack = bl_stack;
+    }
+    if(!bl_stack){
+      cerr << "ImageBuilder::fg_projection failed to blur stack" << endl;
+      delete []stack;
+      return;
+    }
+  }
+  // and then simply make a projection from the stack.. 
+  float* projection = projectStack_f(bl_stack, w, h, d);
+
+  toRGB(projection, rgbData, channels[wi], (w * h), x, y, w, h, clear);
+  delete []projection;
+  QString stackName;
+  if(par.param("fg_stack", stackName)){
+    ImStack* stack = new ImStack(bl_stack, channels[wi], x, y, z, w, h, d);
+    updateStacks(stackName, stack, true);
+  }else{
+    delete []bl_stack;
+  }
+  setRGBImage(rgbData, data->pwidth(), data->pheight());
 }
 
 bool ImageBuilder::addBackground(unsigned int wi, unsigned int slice, color_map cm)
@@ -555,6 +661,16 @@ unsigned short* ImageBuilder::buildShortMCPProjection(unsigned short* p_buffer, 
   return(p_buffer);
 }
 
+float* ImageBuilder::projectStack_f(float* stack, unsigned int w, unsigned int h, unsigned int d)
+{
+  if(!w || !h || !d)
+    return(0);
+  float* projection = new float[w * h];
+  memset((void*)projection, 0, sizeof(float) * w * h);
+  for(uint z=0; z < d; ++z)
+    maximize(projection, stack + (w * h * z), (w * h));
+  return(projection);
+}
 
 void ImageBuilder::maximize(unsigned short* a, unsigned short* b, unsigned long l)
 {
@@ -711,7 +827,7 @@ void ImageBuilder::toRGB(float* fb, float* rgb, channel_info& ci, unsigned long 
 {
   // In any case if clear is true, then lets clear..
   if(clear)
-    memset((void*)rgbData, 0, sizeof(float) * data->pwidth() * data->pheight());
+    memset((void*)rgbData, 0, sizeof(float) * data->pwidth() * data->pheight() * 3);
   // the rgbData defaults to the size of data->pwidth() * data->pheight() 
   // make sure that the x_off + y_off etc don't cause problems.
   // for argument's sake we do allow negative offsets, but these are considered off
@@ -964,6 +1080,27 @@ void ImageBuilder::drawCircle(float* image, int imWidth, int imHeight, int x, in
   }
 } 
 
+void ImageBuilder::updateStacks(QString& name, ImStack* stack, bool add)
+{
+  if(!add && !imageStacks.count(name))
+    return;
+  QString description;
+  QTextStream qts(&description);
+  qts << name << " : " << stack->description().c_str();
+  if(add){
+    if(imageStacks.count(name)){
+      delete imageStacks[name];
+      imageStacks.erase(name);
+      emit stackDeleted(description);
+    }
+    imageStacks.insert(make_pair(name, stack));
+    emit stackCreated(description);
+    return;
+  }
+  delete imageStacks[name];
+  imageStacks.erase(name);
+  emit stackDeleted(description);
+}
 
 // A simple function. Returns a float* representation of a single slice
 // for a single channel. Image width and height are taken from the appropriate
@@ -1204,8 +1341,7 @@ void ImageBuilder::setFrameBackgroundPars(f_parameter& par)
   data->setBackgroundPars((unsigned int)wi, xm, ym, qnt, bg_sub);
 }
 
-void ImageBuilder::addSlice(f_parameter& par)
-{
+void ImageBuilder::addSlice(f_parameter& par){
   vector<unsigned int> ch;
   if(!par.param("ch", ',', ch) && !par.param("wi", ',', ch)){  // allow both ch= and wi=
     cerr << "ImageBuilder::addSlice please specify the channels ch=1,2,3 or wi=1,2,3 etc.." << endl;
@@ -1251,6 +1387,84 @@ void ImageBuilder::addSlice(f_parameter& par)
   
 }
 
+void ImageBuilder::blurStack(f_parameter& par)
+{
+  QString stackName;
+  if(!par.param("stack", stackName) || !imageStacks.count(stackName)){
+    cerr << "ImageBuilder::blurStack stack not specified or unknown : " << stackName.toAscii().constData() << endl;
+    return;
+  }
+  ImStack* imStack = imageStacks[stackName];
+  unsigned int wi=0;
+  par.param("wi", wi);
+  unsigned int radius = 4;
+  if(!par.param("r", radius) && !par.param("radius", radius))
+    cerr << "No radius specified, defaulting to a radius of " << radius << endl;
+  QString blurStack;
+  bool addNewStack;
+  addNewStack = par.param("out", blurStack);
+  float* stack = imStack->stack(wi);
+  if(!stack){
+    cerr << "ImageBuilder::blurStack, unable to obtain stack from " << stackName.toAscii().constData() << " (" << wi << ")" << endl;
+    return;
+  }
+  float* bl_stack = gaussian_blur_3d(stack, imStack->w(), imStack->h(), imStack->d(), radius);
+  if(!bl_stack){
+    cerr << "ImageBuilder::blurStack did not receive a blurred stack from gaussian function" << endl;
+    return;
+  }
+  if(!addNewStack){
+    if(!imStack->setData(bl_stack, wi)){
+      delete []bl_stack;
+    }
+    return;
+  }
+  // in this case we want to make a new image stack..
+  channel_info cinfo = imStack->cinfo(wi);
+  ImStack* newStack = new ImStack(bl_stack, cinfo, imStack->xp(), imStack->yp(), imStack->zp(),
+				  imStack->w(), imStack->h(), imStack->d());
+  updateStacks(blurStack, newStack, true);
+}
+
+void ImageBuilder::deBlurStack(f_parameter& par)
+{
+  QString stackName;
+  if(!par.param("stack", stackName) || !imageStacks.count(stackName)){
+    cerr << "ImageBuilder::deBlurStack stack not specified or unknown : " << stackName.toAscii().constData() << endl;
+    return;
+  }
+  ImStack* imStack = imageStacks[stackName];
+  unsigned int wi=0;
+  par.param("wi", wi);
+  unsigned int radius = 4;
+  if(!par.param("r", radius) && !par.param("radius", radius))
+    cerr << "No radius specified, defaulting to a radius of " << radius << endl;
+  QString blurStack;
+  bool addNewStack;
+  addNewStack = par.param("out", blurStack);
+  float* stack = imStack->stack(wi);
+  if(!stack){
+    cerr << "ImageBuilder::blurStack, unable to obtain stack from " << stackName.toAscii().constData() << " (" << wi << ")" << endl;
+    return;
+  }
+  float* bl_stack = gaussian_deblur_3d(stack, imStack->w(), imStack->h(), imStack->d(), radius);
+  if(!bl_stack){
+    cerr << "ImageBuilder::blurStack did not receive a blurred stack from gaussian function" << endl;
+    return;
+  }
+  if(!addNewStack){
+    if(!imStack->setData(bl_stack, wi)){
+      delete []bl_stack;
+    }
+    return;
+  }
+  // in this case we want to make a new image stack..
+  channel_info cinfo = imStack->cinfo(wi);
+  ImStack* newStack = new ImStack(bl_stack, cinfo, imStack->xp(), imStack->yp(), imStack->zp(),
+				  imStack->w(), imStack->h(), imStack->d());
+  updateStacks(blurStack, newStack, true);
+}
+
 // Get an averaged imaged of a load of tiles, then find center by finding maximum
 // rings.. 
 void ImageBuilder::findCenter(f_parameter& par)
@@ -1293,6 +1507,154 @@ void ImageBuilder::findCenter(f_parameter& par)
   
 }
 
+void ImageBuilder::loopStack(f_parameter& par)
+{
+  QString stackName;
+  if(!par.param("stack", stackName)){
+    cerr << "ImageBuilder::loopStack no stack name (stack) specified" << endl;
+    return;
+  }
+  if(!imageStacks.count(stackName)){
+    cerr << "ImageBuilder::loopStack no stack called : " << stackName.toAscii().constData() << endl;
+    return;
+  }
+  // but don't use yet, as we don't have the ability to clear only a small area..
+  bool clearImage = true;
+  par.param("clear", clearImage);
+  unsigned int n = 1;
+  par.param("n", n);
+  ImStack* stack = imageStacks[stackName];
+  unsigned int msleep = 100;
+  par.param("ms", msleep);
+  unsigned int zb=0; unsigned int ze=stack->d();
+  par.param("zb", zb); par.param("ze", ze);
+  ze = ze > stack->d() ? stack->d() : ze;
+  for(uint i=0; i < n; ++i){
+    for(unsigned int dz=zb; dz < ze; ++dz){
+      memset((void*)rgbData, 0, sizeof(float) * data->pwidth() * data->pheight() * 3);
+      for(uint ch=0; ch < stack->ch(); ++ch){
+	channel_info cinfo = stack->cinfo(ch);
+	toRGB( stack->image(ch, dz + stack->zp()), rgbData,
+	       cinfo, (unsigned long)(stack->w() * stack->h()), stack->xp(), stack->yp(),
+	       (int)stack->w(), (int)stack->h(), false );
+      }
+      setRGBImage(rgbData, data->pwidth(), data->pheight());
+      usleep(msleep * 1000);
+    }
+  }
+}
+
+void ImageBuilder::loopXZ(f_parameter& par)
+{
+  QString stackName;
+  if(!par.param("stack", stackName)){
+    cerr << "ImageBuilder::loopStack no stack name (stack) specified" << endl;
+    return;
+  }
+  if(!imageStacks.count(stackName)){
+    cerr << "ImageBuilder::loopStack no stack called : " << stackName.toAscii().constData() << endl;
+    return;
+  }
+  // but don't use yet, as we don't have the ability to clear only a small area..
+  bool clearImage = true;
+  par.param("clear", clearImage);
+  ImStack* stack = imageStacks[stackName];
+  unsigned int msleep = 10;
+  par.param("ms", msleep);
+  unsigned int wi = 0;
+  par.param("wi", wi);
+  wi = wi < stack->ch() ? wi : 0;
+  unsigned int yb = 0;
+  unsigned int ye = stack->h();
+  channel_info cinfo = stack->cinfo(wi);
+  for(unsigned int yp=yb; yp < ye; ++yp){
+    int slice_width, slice_height;
+    float* slice = stack->xz_slice(wi, yp, slice_width, slice_height);
+    if(clearImage)
+      memset((void*)rgbData, 0, sizeof(float) * data->pwidth() * data->pheight() * 3);
+    toRGB( slice, rgbData, cinfo, slice_width * slice_height, stack->xp(), stack->yp() + (stack->h() / 2),
+	   slice_width, slice_height, false );
+    setRGBImage(rgbData, data->pwidth(), data->pheight());
+    delete []slice;
+    usleep(msleep * 1000);
+  }
+}
+
+void ImageBuilder::stack_xzSlice(f_parameter& par)
+{
+  QString stackName;
+  if(!par.param("stack", stackName))
+    return;
+  if(!imageStacks.count(stackName))
+    return;
+  ImStack* stack = imageStacks[stackName];
+  bool clearImage = true;
+  par.param("clear", clearImage);
+  unsigned int ypos = stack->w() / 2;
+  par.param("yp", ypos);
+  unsigned int wi = 0;
+  par.param("wi", wi);
+  int slice_width, slice_height;
+  float* slice;
+  if( !( slice = stack->xz_slice(wi, ypos, slice_width, slice_height) )){
+    cerr << "ImageBuilder::stack_xzSlice imStack->xz_slice returned false" << endl;
+    return;
+  }
+  if(clearImage)
+    memset((void*)rgbData, 0, sizeof(float) * data->pwidth() * data->pheight() * 3);
+  channel_info cinfo = stack->cinfo(wi);
+  toRGB( slice, rgbData, cinfo, slice_width * slice_height, stack->xp(), 
+	 stack->yp() + ypos - slice_height / 2, slice_width, slice_height, false );
+  setRGBImage(rgbData, data->pwidth(), data->pheight());
+  delete []slice;
+}
+
+void ImageBuilder::stack_yzSlice(f_parameter& par)
+{
+  QString stackName;
+  if(!par.param("stack", stackName))
+    return;
+  if(!imageStacks.count(stackName))
+    return;
+  ImStack* stack = imageStacks[stackName];
+  bool clearImage = true;
+  par.param("clear", clearImage);
+  unsigned int xpos = stack->h() / 2;
+  unsigned int wi = 0;
+  par.param("wi", wi);
+  int slice_width, slice_height;
+  float* slice;
+  if( !( slice = stack->yz_slice(wi, xpos, slice_width, slice_height) )){
+    cerr << "ImageBuilder::stack_xzSlice imStack->xz_slice returned false" << endl;
+    return;
+  }
+  if(clearImage)
+    memset((void*)rgbData, 0, sizeof(float) * data->pwidth() * data->pheight() * 3);
+  channel_info cinfo = stack->cinfo(wi);
+  toRGB( slice, rgbData, cinfo, slice_width * slice_height, stack->xp() + xpos - slice_width / 2, 
+	 stack->yp(), slice_width, slice_height, false );
+  setRGBImage(rgbData, data->pwidth(), data->pheight());
+  delete []slice;
+}
+
+void ImageBuilder::setStackPar(f_parameter& par)
+{
+  unsigned int wi = 0;
+  QString param;
+  QString stackName;
+  if(!par.param("par", param) || !par.param("stack", stackName))
+    return;
+  par.param("wi", wi);
+  if(!imageStacks.count(stackName))
+    return;
+  if(param == "sandb"){
+    float scale, bias;
+    if(!par.param("s", scale) || !par.param("b", bias))
+      return;
+    imageStacks[stackName]->set_sandb(wi, scale, bias);
+  }
+}
+
 // this function may destroy image. image should be set to the return value.
 // it would probably be safer to take a pointer or reference to image, but.. 
 float* ImageBuilder::modifyImage(int x, int y, int w, int h, float* image, f_parameter& par)
@@ -1323,6 +1685,7 @@ float* ImageBuilder::modifyImage(int x, int y, int w, int h, float* image, f_par
   }
   return(image);
 }
+
 
 p_parameter ImageBuilder::f_to_p_param(f_parameter& fp, int w, int h, int xo, int yo, float* img)
 {

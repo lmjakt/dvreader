@@ -4,6 +4,7 @@
 #include <vector>
 #include <set>
 #include <QString>
+#include <QObject>
 #include <map>
 #include "p_parameter.h"
 #include "f_parameter.h"
@@ -14,14 +15,17 @@ class GLImage;
 // hack. We should find a better way of handling them.
 class DistChooser;
 class TabWidget;
+class ImStack;
 
 struct channel_info;
 struct color_map;
 struct backgroundPars;
 
-class ImageBuilder {
+class ImageBuilder : public QObject 
+{
+  Q_OBJECT
  public:
-  ImageBuilder(FileSet* fs, std::vector<channel_info>& ch);
+  ImageBuilder(FileSet* fs, std::vector<channel_info>& ch, QObject* parent=0);
   ~ImageBuilder();
 
   bool buildSlice(std::set<unsigned int> wi, unsigned int slice);
@@ -58,6 +62,9 @@ class ImageBuilder {
   // obtain some useful parameters..
   void getStackStats(unsigned int wi, int xb, int yb, int zb, int s_width, int s_height, int s_depth);
 
+ signals:
+  void stackCreated(QString);
+  void stackDeleted(QString);
  private:
   GLImage* image;
   FileSet* data;
@@ -67,12 +74,14 @@ class ImageBuilder {
   std::vector<channel_info> channels;
   std::vector<DistChooser*> distributions; // specific functions update
   std::map<unsigned int, float> bg_spectrum;  // the expected spectral response of the background.
+  std::map<QString, ImStack*> imageStacks;    // can be assigned by functions, 
   TabWidget* distTabs;
 
   bool buildShortProjection(unsigned short* p_buffer, unsigned int wi, unsigned int beg, unsigned int end);
   bool buildFloatProjection(float* p_buffer, unsigned int wi, int x, int y, int width, int height,
 			    unsigned int beg, unsigned int end, bool use_cmap);
   unsigned short* buildShortMCPProjection(unsigned short* p_buffer, unsigned int wi, unsigned int beg, unsigned int end);
+  float* projectStack_f(float* stack, unsigned int w, unsigned int h, unsigned int d);
   void maximize(unsigned short* a, unsigned short* b, unsigned long l);
   void maximize(float* a, float * b, unsigned long l);
   void maximize_by_cc(unsigned short* projection, unsigned short* ci, unsigned short* cp, unsigned short* cc, unsigned long l);
@@ -94,8 +103,12 @@ class ImageBuilder {
   float** getFloatImages(std::vector<unsigned int> ch, unsigned int slice, int x, int y, int w, int h, bool use_cmap=false);
   void deleteFloats(float** fl, unsigned int l);
   void toMean(float* mean, unsigned short* add, int l, float fraction);
-  
   void drawCircle(float* image, int imWidth, int imHeight, int x, int y, int r);
+
+  // imStack related stuff ..
+  // if add is true add to imageStacks, otherwise delete
+  // emit the correct signals..
+  void updateStacks(QString& name, ImStack* stack, bool add);
 
   // a number of functions that can be connected in a pipe (p_slice, etc..).
   typedef bool (ImageBuilder::*ps_function)(p_parameter& par);
@@ -111,10 +124,19 @@ class ImageBuilder {
   typedef void (ImageBuilder::*g_function)(f_parameter& par);
   std::map<QString, g_function> general_functions;
   void build_fprojection(f_parameter& par); // usets readToFloat instead of readToShort
+  void build_fgprojection(f_parameter& par);  // builds a projection from a blurred stack.
   void setPanelBias(f_parameter& par);
   void setFrameBackgroundPars(f_parameter& par);
   void addSlice(f_parameter& par);
+  void blurStack(f_parameter& par);
+  void deBlurStack(f_parameter& par);
   void findCenter(f_parameter& par);
+  void loopStack(f_parameter& par);
+  void loopXZ(f_parameter& par);
+  void stack_xzSlice(f_parameter& par);
+  void stack_yzSlice(f_parameter& par);
+  void setStackPar(f_parameter& par);
+  //  void stackSlice(f_parameter& par);
   
   // This can be used by any of the above, but it's not one of the general_functions itself
   // note that the below functin may destroy image if it returns a different image.. 

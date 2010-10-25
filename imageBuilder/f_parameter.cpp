@@ -107,6 +107,14 @@ bool f_parameter::param(QString par, string& s)
   return(true);
 }
 
+bool f_parameter::param(QString par, QString& str)
+{
+  if(!parameters.count(par))
+    return(false);
+  str = parameters[par];
+  return(true);
+}
+
 bool f_parameter::param(QString par, QChar sep, vector<int>& ints)
 {
   if(!parameters.count(par))

@@ -27,6 +27,8 @@ ImageBuilderWidget::ImageBuilderWidget(FileSet* fs, vector<channel_info> ch, QWi
   hashAlgorithm = QCryptographicHash::Md5;
   initialise();
   builder = new ImageBuilder(fs, ch);
+  connect(builder, SIGNAL(stackCreated(QString)), this, SLOT(objectCreated(QString)) );
+  connect(builder, SIGNAL(stackDeleted(QString)), this, SLOT(objectDeleted(QString)) );
   input = new CLineEdit(this);
   historySize = 1000;
   commandPos = 0;
@@ -35,11 +37,14 @@ ImageBuilderWidget::ImageBuilderWidget(FileSet* fs, vector<channel_info> ch, QWi
   output = new QPlainTextEdit();
   helpPage = new QPlainTextEdit();
   commandPage = new QPlainTextEdit();
+  objectPage = new QPlainTextEdit();
+  objectPage->setReadOnly(true);
   for(set<QString>::iterator it=saved_commands.begin(); it != saved_commands.end(); ++it)
     commandPage->appendPlainText((*it));
   outputTabs->insertTab(output, "History");
   outputTabs->insertTab(helpPage, "Help");
   outputTabs->insertTab(commandPage, "Commands");
+  outputTabs->insertTab(objectPage, "Objects");
 
   connect(input, SIGNAL(returnPressed()), this, SLOT(parseInput()) );
   connect(input, SIGNAL(arrowPressed(bool)), this, SLOT(repeatCommand(bool)) );
@@ -269,6 +274,32 @@ void ImageBuilderWidget::saveCommand(QString& cmd, string& dir_name)
   file.write(cmd.toAscii());
   file.close();
   cout << "File : " << file_path << " opened, written and closed" << endl; 
+}
+
+void ImageBuilderWidget::objectCreated(QString description)
+{
+  if(objectDescriptions.count(description))
+    return;
+  objectDescriptions.insert(description);
+  setObjectList();
+}
+
+void ImageBuilderWidget::objectDeleted(QString description)
+{
+  if(!objectDescriptions.count(description))
+    return;
+  objectDescriptions.erase(description);
+  setObjectList();
+}
+
+void ImageBuilderWidget::setObjectList()
+{
+  QString list;
+  QTextStream qts(&list);
+  for(set<QString>::iterator it=objectDescriptions.begin();
+      it != objectDescriptions.end(); ++it)
+    qts << (*it) << "\n";
+  objectPage->setPlainText(list);
 }
 
 void ImageBuilderWidget::parseInput(vector<QString> words)

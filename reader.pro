@@ -105,6 +105,7 @@ HEADERS		= \
 		tiff/tiffReader.h \
 		imageBuilder/imageBuilder.h \
 		imageBuilder/imageBuilderWidget.h \
+		imageBuilder/imStack.h \
 		imageBuilder/p_parameter.h \
 		imageBuilder/f_parameter.h \
 	       	imageBuilder/centerFinder.h \
@@ -203,6 +204,7 @@ SOURCES		= \
 		tiff/tiffReader.cpp \
 		imageBuilder/imageBuilder.cpp \
 		imageBuilder/imageBuilderWidget.cpp \
+		imageBuilder/imStack.cpp \ 
 		imageBuilder/p_parameter.cpp \
 		imageBuilder/f_parameter.cpp \
 		imageBuilder/centerFinder.cpp \

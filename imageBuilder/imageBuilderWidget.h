@@ -49,6 +49,7 @@ class ImageBuilderWidget: public QWidget
   QPlainTextEdit* output;
   QPlainTextEdit* helpPage;
   QPlainTextEdit* commandPage;
+  QPlainTextEdit* objectPage;
   ImageBuilder* builder;
   
   typedef void (ImageBuilderWidget::*w_function)(std::vector<QString> words);
@@ -58,7 +59,7 @@ class ImageBuilderWidget: public QWidget
 
   //std::map<QString, Task> tasks;
   std::map<QString, QString> helpStrings;
-
+  std::set<QString> objectDescriptions;
   // the following functions parse the words within ImageBuilderWidget
   void parseInput(std::vector<QString> words);
   void setParameter(std::vector<QString> words);
@@ -99,6 +100,10 @@ class ImageBuilderWidget: public QWidget
   void readSavedCommands(std::string dir_name);
   void saveSelectedCommands();
   void saveCommand(QString& cmd, std::string& dir_name);
+
+  void objectCreated(QString);
+  void objectDeleted(QString);
+  void setObjectList();
 };
 
 #endif

@@ -36,28 +36,28 @@ using namespace std;
 // don't do any error checking as this function should only be used from within this 
 // class. (Maybe I should declare it in the .cpp file rather than in the .h 
 
-float td_bg::bg(int x, int y){
-  int xb = (x - x_m/2) / x_m;
-  int yb = (y - y_m/2) / y_m;
+// float td_bg::bg(int x, int y){
+//   int xb = (x - x_m/2) / x_m;
+//   int yb = (y - y_m/2) / y_m;
 
-  // as long as x and y are not negative, then the smallest value we'll get here will
-  // be -0.5, which will be rouned to 0. So this should be a safe way of finding the appropriate
-  // points from which to interpolate.
+//   // as long as x and y are not negative, then the smallest value we'll get here will
+//   // be -0.5, which will be rouned to 0. So this should be a safe way of finding the appropriate
+//   // points from which to interpolate.
   
-  // xb and yb can be 0, but we need xb to be smaller than the the width and height of the background.
-  // note that this is not error checking as these are allowed values, but for which we need to make
-  // some compensation.
-  int bgw = w / x_m;
-  int bgh = h / y_m;
-  xb = xb < bgw - 1 ? xb : bgw - 2;
-  yb = yb < bgh - 1 ? yb : bgh - 2;
-  int pb = yb * bgw + xb;
+//   // xb and yb can be 0, but we need xb to be smaller than the the width and height of the background.
+//   // note that this is not error checking as these are allowed values, but for which we need to make
+//   // some compensation.
+//   int bgw = w / x_m;
+//   int bgh = h / y_m;
+//   xb = xb < bgw - 1 ? xb : bgw - 2;
+//   yb = yb < bgh - 1 ? yb : bgh - 2;
+//   int pb = yb * bgw + xb;
 
-  float bot = background[pb] + ((float)(x - bg_pos[pb].x) / (float)x_m) * (background[pb+1] - background[pb]);
-  float top = background[pb + bgw] + ((float)(x - bg_pos[pb+bgw].x) / (float)x_m) * (background[pb+bgw+1] - background[pb+bgw]);
-  float b = bot + ((float)(y - bg_pos[pb].y)/(float)y_m) * (top - bot);
-  return(b);
-}
+//   float bot = background[pb] + ((float)(x - bg_pos[pb].x) / (float)x_m) * (background[pb+1] - background[pb]);
+//   float top = background[pb + bgw] + ((float)(x - bg_pos[pb+bgw].x) / (float)x_m) * (background[pb+bgw+1] - background[pb+bgw]);
+//   float b = bot + ((float)(y - bg_pos[pb].y)/(float)y_m) * (top - bot);
+//   return(b);
+// }
 
 Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type readPos, std::ios::pos_type extHeadSize, 
 	     short numInt, short numFloat, unsigned short byteSize, 
@@ -66,11 +66,14 @@ Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type
   // we should try to remove all references to threeDBackground as we gave up on it previously
     threeDBackground = 0;
     // Instead use td_background (two dimensional specific to the frame)
-    background.x_m = 16;
-    background.y_m = 16;
-    background.quantile = 0.2;
-    background.w = width;
-    background.h = height;
+    background = new Two_D_Background();
+    background->setParameters(0.2, 16, 16);
+
+    // background.x_m = 16;
+    // background.y_m = 16;
+    // background.quantile = 0.2;
+    // background.w = width;
+    // background.h = height;
     // Instead of setting it elsewhere.. 
 
     contribMap = 0;
@@ -146,6 +149,7 @@ Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type
 
 Frame::~Frame(){
 //    delete in;  // this isn't owned by frame anymore .. 
+  delete background;
 }
 
 bool Frame::ok(){
@@ -315,7 +319,8 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
   // 3. Go through all values in the read position, do the transformation and 
 
   // The commented section refers to the use of a two dimensional background subtraction
-  if(chinfo.bg_subtract && !background.background){
+  //  if(chinfo.bg_subtract && !background.background){
+  if(chinfo.bg_subtract && !background->backgroundSet()){
     //cout << "Frame::readToRGB_s background subtraction requested: creating background object" << endl;
     // changing from true to false to true avoids an infinite loop or exit (as setBackground calls readToFloat which checks background).
     channelInfo.bg_subtract = false;
@@ -361,7 +366,7 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
     map = contribMap + (source_y + yp) * pWidth + source_x; 
     for(unsigned int xp = 0; xp < width; xp++){
       //bg = chinfo.bg_subtract ? chinfo.maxLevel * threeDBackground->bg(xp, yp, zp) : 0;
-      bg = chinfo.bg_subtract ? background.bg(xp, yp) : 0;
+      bg = chinfo.bg_subtract ? background->bg(xp + source_x, yp + source_y) : 0;
       //      bg = chinfo.bg_subtract ? chinfo.maxLevel * background.bg(xp, yp) : 0;
       // variants on how to use the data provided
       //	*raw = (float(*source) - bg)/maxLevel;
@@ -407,7 +412,7 @@ bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int sourc
   // 2. Seek to the appropriate position, and read into the buffer (necessary to do full width, but the height can ofcourse be done separately)
   // 3. Go through all values in the read position, do the transformation and 
   
-  if(channelInfo.bg_subtract && !background.background){
+  if(channelInfo.bg_subtract && !background->backgroundSet()){
     //  if(channelInfo.bg_subtract && !threeDBackground){
     channelInfo.bg_subtract=false;
     setBackground();
@@ -460,7 +465,7 @@ bool Frame::readToFloat_s(float* dest, unsigned int source_x, unsigned int sourc
     cmap = contribMap + (yp + source_y) * pWidth + source_x;
     for(unsigned int xp = 0; xp < width; xp++){
       //bg = channelInfo.bg_subtract ? channelInfo.maxLevel * threeDBackground->bg(xp, yp, zp) : 0;
-      bg = channelInfo.bg_subtract ? background.bg(xp, yp) : 0;
+      bg = channelInfo.bg_subtract ? background->bg(xp + source_x, yp + source_y) : 0;
 
       //      *dst = float(*source) / maxLevel;
       //*dst = (float(*source) - bg)/maxLevel;
@@ -501,8 +506,8 @@ void Frame::swapBytes(char* data, unsigned int wn, unsigned int ws){    // swaps
 bool Frame::setBackground(){
   // x_m, y_m quantile are now set in setBackgroundPars and their values checked there
   // otherwise hard coded values are set in the Frame constructor.
-  int xm = background.x_m;
-  int ym = background.y_m;
+  //  int xm = background.x_m;
+  //int ym = background.y_m;
 
   // if( xm >= pWidth || 
   //     ym >= pHeight || 
@@ -520,34 +525,41 @@ bool Frame::setBackground(){
     delete buffer;
     return(false);
   }
-  delete background.background;  // this should be ok, even if it is 0 according to something I read
-  // the following are already set.. 
-  //    background.x_m = xm; background.y_m = ym; background.w = pWidth; background.h = pHeight; background.quantile = qntile;
-  int bg_size =  (pWidth / background.x_m) * (pHeight / background.y_m);
-  int bw = pWidth / background.x_m;
-  int bh = pHeight / background.y_m;
-  background.background = new float[ bg_size ];
-  memset((void*)background.background, 0, sizeof(float) * bg_size);
-  background.bg_pos = new a_pos[ bg_size ];
-  
-  // we need to get the background from each cell separately.
-  for(int by=0; by < bh; ++by){
-    for(int bx=0; bx < bw; ++bx){
-      vector<float> rect;
-      rect.reserve(xm * ym);
-      for(int dy=0; dy < ym && (dy + by * ym) < (int)pHeight; ++dy){
-	for(int dx=0; dx < xm && (dx + bx * xm) < (int)pWidth; ++dx){
-	  rect.push_back(buffer[ (dy + by * ym) * pWidth + (dx + bx * xm)]);
-	  //	    rect.push_back(phSensor_m * buffer[ (dy + by * ym) * pWidth + (dx + bx * xm)]);
-	}
-      }
-      sort(rect.begin(), rect.end());
-      background.background[ by * bw + bx ] = rect[uint( float(rect.size()) * background.quantile )];
-      background.bg_pos[by * bw + bx].x = ((bx+1) * xm) - xm/2; 
-      background.bg_pos[by * bw + bx].y = ((by+1) * ym) - ym/2;
-    }
+  delete []buffer;
+  if(!background->setBackground(pWidth, pHeight, buffer)){
+    cerr << "unable to set background. we should probably die or something" << endl;
+    return(false);
   }
-  return(true); 
+  return(true);
+
+  // delete background.background;  // this should be ok, even if it is 0 according to something I read
+  // // the following are already set.. 
+  // //    background.x_m = xm; background.y_m = ym; background.w = pWidth; background.h = pHeight; background.quantile = qntile;
+  // int bg_size =  (pWidth / background.x_m) * (pHeight / background.y_m);
+  // int bw = pWidth / background.x_m;
+  // int bh = pHeight / background.y_m;
+  // background.background = new float[ bg_size ];
+  // memset((void*)background.background, 0, sizeof(float) * bg_size);
+  // background.bg_pos = new a_pos[ bg_size ];
+  
+  // // we need to get the background from each cell separately.
+  // for(int by=0; by < bh; ++by){
+  //   for(int bx=0; bx < bw; ++bx){
+  //     vector<float> rect;
+  //     rect.reserve(xm * ym);
+  //     for(int dy=0; dy < ym && (dy + by * ym) < (int)pHeight; ++dy){
+  // 	for(int dx=0; dx < xm && (dx + bx * xm) < (int)pWidth; ++dx){
+  // 	  rect.push_back(buffer[ (dy + by * ym) * pWidth + (dx + bx * xm)]);
+  // 	  //	    rect.push_back(phSensor_m * buffer[ (dy + by * ym) * pWidth + (dx + bx * xm)]);
+  // 	}
+  //     }
+  //     sort(rect.begin(), rect.end());
+  //     background.background[ by * bw + bx ] = rect[uint( float(rect.size()) * background.quantile )];
+  //     background.bg_pos[by * bw + bx].x = ((bx+1) * xm) - xm/2; 
+  //     background.bg_pos[by * bw + bx].y = ((by+1) * ym) - ym/2;
+  //   }
+  // }
+  // return(true); 
 }
 
 void Frame::setBackground(Background* bg, int z_pos){
@@ -571,16 +583,23 @@ void Frame::setContribMap(float* map){
 void Frame::setBackgroundPars(int xm, int ym, float qnt, bool subtract_bg){
   // first check if the same..
   channelInfo.bg_subtract = subtract_bg;
-  if(background.x_m == xm && background.y_m == ym && background.quantile == qnt)
-    return;
-  
   if(xm > 0 && xm < (int)pWidth / 2
      && ym > 0 && ym < (int)pHeight / 2
     && qnt >= 0 && qnt <= 1.0){  
-    background.x_m = xm;
-    background.y_m = ym;
-    background.quantile = qnt;
-    delete []background.background;
-    background.background = 0;
+    background->setParameters(qnt, xm, ym);
   }
+  return;
+
+  // if(background.x_m == xm && background.y_m == ym && background.quantile == qnt)
+  //   return;
+  
+  // if(xm > 0 && xm < (int)pWidth / 2
+  //    && ym > 0 && ym < (int)pHeight / 2
+  //   && qnt >= 0 && qnt <= 1.0){  
+  //   background.x_m = xm;
+  //   background.y_m = ym;
+  //   background.quantile = qnt;
+  //   delete []background.background;
+  //   background.background = 0;
+  // }
 }

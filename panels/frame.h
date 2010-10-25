@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include "../dataStructs.h"
 #include "../datastructs/a_pos.h"
+#include "../image/two_d_background.h"
 
 class Background;
 
@@ -39,23 +40,23 @@ typedef unsigned int uint;
 
 // a small background struct. Only to be used by the Frame Class. Not to be passed around.
 
-struct td_bg {
-  int x_m, y_m;
-  int w, h;          // not using unsigned ints, since I get into so much trouble with such.
-  float quantile;
-  float* background;  // use float even if source is short.
-  a_pos* bg_pos;
-  float bg(int x, int y);
-  td_bg(){
-    x_m = y_m = w = h = 0;
-    background = 0;
-    bg_pos = 0;
-  }
-  ~td_bg(){
-    delete background;
-    delete bg_pos;
-  }
-};
+/* struct td_bg { */
+/*   int x_m, y_m; */
+/*   int w, h;          // not using unsigned ints, since I get into so much trouble with such. */
+/*   float quantile; */
+/*   float* background;  // use float even if source is short. */
+/*   a_pos* bg_pos; */
+/*   float bg(int x, int y); */
+/*   td_bg(){ */
+/*     x_m = y_m = w = h = 0; */
+/*     background = 0; */
+/*     bg_pos = 0; */
+/*   } */
+/*   ~td_bg(){ */
+/*     delete background; */
+/*     delete bg_pos; */
+/*   } */
+/* }; */
 
 struct panel_bias {
   float scale;
@@ -170,7 +171,10 @@ class Frame {
     // td_background is a two dimensional background object,, let's try using
     // a three dimensional object Background instead..
     // a background object
-    td_bg background; 
+
+    //    td_bg background; 
+    Two_D_Background* background;
+
     Background* threeDBackground;  // Not used at the moment.. 
     channel_info channelInfo; // set by the readToRGB function.
 

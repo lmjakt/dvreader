@@ -14,8 +14,47 @@ Two_D_Background::Two_D_Background()
 
 Two_D_Background::~Two_D_Background()
 {
-  delete background;
-  delete bg_pos;
+  delete []background;
+  delete []bg_pos;
+}
+
+bool Two_D_Background::setParameters(float qnt, int cw, int ch)
+{
+  if(qnt < 0 || qnt > 1.0)
+    return(false);
+  if(ch < 0 || cw < 0)
+    return(false);
+  if(cell_width != cw || cell_height != ch || qnt != qntile){
+    if(background){
+      delete []background;
+      background = 0;
+    }
+    if(bg_pos){
+      delete []bg_pos;
+      bg_pos = 0;
+    }
+  }
+
+  cell_width = cw;
+  cell_height = ch;
+  qntile = qnt;
+  return(true);
+}
+
+bool Two_D_Background::setBackground(int w, int h, unsigned short* data)
+{
+  return(setBackground(qntile, cell_width, cell_height, w, h, data));
+}
+
+
+bool Two_D_Background::setBackground(int w, int h, float* data)
+{
+  return(setBackground(qntile, cell_width, cell_height, w, h, data));
+}
+
+bool Two_D_Background::backgroundSet()
+{
+  return( background != 0 );
 }
 
 bool Two_D_Background::setBackground(float qnt, int cw, int ch, int w, int h, float* data)
@@ -25,19 +64,19 @@ bool Two_D_Background::setBackground(float qnt, int cw, int ch, int w, int h, fl
     return(false);
   width = w; height = h;
   cell_width = cw; cell_height = ch;
-  qntile = qnt;
-  delete background;
-  delete bg_pos;
+  delete []background;
+  delete []bg_pos;
   
   bg_w = (width / cell_width);
-  bg_h = (width / cell_height);
+  bg_h = (height / cell_height);
   int bg_size = bg_w * bg_h;
+  int cell_size = cell_width * cell_height;
+  // if qnt was set to 1 or more, than we have a problem.
+  qntile = qnt < (float)(cell_size-1)/(float)(cell_size) ? qnt : (float)(cell_size-1)/(float)(cell_size);
   
   background = new float[bg_size];
   bg_pos = new a_pos[bg_size];
 
-  // if qnt was set to 1 or more, than we have a problem.
-  qnt = qnt < (float)(bg_size-1)/(float)(bg_size) ? qnt : (float)(bg_size-1)/(float)(bg_size);
   for(int by=0; by < bg_h; ++by){
     int v_pos = by * cell_height;
     for(int bx=0; bx < bg_w; ++bx){

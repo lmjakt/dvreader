@@ -22,6 +22,7 @@ class f_parameter {
   bool param(QString par, short& s);
   bool param(QString par, bool& b);
   bool param(QString par, std::string& s);
+  bool param(QString par, QString& str);
   bool param(QString par, QChar sep, std::vector<int>& ints);  // assumes comma seperated.
   bool param(QString par, QChar sep, std::vector<unsigned int>& ints);
   bool param(QString par, QChar sep, std::vector<QString>& words);

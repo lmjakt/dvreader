@@ -89,6 +89,164 @@ float* gaussian_blur_1d(float* image, unsigned int w, unsigned int h, unsigned i
   return(b2_image);
 }
 
+
+float* gaussian_blur_3d(float* image, unsigned int w, unsigned int h, unsigned int d, unsigned int radius)
+{
+  unsigned int diameter = 1 + radius * 2; 
+  if(!w || !h || !d)
+    return(0);
+
+  float* line = gaussian_line(radius);
+  float* cline = compensation_line(line, radius);
+  float* b1_image = new float[w * h * d]; // reuse for the third blur.. 
+  float* b2_image = new float[w * h * d];
+  memset((void*)b1_image, 0, sizeof(float) * w * h * d);
+  memset((void*)b2_image, 0, sizeof(float) * w * h * d);
+  float *source, *dest;
+  int r = (int)radius;
+  // in the x direction. Do all layers and all y lines. 
+  for(uint z=0; z < d; ++z){
+    for(uint y=0; y < h; ++y){
+      //      dest = b1_image + (z * w * h) + (y * w) + radius;
+      dest = b1_image + (z * w * h) + (y * w);      
+      for(int x=0; x < (int)w; ++x){
+	int gb = x >= r ? 0 : r - x;
+	int ge = (x + r) < (int)w ? diameter : (r + w - x);
+	float comp = cline[ge - (gb+1)];
+	source = image + (z * w * h) + (y * w) + x + (gb - r);  // horrible..    
+	for(int g=gb; g < ge; ++g){
+	  (*dest) += line[g] * (*source) ;
+	  ++source;
+	}
+	(*dest) /= comp;
+	++dest;
+      }
+    }
+  }
+  // in the y directions..
+  for(uint z=0; z < d; ++z){
+    for(int y=0; y < (int)h; ++y){
+      int gb = y >= r ? 0 : r - y;
+      int ge = (y + r) < (int)h ? diameter : (r + h - y);
+      float comp = cline[ge - (gb+1)];
+      dest = b2_image + (z * w * h) + (y * w);
+      for(uint x=0; x < w; ++x){
+	source = b1_image + (z * w * h) + ((y + (gb - r)) * w) + x;
+	for(int g=gb; g < ge; ++g){
+	  (*dest) += line[g] * (*source);
+	  source += w;
+	}
+	(*dest) /= comp;
+	++dest;
+      }
+    }
+  }
+  memset((void*)b1_image, 0, sizeof(float) * w * h * d);
+  // and in the z-direction.
+  for(int z=0; z < (int)d; ++z){
+    int gb = z >= r ? 0 : r - z;
+    int ge = (z + r) < (int)d ? diameter : (r + d - z);
+    float comp = cline[ ge - (gb+1) ];
+    cout << "z : " << z << " comp : " << ge << "-" << gb << "=" << ge-gb << " --> "  << comp << endl;
+    for(uint y=0; y < h; ++y){
+      dest = b1_image + (z * w * h) + (y * w);
+      for(uint x=0; x < w; ++x){
+	source = b2_image + ((z + (gb - r)) * w * h) + (y * w) + x;
+	for(int g=gb; g < ge; ++g){
+	  (*dest) += line[g] * (*source);
+	  source += (w * h);
+	}
+	(*dest) /= comp;
+	++dest;
+      }
+    }
+  }
+  delete []b2_image;
+  delete []line;
+  delete []cline;
+  return(b1_image);
+}
+
+
+float* gaussian_deblur_3d(float* image, unsigned int w, unsigned int h, unsigned int d, unsigned int radius)
+{
+  unsigned int diameter = 1 + radius * 2; 
+  if(!w || !h || !d)
+    return(0);
+
+  float* line = gaussian_line(radius);
+  float* cline = compensation_line(line, radius);
+  float* b1_image = new float[w * h * d]; // reuse for the third blur.. 
+  float* b2_image = new float[w * h * d];
+  memcpy((void*)b1_image, (void*)image, sizeof(float) * w * h * d);
+  //  memset((void*)b1_image, 0, sizeof(float) * w * h * d);
+  //  memset((void*)b2_image, 0, sizeof(float) * w * h * d);
+  float *source, *dest;
+  int r = (int)radius;
+  // in the x direction. Do all layers and all y lines. 
+  for(uint z=0; z < d; ++z){
+    for(uint y=0; y < h; ++y){
+      //      dest = b1_image + (z * w * h) + (y * w) + radius;
+      dest = b1_image + (z * w * h) + (y * w);      
+      for(int x=0; x < (int)w; ++x){
+	int gb = x >= r ? 0 : r - x;
+	int ge = (x + r) < (int)w ? diameter : (r + w - x);
+	source = image + (z * w * h) + (y * w) + x + (gb - r);  // horrible..
+	(*dest) *= 2.0;
+	for(int g=gb; g < ge; ++g){
+	  (*dest) -= line[g] * (*source);
+	  ++source;
+	}
+	(*source) = (*source) >= 0 ? (*source) : 0;
+	++dest;
+      }
+    }
+  }
+  // in the y directions..
+  memcpy((void*)b2_image, (void*)b1_image, sizeof(float) * w * h * d);
+  for(uint z=0; z < d; ++z){
+    for(int y=0; y < (int)h; ++y){
+      int gb = y >= r ? 0 : r - y;
+      int ge = (y + r) < (int)h ? diameter : (r + h - y);
+      dest = b2_image + (z * w * h) + (y * w);
+      for(uint x=0; x < w; ++x){
+	source = b1_image + (z * w * h) + ((y + (gb - r)) * w) + x;
+	(*dest) *= 2.0;
+	for(int g=gb; g < ge; ++g){
+	  (*dest) -= line[g] * (*source);
+	  source += w;
+	}
+	(*dest) = (*dest) > 0 ? (*dest) : 0;
+	++dest;
+      }
+    }
+  }
+  memcpy((void*)b1_image, (void*)b2_image, sizeof(float) * w * h * d);
+  //  memset((void*)b1_image, 0, sizeof(float) * w * h * d);
+  // and in the z-direction.
+  for(int z=0; z < (int)d; ++z){
+    int gb = z >= r ? 0 : r - z;
+    int ge = (z + r) < (int)d ? diameter : (r + d - z);
+    for(uint y=0; y < h; ++y){
+      dest = b1_image + (z * w * h) + (y * w);
+      for(uint x=0; x < w; ++x){
+	source = b2_image + ((z + (gb - r)) * w * h) + (y * w) + x;
+	(*dest) *= 2.0;
+	for(int g=gb; g < ge; ++g){
+	  (*dest) -= line[g] * (*source);
+	  source += (w * h);
+	}
+	(*dest) = (*dest) > 0 ? (*dest) : 0;
+	++dest;
+      }
+    }
+  }
+  delete []b2_image;
+  delete []line;
+  delete []cline;
+  return(b1_image);
+}
+
 float* gaussian_square(unsigned int radius)
 {
   if(!radius){
@@ -135,4 +293,17 @@ float* gaussian_line(unsigned int radius)
   for(uint i=0; i < d; ++i)
     line[i] /= sum;
   return(line);
+}
+
+// the sums ..
+float* compensation_line(float* line, unsigned int radius)
+{
+  unsigned int d = 1 + 2 * radius;
+  float* c_line = new float[ d ]; // use cline[ ge - gb ]
+  memset((void*)c_line, 0, sizeof(float) * 2 * radius);
+  for(unsigned int l=0; l < d; ++l){
+    for(unsigned int i=0; i < l; ++i)
+      c_line[l] += line[i];
+  }
+  return(c_line);
 }
