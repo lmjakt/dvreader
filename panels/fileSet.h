@@ -27,6 +27,7 @@
 
 //#include "frameStack.h"
 #include "../dataStructs.h"
+#include "../datastructs/channelOffset.h"
 #include "stack_stats.h"
 //#include "fileSetInfo.h"
 //#include "../image/background.h"
@@ -75,26 +76,14 @@ class FileSet {
     void setPosMap();
     void setPanelBias(unsigned int waveIndex, unsigned int column, unsigned int row, float scale, short bias); 
     void setBackgroundPars(unsigned int waveIndex, int xm, int ym, float qnt, bool bg_subtract);
+    bool setChannelOffsets(std::vector<ChannelOffset> offsets);
     void adjustStackBorders();
     bool updateFileSetInfo();
-
-    /* bool readToRGB(float* dest, float xpos, float ypos, float dest_width,  */
-    /* 		   float dest_height, unsigned int slice_no, unsigned int dest_pwidth,  */
-    /* 		   unsigned int dest_pheight, */
-    /* 		   std::vector<channel_info> chinfo, raw_data* raw=0); */
- 
-   //		   float maxLevel, std::vector<float> bias 
-    //		   std::vector<float> scale, 
-    //		   std::vector<color_map> colors, bool bg_sub, raw_data* raw=0);
 
     bool readToRGB(float* dest, unsigned int xpos, unsigned int ypos, 
 		   unsigned int dest_width, unsigned int dest_height, 
 		   unsigned int slice_no, std::vector<channel_info> chinfo,
 		   raw_data* raw=0);
-    //		   float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, bool bg_sub, raw_data* raw=0);
-
-    /* bool mip_projection(float* dest, float xpos, float ypos, float dest_width, float dest_height, unsigned int dest_pwidth, unsigned int dest_pheight, */
-    /* 		       float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0); */
 
     bool mip_projection(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height,
 			float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0);

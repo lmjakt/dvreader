@@ -36,7 +36,7 @@ LinePlotter::LinePlotter(QWidget* parent)
     yScale = 1.0;
     limitsEnabled = false;
     setFocusPolicy(Qt::StrongFocus);
-    
+    setDefaultColors();
 }
 
 LinePlotter::~LinePlotter(){
@@ -45,8 +45,10 @@ LinePlotter::~LinePlotter(){
 
 void LinePlotter::setData(vector< vector<float> >& v, vector<QColor>& c, bool resetMask){
     values = v;
-    colors = c;
-    
+    if(c.size()){
+      colors = c;
+    }
+    // else set to default? what is best behaviour?
     if(!values.size() || !values[0].size() || !colors.size()){
 	cerr << "LinePlotter::setData No values in first array. Giving up. Undefined behaviour perhaps" << endl;
 	min = 0; max = 1; maxLength = 1;
@@ -75,6 +77,31 @@ void LinePlotter::setData(vector< vector<float> >& v, vector<QColor>& c, bool re
 	}
     }
     update();
+}
+
+void LinePlotter::setData(float* data, unsigned int d_width, unsigned int d_height, bool use_rows, bool resetMask){
+  setData(data, d_width, d_height, use_rows, defaultColors, resetMask);
+}
+
+
+void LinePlotter::setData(float* data, unsigned int d_width, unsigned int d_height, bool use_rows, vector<QColor>& colors, bool resetMask){
+  if(!d_width || !d_height)
+    return;
+  unsigned int v_size = use_rows ? d_height : d_width;
+  unsigned int length = use_rows ? d_width : d_height;
+  vector<vector<float> > tempv;
+  tempv.resize(v_size);
+  for(unsigned int i=0; i < v_size; ++i){
+    tempv[i].resize(length);
+    cout << i;
+    for(unsigned int j=0; j < length; ++j){
+      unsigned int offset = use_rows ? (i * d_width + j) : (j * d_width + i);
+      tempv[i][j] = data[ offset ];
+      cout << "\t" << tempv[i][j];
+    }
+    cout << endl;
+  }
+  setData(tempv, colors, resetMask);
 }
 
 void LinePlotter::setLeftMask(int xp){
@@ -112,6 +139,17 @@ void LinePlotter::enableLimits(bool b){
   update();
 }
 
+void LinePlotter::setDefaultColors(){
+  colors.push_back(QColor(255, 0, 0));
+  colors.push_back(QColor(0, 255, 0));
+  colors.push_back(QColor(0, 0, 255));
+  colors.push_back(QColor(255, 0, 255));
+  colors.push_back(QColor(0, 255, 255));
+  colors.push_back(QColor(125, 125, 0));
+  colors.push_back(QColor(120, 120, 120));
+  defaultColors = colors;
+}
+
 void LinePlotter::paintEvent(QPaintEvent* e){
     e = e;  // to avoid annoying warning
     float w = (float)width() - hMargin * 2;
@@ -143,8 +181,8 @@ void LinePlotter::paintEvent(QPaintEvent* e){
 	return;
     }
     for(uint i=0; i < values.size(); ++i){
-	p.setPen(QPen(colors[i], 0));
-	qreal x, y;
+      p.setPen(QPen(colors[i % colors.size()], 0));
+      qreal x, y;
 	qreal px = 0;
 	qreal py =  yScale * (values[i][0] - min) * h / range ; 
 	for(uint j=1; j < values[i].size(); ++j){

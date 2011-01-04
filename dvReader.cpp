@@ -54,6 +54,7 @@ DVReader::DVReader(const char* fName, float maxlevel, int xy_margin){
     xyMargin = xy_margin > 0 ? xy_margin : 0;  // but if xy_margin > width / 2, then we crash.. 
 //  cout << "fileFormat is : " << fm << endl;
     sameEndian = true;   // but change if later.. 
+    fileSet = 0;
     readDataFromFile(fName, fm);
     currentSection = -1;
 }

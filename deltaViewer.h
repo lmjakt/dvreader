@@ -53,7 +53,8 @@
 #include "linGraph/distPlotter.h"
 //#include "colorChooser.h"
 #include "parameterChooser.h"
-#include "dataStructs.h"
+//#include "dataStructs.h"
+#include "datastructs/channelOffset.h"
 #include <vector>
 #include <map>
 #include <string>
@@ -74,29 +75,6 @@ class ValueLabels;
 class ColorChooser;
 
 using namespace std;
-
-enum OffsetDirection { 
-  XPLUS, XMINUS, YPLUS, YMINUS, ZPLUS, ZMINUS, XYRESET, ZRESET
-};
-
-class ChannelOffset {
-  int xo, yo, zo;
-  int wl;   // the wavelength..
-  
- public :
-  ChannelOffset(int w){
-    wl = w;
-    xo = yo = zo = 0;
-  }
-  ChannelOffset(){
-    wl = xo = yo = zo = 0;
-  }
-  void changeOffset(int offsetDirection);   // use a switch and the above offset directions..
-  int x(){ return(xo); }
-  int y(){ return(yo); }
-  int z(){ return(zo); }
-  int w(){ return(wl); }
-};
 
 class DeltaViewer : public QWidget 
 {
@@ -130,8 +108,8 @@ class DeltaViewer : public QWidget
   void lastImage();
   void setImage(int slice);
   void paintCoverage(float maxCount);
-  void setProjection();
-  bool readProjection(ifstream& in);  // read from a file..
+  //void setProjection();
+  //bool readProjection(ifstream& in);  // read from a file..
   void newStackSelected(float x, float y);
   void adjustStackPosition(float x, float y, QPoint p);
   void updateFileSetInfo();
@@ -187,6 +165,7 @@ class DeltaViewer : public QWidget
   
   // for changing channel offsets..
   void offSetChanged(int id);
+  void channelOffsetIdChanged(int id);
   void setLinePlotterColors();
   void plotLines();
   void findLocalMaxima(int wl, int radius, float minPeakValue, float maxEdgeValue);
@@ -242,10 +221,10 @@ class DeltaViewer : public QWidget
   DVReader* reader;
   FileSet* fileSet;
   ImageAnalyser* imageAnalyser;
-  std::vector<raw_data*> projection_data;   // data for a projection ..   we need one projection for each panel..
+  //  std::vector<raw_data*> projection_data;   // data for a projection ..   we need one projection for each panel..
   
-  std::vector<float> projection_means;
-  std::vector<float> projection_stds;  // use these as a substitute for the real ones. They'll be a bit higher, but maybe that's ok.
+  //  std::vector<float> projection_means;
+  //std::vector<float> projection_stds;  // use these as a substitute for the real ones. They'll be a bit higher, but maybe that's ok.
   
   GLImage* glViewer;
   GLImage* projection;
@@ -302,6 +281,10 @@ class DeltaViewer : public QWidget
   
   // some labels which display information about the image..
   Q3ButtonGroup* channelOffsets;  // sets the channels... 
+  QLabel* ch_xoffset;
+  QLabel* ch_yoffset;
+  QLabel* ch_zoffset;
+
   QLabel* xOffset;
   QLabel* yOffset;
   QLabel* magnification;
@@ -320,7 +303,7 @@ class DeltaViewer : public QWidget
   
   // peaks and stuff..
   std::map<int, linearPeaks> peaks;    // where the int represents the channel used in the peak.. 
-  float* completeProjection(unsigned int waveIndex);  // return a float representation of the projection  (0 if not successful).
+  //float* completeProjection(unsigned int waveIndex);  // return a float representation of the projection  (0 if not successful).
   
 };
 

@@ -16,6 +16,10 @@ class GLImage;
 class DistChooser;
 class TabWidget;
 class ImStack;
+class Blob_mt_mapper;
+class QSemaphore;
+class BlobModel;
+class LinePlotter;
 
 struct channel_info;
 struct color_map;
@@ -62,9 +66,12 @@ class ImageBuilder : public QObject
   // obtain some useful parameters..
   void getStackStats(unsigned int wi, int xb, int yb, int zb, int s_width, int s_height, int s_depth);
 
+  QString help(std::vector<QString>& words);
+
  signals:
   void stackCreated(QString);
   void stackDeleted(QString);
+  void displayMessage(const char*);
  private:
   GLImage* image;
   FileSet* data;
@@ -75,6 +82,12 @@ class ImageBuilder : public QObject
   std::vector<DistChooser*> distributions; // specific functions update
   std::map<unsigned int, float> bg_spectrum;  // the expected spectral response of the background.
   std::map<QString, ImStack*> imageStacks;    // can be assigned by functions, 
+  std::multimap<ImStack*, Blob_mt_mapper*> mtMappers; // should be deleted if the ImStack is deleted.
+  std::map<QString, std::vector<Blob_mt_mapper*> > mapper_collections; 
+  std::map<QString, BlobModel*> blobModels;
+  std::map<QString, LinePlotter*> linePlotters;
+  std::map<QString, QSemaphore*> mapper_collection_semaphores; // at some point make a reasonable data structure containing all of this.
+
   TabWidget* distTabs;
 
   bool buildShortProjection(unsigned short* p_buffer, unsigned int wi, unsigned int beg, unsigned int end);
@@ -104,11 +117,13 @@ class ImageBuilder : public QObject
   void deleteFloats(float** fl, unsigned int l);
   void toMean(float* mean, unsigned short* add, int l, float fraction);
   void drawCircle(float* image, int imWidth, int imHeight, int x, int y, int r);
-
+  void project_blobs(Blob_mt_mapper* bmapper, float r=1.0, float g=1.0, float b=1.0);
   // imStack related stuff ..
   // if add is true add to imageStacks, otherwise delete
   // emit the correct signals..
   void updateStacks(QString& name, ImStack* stack, bool add);
+  void warn(const char* message);
+  void warn(QString& message);
 
   // a number of functions that can be connected in a pipe (p_slice, etc..).
   typedef bool (ImageBuilder::*ps_function)(p_parameter& par);
@@ -130,20 +145,35 @@ class ImageBuilder : public QObject
   void addSlice(f_parameter& par);
   void blurStack(f_parameter& par);
   void deBlurStack(f_parameter& par);
+  void subStack(f_parameter& par);
+  void subStackBackground(f_parameter& par);
   void findCenter(f_parameter& par);
   void loopStack(f_parameter& par);
   void loopXZ(f_parameter& par);
   void stack_xzSlice(f_parameter& par);
   void stack_yzSlice(f_parameter& par);
+  void stack_project(f_parameter& par);
   void setStackPar(f_parameter& par);
   //  void stackSlice(f_parameter& par);
-  
+  void stack_map_blobs(f_parameter& par);  // a testing function. to see if the mt_blob_mapper works.. 
+  void map_blobs(f_parameter& par);        // makes stacks to map. Splits the problem into smaller parts.
+  void draw_blob_model(f_parameter& par);
+  //  void make_blob_model(f_parameter& par); // this is problematic; see .cpp for details
+  void project_blob_collections(f_parameter& par);    // projects contents of collection of things.. 
+  void list_objects(f_parameter& par);       // list object, use parameters to change listing. 
   // This can be used by any of the above, but it's not one of the general_functions itself
   // note that the below functin may destroy image if it returns a different image.. 
   float* modifyImage(int x, int y, int w, int h, float* image, f_parameter& par); 
+  ImStack* imageStack(f_parameter& par);  // convenience function.. 
+  ImStack* imageStack(uint wi, int x, int y, int z, uint w, uint h, uint d, bool use_cmap=true);
 
   p_parameter f_to_p_param(f_parameter& fp, int w, int h, int xo, int yo, float* img);
   std::string toString(QString qstr);
+
+  QString generateGeneralHelp();
+  QString generatePipeSliceHelp(QString& fname);
+  QString generateGeneralFunctionHelp(QString& fname);
+
 };
 
 #endif

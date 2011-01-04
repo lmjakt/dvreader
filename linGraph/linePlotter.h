@@ -16,6 +16,8 @@ class LinePlotter : public QWidget
     ~LinePlotter();
     
     void setData(std::vector< std::vector<float> >& v, std::vector<QColor>& c, bool resetMask=true);
+    void setData(float* data, unsigned int d_width, unsigned int d_height, bool use_rows, bool resetMask=true);
+    void setData(float* data, unsigned int d_width, unsigned int d_height, bool use_rows, std::vector<QColor>& colors, bool resetMask=true);
     void setLeftMask(int xp);
     void setRightMask(int xp);
     void setMasks(int left, int right);
@@ -30,6 +32,7 @@ class LinePlotter : public QWidget
     void ctl_unknown(int, float);
     
     private:
+    void setDefaultColors();
     void paintEvent(QPaintEvent* e);
     void mouseDoubleClickEvent(QMouseEvent* e);
     void mousePressEvent(QMouseEvent* e);
@@ -40,6 +43,7 @@ class LinePlotter : public QWidget
 
     std::vector< std::vector<float> > values;
     std::vector<QColor> colors;
+    std::vector<QColor> defaultColors;
     float min, max;
     float xScale;
     float yScale;

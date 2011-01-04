@@ -43,6 +43,7 @@ FrameStack::FrameStack(int* waveLengths, int waveNo, ifstream* inStream, float m
     wave_lengths = waveLengths;
     wave_no = waveNo;
     fwaves.resize(wave_no);
+    channelOffsets.resize(wave_no);
     focalPlanes.resize(wave_no);
     frameInformation = 0;
     margin = xy_margin > 0 ? xy_margin : 0;
@@ -111,7 +112,7 @@ void FrameStack::setBackgrounds(std::map<fluorInfo, Background*> backgrounds){
 
 void FrameStack::setPanelBias(unsigned int wi, float scale, short bias){
   cout << "FrameStack::setPanelBias : " << wi << " (wave_no=" << wave_no << ")  " << scale << "\t" << bias << endl;
-  if(wi >= wave_no)
+  if((int)wi >= wave_no)
     return;
   if(panelBiasMap.count(wi)){
     panelBiasMap[wi]->scale = scale;
@@ -125,10 +126,17 @@ void FrameStack::setPanelBias(unsigned int wi, float scale, short bias){
 }
 
 void FrameStack::setBackgroundPars(unsigned int wi, int xm, int ym, float qnt, bool bg_subtract){
-  if(wi >= wave_no)
+  if((int)wi >= wave_no)
     return;
   for(uint i=0; i < sections.size(); ++i)
     sections[i]->setBackgroundPars(wi, xm, ym, qnt, bg_subtract);
+}
+
+bool FrameStack::setChannelOffsets(vector<ChannelOffset> offsets)
+{
+  if(offsets.size() != channelOffsets.size())
+    return(false);
+  channelOffsets = offsets;
 }
 
 bool FrameStack::addFrame(Frame* frame){
@@ -625,74 +633,106 @@ offsets FrameStack::findNeighbourOffset(FrameStack* neighbour, float* neighbourA
     return(off);
 }
 
-
+// at the moment, chinfo has to be the same size as channelOffsets, and if specified
+// raw has to have the same number of channels as chinfo and so on. This is a bit
+// stupid since the interface doesn't make this clear. Should do something about that, sometime.. 
 bool FrameStack::readToRGB(float* dest, int xpos, int ypos, 
 			   unsigned int dest_width, unsigned int dest_height, 
 			   unsigned int slice_no, vector<channel_info> chinfo,
 			   raw_data* raw){
-    if(slice_no >= sections.size()){
-	cerr << "FrameStack::readToRGB (int version) slice no is too large : " << slice_no << endl;
-	return(false);
-    }
-    int dest_x, source_x, dest_y, source_y;
-    unsigned int subWidth, subHeight;
-    // check if it overlaps with the border positions..
-    if(globalToLocal(xpos, ypos, dest_width, dest_height, dest_x, 
-		     source_x, dest_y, source_y, subWidth, subHeight)){
-      return(sections[slice_no]->readToRGB(dest, source_x, source_y, subWidth, subHeight, 
-					   dest_x, dest_y, dest_width, chinfo, raw));
-    }
+  if(slice_no >= sections.size()){
+    cerr << "FrameStack::readToRGB (int version) slice no is too large : " << slice_no << endl;
     return(false);
+  }
+  // a little sanity check. It seems that we've started relying on too many different potentially conflicting
+  // data structs. 
+  if(raw && (raw->channels != chinfo.size())){
+    cerr << "FrameStack::readToRGB raw_data is specified, but does not have same number of channels as chinfo: " 
+	 << raw->channels << " != " << chinfo.size() << endl;
+    exit(1);
+  }
+  if(chinfo.size() != channelOffsets.size()){
+    cerr << "FrameStack::readToRGB channelOffsets is a different size fo chinfo: "
+	 << channelOffsets.size() << " != " << chinfo.size() << endl;
+    exit(1);
+  }
+  int dest_x, source_x, dest_y, source_y;
+  unsigned int subWidth, subHeight;
+  bool foundOverlap = false;
+  // check if it overlaps with the border positions..
+  for(unsigned int i=0; i < chinfo.size(); ++i){
+    if(globalToLocal(xpos + channelOffsets[i].x(), ypos + channelOffsets[i].y(), dest_width, dest_height, dest_x, 
+		     source_x, dest_y, source_y, subWidth, subHeight)){
+      if(raw){
+	if(sections[slice_no]->readToRGB(dest, source_x, source_y, subWidth, subHeight, 
+					 dest_x, dest_y, dest_width, chinfo[i], raw->values[i] + raw->positions[i])){
+	  foundOverlap = true;
+	  raw->positions[i] += (subWidth * subHeight);
+	}
+      }else{
+	if(sections[slice_no]->readToRGB(dest, source_x, source_y, subWidth, subHeight, 
+					 dest_x, dest_y, dest_width, chinfo[i]))
+	  foundOverlap = true;
+      }
+    }
+  }
+  return(foundOverlap);
 }
 
 
 bool FrameStack::mip_projection(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height,
 				float maxLevel, vector<float> bias, vector<float> scale, vector<color_map> colors, raw_data* raw){
-    if(!projection){
-	finalise(maxLevel);
-    }
+  if(!projection){
+    finalise(maxLevel);
+  }
+  
+  int dest_x, source_x, dest_y, source_y;
+  unsigned int subWidth, subHeight;
 
-    //     cout << "FrameStack::mip_projection : request :" << xpos << ", " << ypos << "  width, height : " << dest_width << ", " << dest_height
-    //	 << " source : " << pixelX << ", " << pixelY << "  leftBorder : " << leftBorder << "  rightBorder : " << rightBorder << "  topBorder "
-    //	 << topBorder << "  bottomBorder " << bottomBorder << endl;
-
-    int dest_x, source_x, dest_y, source_y;
-    unsigned int subWidth, subHeight;
-
-    if(globalToLocal(xpos, ypos, dest_width, dest_height, dest_x, source_x, dest_y, source_y, subWidth, subHeight)){
-	float v;
-	for(uint wi=0; wi < fwaves.size(); ++wi){
-	  for(uint hp=0; hp < subHeight; ++hp){
-	    float* dst = dest + ((dest_y + hp) * dest_width + dest_x) * 3;   // dest is an rgb triplet..
-	    float* src = projection[wi] + (source_y + hp) * pWidth + source_x;
-	    float* mod = contribMap + (source_y + hp) * pWidth + source_x;
-	    float* raw_dest = 0;
-	    if(raw){
-	      raw_dest = raw->values[wi] + (dest_y + hp) * dest_width + dest_x;
-	    }
-	    for(uint wp=0; wp < subWidth; ++wp){
-	      // and do stuff..
-	      if(raw){
-		(*raw_dest) = (*src);
-		++raw_dest;
-	      }
-	      //v =  (bias[wi] + (*src) * scale[wi]);
-	      v = (*mod) * (bias[wi] + (*src) * scale[wi]);
-	      if(v > 0){
-		dst[0] += v * colors[wi].r;
-		dst[1] += v * colors[wi].g;
-		dst[2] += v * colors[wi].b;
-	      }
-	      ++src;
-	      dst += 3;
-	      ++mod;
-	    }
-	  }
+  bool foundOverlap = false;
+  
+  for(uint wi=0; wi < channelOffsets.size(); ++wi){
+    if(!raw && !( colors[wi].r || colors[wi].g || colors[wi].b ))
+      continue;
+    if(!globalToLocal(xpos + channelOffsets[wi].x(), ypos + channelOffsets[wi].y(), 
+		      dest_width, dest_height, dest_x, source_x, dest_y, source_y, subWidth, subHeight))
+      continue;
+    foundOverlap = true;
+    //    if(globalToLocal(xpos, ypos, dest_width, dest_height, dest_x, source_x, dest_y, source_y, subWidth, subHeight)){
+    float v;
+    //	for(uint wi=0; wi < fwaves.size(); ++wi){
+    //if(!raw && !( colors[wi].r || colors[wi].g || colors[wi].b ))
+    //	    continue;
+    for(uint hp=0; hp < subHeight; ++hp){
+      float* dst = dest + ((dest_y + hp) * dest_width + dest_x) * 3;   // dest is an rgb triplet..
+      float* src = projection[wi] + (source_y + hp) * pWidth + source_x;
+      float* mod = contribMap + (source_y + hp) * pWidth + source_x;
+      float* raw_dest = 0;
+      if(raw){
+	raw_dest = raw->values[wi] + (dest_y + hp) * dest_width + dest_x;
+      }
+      for(uint wp=0; wp < subWidth; ++wp){
+	// and do stuff..
+	if(raw){
+	  (*raw_dest) = (*src);
+	  ++raw_dest;
 	}
-	return(true);
+	//v =  (bias[wi] + (*src) * scale[wi]);
+	v = (*mod) * (bias[wi] + (*src) * scale[wi]);
+	if(v > 0){
+	  dst[0] += v * colors[wi].r;
+	  dst[1] += v * colors[wi].g;
+	  dst[2] += v * colors[wi].b;
+	}
+	++src;
+	dst += 3;
+	++mod;
+      }
     }
-    return(false);
+  }
+  return(foundOverlap);
 }
+
 
 bool FrameStack::readToFloatPro(float* dest, unsigned int xb, unsigned int iwidth, unsigned int yb, 
 				unsigned int iheight, unsigned int wave)
@@ -760,8 +800,8 @@ bool FrameStack::readToFloatProGlobal(float* dest, int xb, int iwidth, int yb, i
     if(!globalToLocal(xb, yb, iwidth, iheight, dest_x, source_x, dest_y, source_y, subWidth, subHeight)){
 	return(false);
     }
-    float* dst = dest;
-    bool ok = true;
+    //    float* dst = dest;
+    //bool ok = true;
 //    cout << "FrameStack::readToFloatProGlobal requested : " << xb << " +-> " << iwidth << " , " << yb << " +-> " << iheight << "  giving " << source_x << " +-> " << subWidth << " , "
 //	 << source_y << " +-> " << subHeight << endl;
     
@@ -874,16 +914,22 @@ bool FrameStack::readToFloat(float* dest, unsigned int xb, unsigned int iwidth, 
 }
 
 bool FrameStack::readToFloat(float* dest, int xb, int iwidth, int yb, 
-			     int iheight, int zb, int idepth,  unsigned int waveIndex, float maxLevel, bool use_cmap){   // simply read the appropriate pixels into a volume.. 
+			     int iheight, int zb, int idepth,  unsigned int waveIndex, 
+			     float maxLevel, bool use_cmap){   // simply read the appropriate pixels into a volume.. 
     // check that zb and idepth are ok.. zb must be > 0 and < sections.size..
     if(zb < 0 || zb >= int(sections.size()) || idepth <= 0 || zb + idepth > int(sections.size())){
 	cerr << "FrameStack unsuitable z-sections requested : " << zb << "  -->  " << zb + idepth << endl;
 	return(false);
     }
     
+    if(waveIndex >= channelOffsets.size()){
+      cerr << "FrameStack::readToFloat waveIndex is larger than channelOffsets : " << endl;
+      return(false);
+    }
     int dest_x, source_x, dest_y, source_y;      // though these are supposed to be unsigned.. (I really should change everything everywhere to signed)
     unsigned int subWidth, subHeight;   // the local coordinates of an overlap for dest and source respectively..
-    if(!globalToLocal(xb, yb, iwidth, iheight, dest_x, source_x, dest_y, source_y, subWidth, subHeight)){
+    if(!globalToLocal(xb + channelOffsets[waveIndex].x(), yb + channelOffsets[waveIndex].y(), 
+		      iwidth, iheight, dest_x, source_x, dest_y, source_y, subWidth, subHeight)){
 //	cout << "*  " << topBorder;
 	return(false);   // this just means that there is no overlap and there is nothing more for us to do here..
     }
@@ -909,10 +955,15 @@ bool FrameStack::readToShort(unsigned short* dest,unsigned int xb, unsigned int 
 	 << sections.size() << endl;
     return(false);
   }
-  
+  if(waveIndex >= channelOffsets.size()){
+    cerr << "FrameStack::readToShort waveIndex is larger than channelOffsets " << endl;
+    return(false);
+  }
+
   int dest_x, source_x, dest_y, source_y;      // though these are supposed to be unsigned.. 
   unsigned int subWidth, subHeight;   // the local coordinates of an overlap for dest and source respectively..
-  if(!globalToLocal(xb, yb, iwidth, iheight, dest_x, source_x, dest_y, source_y, subWidth, subHeight)){
+  if(!globalToLocal(xb + channelOffsets[waveIndex].x(), yb + channelOffsets[waveIndex].y(), 
+		    iwidth, iheight, dest_x, source_x, dest_y, source_y, subWidth, subHeight)){
     return(false);   // this just means that there is no overlap and there is nothing more for us to do here..
   }
   return(sections[secNo]->readToShort(dest, (unsigned int)source_x, (unsigned int)source_y, 

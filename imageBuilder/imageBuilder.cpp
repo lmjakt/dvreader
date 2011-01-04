@@ -3,6 +3,7 @@
 #include "opengl/glImage.h"
 #include "centerFinder.h"
 #include "imStack.h"
+#include "blob_mt_mapper.h"
 #include "../dataStructs.h"
 #include "../image/two_d_background.h"
 #include "../image/spectralResponse.h"
@@ -11,13 +12,16 @@
 #include "../distchooser/tabWidget.h"
 #include "../stat/stat.h"
 #include "../image/gaussian.h"
+#include "../image/blobModel.h"
 #include "../panels/stack_stats.h"
+#include "../linGraph/linePlotter.h"
 #include <string.h>
 #include <iostream>
 #include <stdlib.h>
 #include <sstream>
 #include <unistd.h>
 #include <QTextStream>
+#include <QSemaphore>
 
 using namespace std;
 
@@ -31,7 +35,8 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
 
   image = new GLImage(texColNo, texRowNo, texture_size);
   image->resize(texture_size, texture_size);
-  
+  image->setCaption("ImageBuilder Image");
+
   rgbData = new float[ data->pwidth() * data->pheight() * 3];
   sBuffer = new unsigned short[ data->pwidth() * data->pheight() ];
   channels = ch;
@@ -46,7 +51,7 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
     distTabs->addTab(distributions.back(), ss.str().c_str());
   }
   
-  // set up map of various pipe slice functions.
+  // set up map  of various pipe slice functions.
   pipe_slice_functions["slice"] = &ImageBuilder::p_slice;
   pipe_slice_functions["g_blur"] = &ImageBuilder::p_gaussian;
   pipe_slice_functions["lg_blur"] = &ImageBuilder::pl_gaussian;
@@ -64,11 +69,19 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   general_functions["add_slice"] = &ImageBuilder::addSlice;
   general_functions["blur_stack"] = &ImageBuilder::blurStack;
   general_functions["deblur_stack"] = &ImageBuilder::deBlurStack;
+  general_functions["sub_stack"] = &ImageBuilder::subStack;
+  general_functions["stack_bgsub"] = &ImageBuilder::subStackBackground;
   general_functions["loop_stack"] = &ImageBuilder::loopStack;
+
   general_functions["loop_xz"] = &ImageBuilder::loopXZ;
   general_functions["stack_xz"] = &ImageBuilder::stack_xzSlice;
   general_functions["stack_yz"] = &ImageBuilder::stack_yzSlice;
+  general_functions["stack_project"] = &ImageBuilder::stack_project;
   general_functions["set_stack_par"] = &ImageBuilder::setStackPar;
+  general_functions["map_blobs"] = &ImageBuilder::stack_map_blobs;
+  general_functions["project_blobs"] = &ImageBuilder::project_blob_collections;
+  general_functions["draw_model"] = &ImageBuilder::draw_blob_model;
+  general_functions["list"] = &ImageBuilder::list_objects;
   //general_functions["p_mean"] = &ImageBuilder::p_mean_panel;  // may be useful to do things like blurring.
 
 }
@@ -241,14 +254,13 @@ void ImageBuilder::build_fprojection(f_parameter& par)
   int width = data->pwidth();
   int height = data->pheight();
   int beg = 0;
-  int end = 0;
+  int end = data->sectionNo();
   vector<int> waves;
   bool use_cmap=true;
   // override the defaults if specified.
-  if(!par.param("beg", beg) || !par.param("end", end)){
-    cerr << "build_fprojection you must specify beg (int) end (int)" << endl;
-    return;
-  }
+  par.param("beg", beg);
+  par.param("end", end);
+
   if(!par.param("wi", ',', waves)){
     cerr << "build_fprojection you must specify the wave indexes wi=1,2,3 or something" << endl;
     return;
@@ -291,11 +303,10 @@ void ImageBuilder::build_fgprojection(f_parameter& par)
     cerr << "ImageBuilder::build_fgprojection wave index too large" << endl;
     return;
   }
-  unsigned int radius;
-  if(!par.param("radius", radius) && !par.param("r", radius)){
-    cerr << "Need to specify gaussian radius (r or radius)" << endl;
-    return;
-  }
+  unsigned int radius = 0;
+  par.param("r", radius);
+  par.param("radius", radius);
+
   bool use_cmap = true;
   par.param("cmap", use_cmap);
 
@@ -995,6 +1006,20 @@ void ImageBuilder::getStackStats(unsigned int wi, int xb, int yb, int zb, int s_
   }
 }
 
+// first two words have already been taken. Start looking from words[2] for
+// further instructions..
+QString ImageBuilder::help(std::vector<QString>& words)
+{
+  QString helpString;
+  QTextStream qts(&helpString);
+  if(words.size() < 3 || !(pipe_slice_functions.count(words[2].toAscii().constData()) || general_functions.count(words[2])) )
+    return( generateGeneralHelp() );
+  if(pipe_slice_functions.count(words[2].toAscii().constData()))
+    return( generatePipeSliceHelp(words[2]));
+  return( generateGeneralFunctionHelp(words[2]) );
+  
+}
+
 void ImageBuilder::subImage(float* source, float* dest,
 			    unsigned int s_width, unsigned int s_height,
 			    unsigned int s_x, unsigned int s_y,
@@ -1080,6 +1105,47 @@ void ImageBuilder::drawCircle(float* image, int imWidth, int imHeight, int x, in
   }
 } 
 
+// draw outlines on RGB-data...
+void ImageBuilder::project_blobs(Blob_mt_mapper* bmapper, float r, float g, float b)
+{
+  int x, y, z;
+  uint w, h, d;
+  bmapper->position(x, y, z);
+  bmapper->dims(w, h, d);
+  
+
+  int imWidth = data->pwidth();
+  int imHeight = data->pheight();
+
+  // may not actually need the thingy.
+  vector<blob*> blobs = bmapper->rblobs();
+  for(uint i=0; i < blobs.size(); ++i){
+    uint peakSlice = blobs[i]->peakPos / (w * h);
+    int px = x + (blobs[i]->peakPos % w);
+    int py = y + ((blobs[i]->peakPos % (w * h)) / w);
+    if(px > 0 && px < imWidth && py > 0 && py < imHeight){
+      int off = 3 * (py * imWidth + px);
+      rgbData[off] = r;
+      rgbData[off + 1] = g;
+      rgbData[off + 2] = b;
+    }
+    for(uint j=0; j < blobs[i]->points.size(); ++j){
+      if(blobs[i]->surface[j] && blobs[i]->points[j] / (w * h) == peakSlice){
+    	px = x + (blobs[i]->points[j] % w);
+    	py = y + ((blobs[i]->points[j] % (w * h)) / w);
+    	if(px > 0 && px < imWidth && py > 0 && py < imHeight){
+    	  int off = 3 * (py * imWidth + px);
+    	  rgbData[off] += 0.5;
+    	  rgbData[off + 1] += 0.5;
+    	  rgbData[off + 2] += 0.5;
+    	}
+      }
+    }
+  }
+  // and then simply set the thingy.. 
+  setRGBImage(rgbData, data->pwidth(), data->pheight());
+}
+
 void ImageBuilder::updateStacks(QString& name, ImStack* stack, bool add)
 {
   if(!add && !imageStacks.count(name))
@@ -1100,6 +1166,16 @@ void ImageBuilder::updateStacks(QString& name, ImStack* stack, bool add)
   delete imageStacks[name];
   imageStacks.erase(name);
   emit stackDeleted(description);
+}
+
+void ImageBuilder::warn(const char* message)
+{
+  emit displayMessage(message);
+}
+
+void ImageBuilder::warn(QString& message)
+{
+  emit displayMessage(message.toAscii().constData());
 }
 
 // A simple function. Returns a float* representation of a single slice
@@ -1465,6 +1541,103 @@ void ImageBuilder::deBlurStack(f_parameter& par)
   updateStacks(blurStack, newStack, true);
 }
 
+void ImageBuilder::subStack(f_parameter& par)
+{
+  vector<QString> stacks;
+  par.param("stacks", ',', stacks);
+  if(stacks.size() < 2){
+    cerr << "subStack at least two stacks need to be specified for a -= b do: stacks=a,b ; c = a - b : stacks=a,b,c" << endl;
+    return;
+  }
+  if(!imageStacks.count(stacks[0]) || !imageStacks.count(stacks[1])){
+    cerr << "At least one specified stack is unknown" << endl;
+    return;
+  }
+  // equation represented by 
+  // a = a - b  (if only one image stacks and a is not the same as b and so on.. )
+  // c = a - b  (if a third image stack is defined)
+  // but c is a copy of a, and still referred to as a.. 
+  ImStack* a = imageStacks[stacks[0]];
+  ImStack* b = imageStacks[stacks[1]];
+  if(stacks.size() > 2 ){
+    a = new ImStack(*a);
+    updateStacks(stacks[2], a, true);
+  }
+  // a and b can have many different channels, and could be of different sizes. So we need to 
+  // specify something reasonable. for this..
+  unsigned int ch_a = 0;
+  unsigned int ch_b = 0;
+  par.param("ch_a", ch_a);
+  par.param("ch_b", ch_b);
+  float mult = 1.0;
+  par.param("mult", mult);
+  bool allowNeg = false;
+  par.param("allow_neg", allowNeg);
+
+  int xoff, yoff, zoff;
+  xoff = yoff = zoff = 0;
+  par.param("xo", xoff);
+  par.param("yo", yoff);
+  par.param("zo", zoff);
+
+  if(!a->subtract(b, ch_a, ch_b, mult, allowNeg, xoff, yoff, zoff))
+    cerr << "subStack, unable to subtract " << stacks[1].toAscii().constData() << " from " << stacks[0].toAscii().constData() << endl;
+}
+
+void ImageBuilder::subStackBackground(f_parameter& par)
+{
+  QString stackName;
+  if(!par.param("stack", stackName) || !imageStacks.count(stackName)){
+    cerr << "subStackBackground no stack with name : " << stackName.toAscii().constData() << endl;
+    return;
+  }
+  int xm = 12;
+  int ym = 12;
+  float q=0.1;
+  unsigned int wi=0;
+  QString outStack;
+  bool newStack = par.param("out", outStack);
+  // and then.. the other parameters..
+  par.param("xm", xm);
+  ym = xm;        // allows you to set only xm, and ym will default to the same value
+  par.param("ym", ym);
+  par.param("wi", wi);
+  par.param("q", q);
+
+  ImStack* stack = imageStacks[stackName];
+  if(wi >= stack->ch()){
+    cerr << "subStackBackground, stack does not have wi of : " << wi << endl;
+    return;
+  }
+  if(newStack){
+    stack = new ImStack(*stack);
+    updateStacks(outStack, stack, true);
+  }
+  // go through all of the slices, create a background and then subtract. Very time consuming, but maybe
+  // ok as we save the result.. 
+  Two_D_Background tdb;
+  for(uint zp=stack->zp(); zp < (stack->zp() + stack->d()); ++zp){
+    float* data = stack->image(wi, zp);
+    if(!data)
+      continue;
+    cout << "setting background for : " << zp << endl;
+    if(!tdb.setBackground(q, xm, ym, (int)stack->w(), (int)stack->h(), data))
+      cerr << "Failed to set background for unspecified reason" << endl;
+    // and then simply let's subtract..
+    cout << "\tsubtracting.." << endl;
+    for(int y=0; y < (int)stack->h(); ++y){
+      float* dest = data + y * stack->w(); 
+      for(int x=0; x < (int)stack->w(); ++x){
+	if(zp == 20 && y == 400 && !(x % 50))
+	  cout << zp << "," << y << "," << x << " dest " << *dest << "  bg " << tdb.bg(x,y) << " = " << (*dest) - tdb.bg(x,y) << endl;
+	(*dest) -= tdb.bg(x,y);
+	(*dest) = (*dest) < 0 ? 0 : (*dest);
+	++dest;
+      }
+    }
+  }
+}
+
 // Get an averaged imaged of a load of tiles, then find center by finding maximum
 // rings.. 
 void ImageBuilder::findCenter(f_parameter& par)
@@ -1482,7 +1655,7 @@ void ImageBuilder::findCenter(f_parameter& par)
   
   int col_no, row_no, pwidth, pheight;
   col_no = row_no = pwidth = pheight = 0;
-  int depth = data->sectionNo();
+  //  int depth = data->sectionNo();
   data->stackDimensions(col_no, row_no, pwidth, pheight);
   p_parameter p_par = f_to_p_param(par, pwidth, pheight, 0, 0, 0);
   if(!p_mean_panel(p_par)){
@@ -1620,6 +1793,7 @@ void ImageBuilder::stack_yzSlice(f_parameter& par)
   bool clearImage = true;
   par.param("clear", clearImage);
   unsigned int xpos = stack->h() / 2;
+  par.param("xp", xpos);
   unsigned int wi = 0;
   par.param("wi", wi);
   int slice_width, slice_height;
@@ -1635,6 +1809,65 @@ void ImageBuilder::stack_yzSlice(f_parameter& par)
 	 stack->yp(), slice_width, slice_height, false );
   setRGBImage(rgbData, data->pwidth(), data->pheight());
   delete []slice;
+}
+
+void ImageBuilder::stack_project(f_parameter& par)
+{
+  QString stackName;
+    if(!par.param("stack", stackName))
+    return;
+  if(!imageStacks.count(stackName))
+    return;
+  ImStack* stack = imageStacks[stackName];
+  bool clearImage = true;
+  par.param("clear", clearImage);
+  unsigned int wi=0;
+  par.param("wi", wi);
+  if(wi >= stack->ch()){
+    cerr << "stack_project wave index too large" << endl;
+    return;
+  }
+  unsigned int w = stack->w();
+  unsigned int h = stack->h();
+  unsigned int d = stack->d();
+  int xp = stack->xp();
+  int yp = stack->yp();
+  int zp = stack->zp();
+
+  par.param("zp", zp);
+  par.param("d", d);
+
+  if(zp < 0)
+    return;
+  // but otherwise don't check.. 
+  if(!w || !d)
+    return;
+  
+  bool paintBlobs = false;
+  par.param("blobs", paintBlobs);
+
+  float* projection = new float[w * h];
+  memset((void*)projection, 0, sizeof(float) * w * h);
+  for(int z=zp; z < zp + (int)d; ++z){
+    if(stack->image(wi, z)){
+      maximize(projection, stack->image(wi, z), w * h);
+    }else{
+      cerr << "stack didn't return anything" << endl;
+    }
+  }
+  channel_info cinfo = stack->cinfo(wi);
+  if(clearImage)
+    memset((void*)rgbData, 0, sizeof(float) * data->pwidth() * data->pheight() * 3);
+  toRGB(projection, rgbData, cinfo, w * h, xp, yp, w, h, false);
+
+  if(mtMappers.count(stack) && paintBlobs){
+    for(multimap<ImStack*, Blob_mt_mapper*>::iterator it=mtMappers.lower_bound(stack);
+	it != mtMappers.upper_bound(stack); ++it){
+      project_blobs( (*it).second );
+    }
+  }
+  setRGBImage(rgbData, data->pwidth(), data->pheight());
+  delete []projection;
 }
 
 void ImageBuilder::setStackPar(f_parameter& par)
@@ -1653,6 +1886,268 @@ void ImageBuilder::setStackPar(f_parameter& par)
       return;
     imageStacks[stackName]->set_sandb(wi, scale, bias);
   }
+}
+
+// temporary function. We don't really want to keep this one here
+// as we'll need more complex things..
+void ImageBuilder::stack_map_blobs(f_parameter& par)
+{
+  QString stackName;
+  QString errorMessage("");
+  QTextStream error(&errorMessage);
+  if(!par.param("stack", stackName) || !imageStacks.count(stackName)){
+    error << "ImageBuilder::stack_map_blobs No stack with name will try map_blobs() " << stackName.toAscii().constData(); // << "\n";
+    warn(errorMessage);
+    map_blobs(par);
+    return;
+  }
+  float minPeak, minEdge;
+  if(!par.param("peak", minPeak) || !par.param("edge", minEdge))
+    error << "ImageBuilder::stack_map_blobs need to specify peak and edge\n";
+  if(minEdge >= minPeak)
+    error << "ImageBuilder::stack_map_blobs minEdge should not be more than minPeak\n";
+
+  unsigned int mapper_id = 0;
+  if(!par.param("id", mapper_id))
+    error << "ImageBuilder::stack_map_blobs it is necessary to provide a mapper id (id=) (which should be a power of 2)\n";
+
+  if(errorMessage.length()){
+    warn(errorMessage);
+    return;
+  }
+  uint stack_channel = 0;
+  par.param("st_ch", stack_channel);
+  Blob_mt_mapper* mapper = new Blob_mt_mapper(imageStacks[stackName], 1);
+  cout << "Starting the blob_mt_mapper" << endl;
+  mtMappers.insert(make_pair(imageStacks[stackName], mapper));
+  mapper->mapBlobs(stack_channel, minEdge, minPeak);
+}
+
+// makes a set of smaller stacks of size w*w (full depth ones) and then
+// maps blobs in some number of these concurrently. Image stacks are 
+// subsequently deleted, and the blobMappers stored without the blobs,
+// and their internal maps. This in order not to run out of memory.. !!
+
+void ImageBuilder::map_blobs(f_parameter& par)
+{
+  uint max_thread=16;
+  uint stack_width = 256;
+  uint stack_no = 4;     // the number of stacks to map concurrently.
+  uint wi;
+  float min_edge, min_peak;
+  unsigned int mapper_id = 0;
+  vector<Blob_mt_mapper*> mappers;  // later we want to replace this with a smarter object
+  QString map_name;
+  QString errorMessage;
+  QTextStream qts(&errorMessage);
+  
+  if(!par.param("wi", wi))
+    qts << "map_blobs please specify wave index (wi=)\n";
+  if(!par.param("edge", min_edge) || !par.param("peak", min_peak))
+    qts << "map_blobs please specify both min edge (edge=) and min peak (peak=)\n";
+  if(!par.param("id", mapper_id))
+    qts << "map_blobs please specify a mapper id (n^2)\n";
+  if(!par.param("map_name", map_name) || mapper_collections.count(map_name))
+    qts << "map_blobs please specify a mapper name (for the collection, map_name=). Name should be unique\n";
+  if(errorMessage.length()){
+    warn(errorMessage);
+    return;
+  }
+  // optional background subtraction... 
+  uint bg_xm, bg_ym;
+  float bg_q;
+  bg_xm = bg_ym = 0;
+  bg_q = 0.1;  // default
+  if(par.param("bgx", bg_xm))
+    bg_ym = bg_xm;
+  par.param("bgy", bg_ym);
+  par.param("bgq", bg_q);
+
+  // optional creation of a blobModel .. 
+  int xy_radius = 0;
+  int z_radius = 0;
+  //  int model_multiplier = 1;
+  BlobModel* blobModel = 0;
+  par.param("bmx", xy_radius);
+  par.param("bmz", z_radius);
+  //par.param("bm_mult", model_multiplier);
+  if(xy_radius > 0 && z_radius > 0)
+    blobModel = new BlobModel(0, 0, 0, 1.0, xy_radius, z_radius);
+  // we need to remember blobModel, but first lets see if we crash..
+  
+  bool use_cmap = true;
+  par.param("cmap", use_cmap);
+  par.param("w", stack_width);
+  par.param("n", stack_no);
+  stack_no = stack_no == 0 ? 1 : stack_no;
+  stack_no = stack_no > max_thread ? max_thread : stack_no;
+  stack_width = (int)stack_width > data->pwidth() ? data->pwidth() : stack_width;
+  stack_width = stack_width == 0 ? 256 : stack_width;
+  QSemaphore* sem = new QSemaphore(stack_no);
+  mapper_collection_semaphores.insert(make_pair(map_name, sem));
+
+  for(int x=0; x < data->pwidth(); x += stack_width){
+    for(int y=0; y < data->pheight(); y += stack_width){
+      sem->acquire();
+      ImStack* stack = imageStack(wi, x, y, 0, stack_width, stack_width, data->sectionNo(), use_cmap);
+      if(!stack){
+	sem->release();
+	continue;
+      }
+      sem->release();
+      Blob_mt_mapper* mapper = new Blob_mt_mapper(stack, mapper_id, true);  // stack will be deleted at end of run()
+      if(bg_xm)
+	mapper->setBgPar(bg_xm, bg_ym, bg_q);
+      if(blobModel)
+	mapper->setBlobModel(blobModel);
+      mapper->mapBlobs(0, min_edge, min_peak, sem);
+      mappers.push_back(mapper); 
+    }
+  }
+  // at which point all mapping should have been done.
+  cout << "Created a total of " << mappers.size() << " map objects" << endl;
+  if(mapper_collections.count(map_name)){
+    for(uint i=0; i < mapper_collections[map_name].size(); ++i)
+      delete mapper_collections[map_name][i];
+  }
+  mapper_collections.insert(make_pair(map_name, mappers));
+  if(blobModel){
+    // do something reasonable..
+    if(blobModels.count(map_name)){
+      delete blobModels[map_name];
+    }
+    blobModels[map_name] = blobModel;
+  }
+}
+
+void ImageBuilder::draw_blob_model(f_parameter& par)
+{
+  QString modelName;
+  unsigned int res_multiplier = 1.0;
+  QString errorMessage;
+  QTextStream qts(&errorMessage);
+  if(!par.param("name", modelName)){
+    qts << "Specify blob model name (name=..)\n" << endl;
+  }else{
+    if(!blobModels.count(modelName))
+      qts << "No model with name " << modelName << "\n";
+  }
+  if(errorMessage.length()){
+    warn(errorMessage);
+    return;
+  }
+  par.param("m", res_multiplier);
+  float bias = 0;
+  float scale = 1;
+  par.param("scale", scale);
+  par.param("bias", bias);
+  bool clear = true;
+  par.param("clear", clear);
+
+  int s_range, z_radius;
+  float* model = blobModels[modelName]->model(s_range, z_radius, res_multiplier);
+  cout << "called blobModels : " << s_range << "," << z_radius << "," << res_multiplier << endl;
+  // the easiest way to draw this map..
+  channel_info cinfo(color_map(1, 1, 1), 1, bias, scale, false, false);  // colors, max level, bias, scale, bg_subtract, contrast
+  int w = 1 + (2 * z_radius);
+  int h = 1 + s_range;
+  if(!w || !h)
+    return;
+  toRGB(model, rgbData, cinfo, w * h,  0, 0, w, h, clear);
+  // we can plot a blobModel as well. using a linePlotter. 
+  if(!linePlotters.count("BlobModelPlotter"))
+    linePlotters["BlobModelPlotter"] = new LinePlotter();
+  linePlotters["BlobModelPlotter"]->setData(model, w, h, true, true);
+  linePlotters["BlobModelPlotter"]->show();
+
+  delete []model;
+  setRGBImage(rgbData, data->pwidth(), data->pheight());  // not the most efficient way of doing it obviously.. 
+}
+
+/* make_blob_model is problematic, because in larger data sets it is necessary for
+ the blob_mt_mapper object to delete the imStack it was working on. Also it doesn't
+ know how the image stack was created; and this is not trivial as an image stack can be
+ created through an unlimited number of steps. Hence, it is easier to make the blob model
+ immediately after the creation of the blobs. The disadvantage is ofcourse that the parameters
+ of the blob model have to be specified prior to the blob-modelling. In the future I may find
+ some way of reviving the below function, but for the present moment, I'm not sure as to how to do it
+*/
+// Requires, the name of a mapper_collection, a width and depth of the model..
+// void ImageBuilder::make_blob_model(f_parameter& par)
+// {
+//   QString collection_name;
+//   int xy_radius = 0;
+//   int z_radius = 0;
+//   QString errorMessage;
+//   QTextStream qts(&errorMessage);
+//   if(!par.param("blobs", collection_name) || !mapper_collections.count(collection_name))
+//     qts << "make_blob_model: specify name of blob_collection (list to list objects)\n";
+//   if(!par.param("xyr", xy_radius) || xy_radius <= 0)
+//     qts << "make_blob_model: specify xy_radius (xyr = w where w > 0)\n";
+//   if(!par.param("zr", z_radius) || zy_radius <= 0)
+//     qts << "make_blob_model: specfy z_radius (zr=d where d > 0)\n";
+//   if(errorMessage.length()){
+//     warn(errorMessage);
+//     return;
+//   }
+//   // the 0,0,0, 1.0 don't actually mean anything. 
+//   BlobModel* bmodel = new BlobModel(0, 0, 0, 1.0, xy_radius, z_radius);
+//   vector<Blob_mt_mapper*>& mappers = mapper_collections[collection_name];
+//   // generally, mappers in mapper_collections won't remember the data (i.e. their
+//   // associated imStack is deleted. Since this is necessary to make the model,
+//   // we'll need to make a new ImStack for the model. Then get the blobs from it, and access
+//   // the imStack for the values. This seems a little bit complicated and could probably benefit from
+//   // being simplified in some manner or other.
+//   for(for uint i=0; i < mappers.size(); ++i){
+//     Blob_mt_mapper* map = mappers[i];
+//     ImStack* stack = 0; // unfortunately, map doesn't know the wavelength. That is trouble.
+// }
+
+void ImageBuilder::project_blob_collections(f_parameter& par)
+{
+  vector<QString> collNames;
+  if(!par.param("blobs", ',', collNames)){
+    warn("Please specivy blob collection names (blobs=name1,name2,name,3);\n");
+    return;
+  }
+  float r, g, b;
+  r = g = b = 1.0;
+  par.param("r", r);
+  par.param("g", g);
+  par.param("b", b);
+  for(uint i=0; i < collNames.size(); ++i){
+    if(!mapper_collections.count(collNames[i]))
+      continue;
+    for(vector<Blob_mt_mapper*>::iterator it=mapper_collections[collNames[i]].begin();
+	it != mapper_collections[collNames[i]].end(); ++it){
+      project_blobs((*it), r, g, b);
+    }
+  }
+}
+
+// add optional parameters later..
+void ImageBuilder::list_objects(f_parameter& par)
+{
+  ostringstream os;
+  os << "Stack objects\n";
+  for(map<QString, ImStack*>::iterator it=imageStacks.begin(); it != imageStacks.end(); ++it){
+    os << (*it).first.toAscii().constData() << "\t" << (*it).second->description() << "\n";
+    for(multimap<ImStack*, Blob_mt_mapper*>::iterator mit=mtMappers.lower_bound((*it).second);
+	mit != mtMappers.upper_bound((*it).second); ++mit){
+      os << "mapper\t" << (*mit).second->description() << "\n";
+    }
+  }
+  for(map<QString, vector<Blob_mt_mapper*> >::iterator it=mapper_collections.begin(); it != mapper_collections.end(); ++it){
+    os << (*it).first.toAscii().constData() << ":\t" << (*it).second.size() << " mappers\n";
+    if(blobModels.count((*it).first))
+      os << "\tmodel specified\n";
+  }
+  if(linePlotters.size()){
+    os << "Line Plotters:\n";
+    for(map<QString, LinePlotter*>::iterator it=linePlotters.begin(); it != linePlotters.end(); ++it)
+      os << (*it).first.toAscii().constData() << "\n";
+  }
+  emit displayMessage(os.str().c_str());
 }
 
 // this function may destroy image. image should be set to the return value.
@@ -1686,7 +2181,66 @@ float* ImageBuilder::modifyImage(int x, int y, int w, int h, float* image, f_par
   return(image);
 }
 
-
+ImStack* ImageBuilder::imageStack(f_parameter& par)
+{
+  uint wi = 0;
+  if(!par.param("wi", wi)){
+    cerr << "ImageBuilder::imageStack need to specify wave indes (wi)" << endl;
+    return(0);
+  }
+  if(wi >= channels.size()){
+    cerr << "ImageBuilder::imageStack wave index too large" << endl;
+    return(0);
+  }
+  bool use_cmap = true;
+  par.param("cmap", use_cmap);
+  uint x=0; 
+  uint y=0;
+  uint z=0;
+  uint w = data->pwidth();
+  uint h = data->pheight();
+  uint d = data->sectionNo();
+  
+  par.param("x", x); par.param("y", y); par.param("z", z);
+  par.param("w", w); par.param("h", h); par.param("d", d);
+  
+  x = (int)x >= data->pwidth() ? 0 : x;
+  y = (int)y >= data->pheight() ? 0 : y;
+  z = (int)z >= data->sectionNo() ? 0 : z;
+  w = (int)(x + w) < data->pwidth() ? w : (data->pwidth() - x);
+  h = (int)(y + h) < data->pheight() ? h : (data->pheight() - y);
+  d = (int)(z + d) < data->sectionNo() ? d : (data->sectionNo() - z);
+  if(!w || !h || !d){
+    cerr << "ImageBuilder::imageStack bad dimensions specified" << endl;
+    return(0);
+  }
+  // which should be safe though we might run out of memory.. 
+  float* stack = new float[w * h * d];
+  memset((void*)stack, 0, sizeof(float) * w * h * d);
+  // and then simply ..
+  if(!data->readToFloat(stack, x, y, z, w, h, d, wi, use_cmap)){
+    delete []stack;
+    cerr << "ImageBuilder::imageStack unable to read from panels. " << endl;
+    return(0);
+  }
+  ImStack* imStack = new ImStack(stack, channels[wi], x, y, z, w, h, d);
+  return(imStack);
+}
+ 
+ImStack* ImageBuilder::imageStack(uint wi, int x, int y, int z, uint w, uint h, uint d, bool use_cmap)
+{
+  if(!w || !h || !d || wi >= channels.size())
+    return(0);
+  float* stack = new float[w * h * d];
+  memset((void*)stack, 0, sizeof(float) * w * h * d);
+  if(!data->readToFloat(stack, x, y, z, w, h, d, wi, use_cmap)){
+    delete []stack;
+    return(0);
+  }
+  ImStack* imStack = new ImStack(stack, channels[wi], x, y, z, w, h, d);
+  return(imStack);
+}
+			
 p_parameter ImageBuilder::f_to_p_param(f_parameter& fp, int w, int h, int xo, int yo, float* img)
 {
   map<string, float> pars;
@@ -1704,4 +2258,81 @@ string ImageBuilder::toString(QString qstr)
 {
   string str(qstr.toAscii().constData());
   return(str);
+}
+
+QString ImageBuilder::generateGeneralHelp()
+{
+  QString helpText;
+  QTextStream qts(&helpText);
+  qts << "Pipe Slice Functions" << "\n";
+  for(map<string, ps_function>::iterator it=pipe_slice_functions.begin(); it != pipe_slice_functions.end(); ++it)
+    qts << it->first.c_str() << "\n";
+  qts << "\nGeneral Functions" << "\n";
+  for(map<QString, g_function>::iterator it=general_functions.begin(); it != general_functions.end(); ++it)
+    qts << it->first << "\n";
+  return(helpText);
+}
+
+// It would be better to have some data structures that specified the
+// required and optional parameters (with default values) automatically
+// but for that to be useful all the functions should use some sort of
+// argument collector that would need to be somewhat universal. Or perhaps, I could
+// feed a structure into the parameter class in a sort of validate manner. (Automatically
+// setting the non-specified values to their default values. Returning true if ok.
+// That might work ok. But the class describing the requirements would need to be carefully
+// designed. So let's do it the stupid way first to see what kind of requirements we need.
+QString ImageBuilder::generatePipeSliceHelp(QString& fname)
+{
+  // Stupid if fname == then make string and return..
+  if(fname == "slice")
+    return("slice z= ch= \n");
+  if(fname == "g_blur")
+    return("g_blur radius=\n");
+  if(fname == "lg_blur")
+    return("lg_blur radius=\n");
+  if(fname == "bg_sub")
+    return("bg_sub bg_xr= bg_yr= bg_pcnt=(0-1)\n");
+  if(fname == "ch_sub")
+    return("ch_sub ch= al_neg=(bool) mult= z=\n");
+  if(fname == "p_mean")
+    return("p_mean ch= cb=(col_begin) rb=(row_begin)\n");
+  return("Unknown slice command\n");
+}
+
+QString ImageBuilder::generateGeneralFunctionHelp(QString& fname)
+{
+  // stupid things as before..
+  if(fname == "set_panel_bias")
+    return("set_panel_bias ch= row= col= s= b=\n");
+  if(fname == "set_frame_bgpar")
+    return("set_frame_bgpar wi= xm= ym= q=(0-1)\n");
+  if(fname == "find_center")
+    return("find_center ch= rb=0 cb=0\n");
+  if(fname == "f_project")
+    return("f_project beg= end= wi= w=width h=height x=0 y=0 cmap=true clear=false\n");
+  if(fname == "fg_project")
+    return("fg_project wi= z=0 x=0 y=0 d=depth w=width h=height r|radius=0 cmap=true clear=false brep=1 fg_stack=null\n");
+  if(fname == "add_slice")
+    return("add_slice ch|wi= z= x=0 y=0 w=width h=height cmap=true\n");
+  if(fname == "blur_stack")
+    return("blur_stack stack= wi=0 r|radius=4 out=(new stack name)\n");
+  if(fname == "deblur_stack")
+    return("deblur_stack stack= wi=0 r|radius=4 out=(new stack name)\n");
+  if(fname == "sub_stack")
+    return("sub_stack stacks=a,b(,c) ch_a=0 ch_b=0 mult=1.0 allowNeg=false xoff=0 yoff=0 zoff=0 (does a = a-b or c = a-b)\n");
+  if(fname == "stack_bgsub")
+    return("stack_bgsub stack= xm=12 ym=12 q=0.1 wi=0 out=self\n");
+  if(fname == "loop_stack")
+    return("loop_stack stack= clear=true n=1 ms=100 zb=0 ze=depth\n");
+  if(fname == "loop_xz")
+    return("loop_xz stack= clearImage=true ms=100 wi=0 yb=0 ye=stack_height\n");
+  if(fname == "stack_xz")
+    return("stack_xz stack= yp=half_height wi=0 clear=truen");
+  if(fname == "stack_yz")
+    return("stack_yz stack= xp=half_width wi=0 clear=true\n");
+  if(fname == "stack_project")
+    return("stack_project stack= clear=true wi=0 zp=stack_zp d=stack_depth\n");
+  if(fname == "set_stack_par")
+    return("set_stack_par stack= wi= par=(sandb s= b=)\n");
+  return("Unknown general command\n");
 }

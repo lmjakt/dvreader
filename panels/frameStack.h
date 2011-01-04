@@ -29,6 +29,7 @@
 //#include "frameSet.h"
 #include "fileSetInfo.h"
 #include "../dataStructs.h"
+#include "../datastructs/channelOffset.h"
 #include "borderInformation.h"
 #include "stack_stats.h"
 #include <map>
@@ -57,6 +58,7 @@ class FrameStack {
     void setBackgrounds(std::map<fluorInfo, Background*> backgrounds);
     void setPanelBias(unsigned int wi, float scale, short bias);
     void setBackgroundPars(unsigned int wi, int xm, int ym, float qnt, bool bg_subtract);
+    bool setChannelOffsets(std::vector<ChannelOffset> offsets);
     // returns 0, if the frame is added to this stack
     // otherwise returns another frameStack
     std::ifstream* fileStream(){
@@ -182,11 +184,12 @@ class FrameStack {
 	return(false);
     }
 
+    // respects channelOffsets
     bool readToRGB(float* dest, int xpos, int ypos, 
 		   unsigned int dest_width, unsigned int dest_height, unsigned int slice_no, 
 		   std::vector<channel_info> chinfo, raw_data* raw=0); 
 
-
+    // respects channelOffsets
     bool mip_projection(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height,
 			float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0);
 
@@ -195,8 +198,10 @@ class FrameStack {
     bool readToFloat(float* dest, unsigned int xb, unsigned int iwidth, unsigned int yb, 
     		     unsigned int iheight, unsigned int secNo, unsigned int waveIndex, float maxLevel);   // simply read the appropriate pixels in.. 
 
+    // respects channelOffsets
     bool readToFloat(float* dest, int xb, int iwidth, int yb, 
 		     int iheight, int zb, int idepth,  unsigned int waveIndex, float maxLevel, bool use_cmap=false);   // simply read the appropriate pixels into a volume.. 
+    // respects channelOffsets
     bool readToShort(unsigned short* dest, unsigned int xb, unsigned int iwidth, unsigned int yb, 
 		     unsigned int iheight, unsigned int secNo, unsigned int waveIndex);
 
@@ -206,9 +211,6 @@ class FrameStack {
     // return stack_stats for a subset of the image (to reduce the size of data needed to calculate stuff.
     stack_stats stackStats(int xb, int yb, int s_width, int s_height, unsigned int waveIndex);
     stack_stats stackStats(int xb, int yb, int zb, int s_width, int s_height, int s_depth, unsigned int waveIndex);
-
-    bool readToFloatPro(float* dest, unsigned int xb, unsigned int iwidth, unsigned int yb, 
-			unsigned int iheight, unsigned int wave);   // simply read the appropriate pixels in.. 
 
     bool readProjectionData(float* dest, uint d_width, uint d_x, uint d_y,
 			    uint xb, uint yb, uint c_width, uint c_height, uint wave);
@@ -257,7 +259,7 @@ class FrameStack {
     int* wave_lengths;
     int wave_no;            // for making frameSets...
     std::vector<float> fwaves;  // for useful things.. 
-
+    std::vector<ChannelOffset> channelOffsets;
     bool finalised;
     float positionAdjusted;    // 
     bool neighboursAdjusted;
@@ -268,6 +270,9 @@ class FrameStack {
     // a function that determines whether this stack or the neighbour stack gets to move..
                                   // this functionality overlaps with the 
     float* make_mip_projection(unsigned int wi, float maxLevel, std::vector<float>& contrast);  // just give the wavelength..  
+
+    bool readToFloatPro(float* dest, unsigned int xb, unsigned int iwidth, unsigned int yb, 
+			unsigned int iheight, unsigned int wave);   // simply read the appropriate pixels in.. 
 
     // some functions for stuff..
     void normalise_y(float* values, unsigned int w, unsigned int h);  // normalises a chunk of data in the y lines.. 

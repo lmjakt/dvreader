@@ -9,6 +9,7 @@ HEADERS		= \
 		deltaViewer.h \
 		dataStructs.h \
 		datastructs/a_pos.h \
+		datastructs/channelOffset.h \
 		jpgView/jpgView.h \
 		opengl/glImage.h \
 		distchooser/distChooser.h \
@@ -109,11 +110,13 @@ HEADERS		= \
 		imageBuilder/p_parameter.h \
 		imageBuilder/f_parameter.h \
 	       	imageBuilder/centerFinder.h \
+		imageBuilder/blob_mt_mapper.h \
 		util/matrix.h	
 SOURCES		= \
 		dvReader.cpp \
 		deltaViewer.cpp \
 		dataStructs.cpp \
+		datastructs/channelOffset.cpp \
 		jpgView/jpgView.cpp \
 		opengl/glImage.cpp \
 		distchooser/distChooser.cpp \
@@ -208,6 +211,7 @@ SOURCES		= \
 		imageBuilder/p_parameter.cpp \
 		imageBuilder/f_parameter.cpp \
 		imageBuilder/centerFinder.cpp \
+		imageBuilder/blob_mt_mapper.cpp \
 		util/matrix.cpp \
 		globalVariables.cpp \
 		main.cpp

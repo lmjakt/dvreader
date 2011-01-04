@@ -136,6 +136,7 @@ void FrameSet::setBackgroundPars(unsigned int waveIndex, int xm, int ym, float q
     frames[fInfo[waveIndex]]->setBackgroundPars(xm, ym, qnt, bg_subtract);
 }
 
+// I should probably deprecate the following function. To simplify things a little bit.
 bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source_y, 
 			 unsigned int width, unsigned int height,
 			 unsigned int dest_x, unsigned int dest_y, 
@@ -170,6 +171,16 @@ bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source
       i++;
     }
     return(ok);   // so a partial read gives a false..
+}
+
+bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source_y,
+			 unsigned int width, unsigned int height,
+			 unsigned int dest_x, unsigned int dest_y,
+			 unsigned int dest_w, channel_info& chinfo, float* raw)
+{
+  if(!frames.count(chinfo.finfo))
+    return(false);
+  return( frames[chinfo.finfo]->readToRGB(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, chinfo, raw) );
 }
 
 bool FrameSet::readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,

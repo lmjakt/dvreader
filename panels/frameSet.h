@@ -71,6 +71,10 @@ class FrameSet {
 		   unsigned int width, unsigned int height,
 		   unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
 		   std::vector<channel_info> chinfo, raw_data* raw=0);
+    bool readToRGB(float* dest, unsigned int source_x, unsigned int source_y,
+		   unsigned int width, unsigned int height,
+		   unsigned int dest_x, unsigned int dest_y,
+		   unsigned int dest_w, channel_info& chinfo, float* raw=0);
     bool readToFloat(float* dest, unsigned int source_x, unsigned int source_y, unsigned int width, unsigned int height,
 		   unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
 		     float maxLevel, unsigned int waveIndex, bool use_cmap=false);

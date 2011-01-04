@@ -1,6 +1,7 @@
 #include "imStack.h"
 #include "../dataStructs.h"
 #include <sstream>
+#include <string.h>
 
 using namespace std;
 
@@ -38,10 +39,29 @@ ImStack::ImStack(int x, int y, int z, unsigned int w, unsigned int h, unsigned i
   width = w; height = h; depth = d;
 }
 
+ImStack::ImStack(ImStack& imStack)
+{
+  imData.resize(imStack.imData.size());
+  channels = imStack.channels;
+  xo = imStack.xo;
+  yo = imStack.yo;
+  zo = imStack.zo;
+  width = imStack.width;
+  height = imStack.height;
+  depth = imStack.depth;
+  unsigned long l = width * height * depth;
+  for(unsigned int i=0; i < imData.size(); ++i){
+    imData[i] = new float[ l ];
+    memcpy((void*)imData[i], (void*)imStack.imData[i], sizeof(float) * l);
+  }
+}
+
 ImStack::~ImStack()
 {
-  for(uint i=0; i < imData.size(); ++i)
+  for(uint i=0; i < imData.size(); ++i){
     delete []imData[i];
+    imData[i] = 0;
+  }
 }
 
 void ImStack::addChannel(float* data, channel_info& ch_info)
@@ -56,6 +76,54 @@ bool ImStack::setData(float* data, unsigned int ch)
     return(false);
   delete imData[ch];
   imData[ch] = data;
+  return(true);
+}
+
+bool ImStack::subtract(ImStack* b, unsigned int ch, unsigned int b_ch, float mult, bool allowNeg, int xoff, int yoff, int zoff)
+{
+  if(ch >= imData.size() || b_ch >= b->imData.size()){
+    cerr << "ImStack::subtract unknown channel" << ch << endl;
+    return(false);
+  }
+  if(width != b->width || height != b->height || depth != b->depth){
+    cerr << "ImStack::subtract incompatible dimensions" << endl;
+    return(false);
+  }
+  // xoff means that we the subtract this[0] - b[xoff]
+  // since xoff can be negative we have to be careful.. 
+  // we have to make sure that we dont' overstep boundaries..
+  int xbeg = xoff < 0 ? -xoff : xoff;
+  int ybeg = yoff < 0 ? -yoff : yoff;
+  int zbeg = zoff < 0 ? -zoff : zoff;
+
+  int xend = xoff > 0 ? (int)width - xoff : (int)width;
+  int yend = yoff > 0 ? (int)height - yoff : (int)height;
+  int zend = zoff > 0 ? (int)depth - zoff : (int)depth;
+
+  for(int z=zbeg; z < zend; ++z){
+    for(int y=ybeg; y < yend; ++y){
+      float* minuend = imData[ch] + (z * width * height + y * width);
+      float* subtrahend = b->imData[ch] + ( (z+zoff) * width * height + (y+yoff) * width + xoff);
+      for(int x=xbeg; x < xend; ++x){
+	(*minuend) -= mult * (*subtrahend);
+	if(!allowNeg)
+	  (*minuend) = (*minuend) < 0 ? 0 : (*minuend);
+	++minuend;
+	++subtrahend;
+      }
+    }
+  }
+
+  // unsigned long l = width * height * depth;
+  // if(allowNeg){
+  //   for(unsigned long i=0; i < l; ++i)
+  //     imData[ch][i] -= (mult * b->imData[b_ch][i]);
+  // }else{
+  //   for(unsigned long i=0; i < l; ++i){
+  //     imData[ch][i] -= (mult * b->imData[b_ch][i]);
+  //     imData[ch][i] = imData[ch][i] > 0 ? imData[ch][i] : 0;
+  //   }
+  // }
   return(true);
 }
 
@@ -75,6 +143,7 @@ float* ImStack::stack(unsigned int ch)
   return(imData[ch]);
 }
 
+// uses a global z-coordinate
 float* ImStack::image(unsigned int ch, int z)
 {
   if(ch >= channels.size())
@@ -82,6 +151,15 @@ float* ImStack::image(unsigned int ch, int z)
   if(z < zo || z >= (zo + (int)depth))
     return(0);
   return( imData[ch] + (z - zo) * width * height );
+}
+
+// uses a local z-coordinate
+float* ImStack::l_image(unsigned int ch, int z){
+  if(ch >= channels.size())
+    return(0);
+  if((uint)z >= depth)
+    return(0);
+  return( imData[ch] + z * width * height );
 }
 
 float* ImStack::xz_slice(unsigned int ch, unsigned int ypos, int& slice_width, int& slice_height)

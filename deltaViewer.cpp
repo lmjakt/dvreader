@@ -18,7 +18,7 @@
    
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software#include "globalVariables.h"
-
+n
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  
     PS. If you can think of a better name, please let me know...
@@ -50,6 +50,7 @@
 #include <globalVariables.h>
 #include <colorChooser.h>
 #include <q3buttongroup.h>
+#include <QButtonGroup>
 #include <qradiobutton.h>
 #include <q3filedialog.h>
 #include <stdlib.h>
@@ -79,40 +80,6 @@ const int minMag = 0;   // not actual magnifications, but just numbers..
 const float maxLevel = 4096;    // max for a 12 bit unsigned camera.. (but after deconvolution this changes..)
 
 
-void ChannelOffset::changeOffset(int offsetDirection){
-  switch(offsetDirection){
-  case XPLUS :
-    xo++;
-    break;
-  case XMINUS :
-    xo--;
-    xo = xo < 0 ? 0 : xo;
-    break;
-  case YPLUS :
-    yo++;
-    break;
-  case YMINUS :
-    yo--;
-    yo = yo < 0 ? 0 : yo;
-    break;
-  case ZPLUS :
-    zo++;
-    break;
-  case ZMINUS :
-    zo--;
-    //zo = zo < 0 ? 0 : zo;
-    break;
-  case XYRESET :
-    xo = yo = 0;
-    break;
-  case ZRESET :
-    zo = 0;
-    break;
-  default :
-    cerr << "unknown offset id : " << endl;
-  }
-}
-
 DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const char* ifName, QWidget* parent, const char* name)
   : QWidget(parent, name)
 {
@@ -134,6 +101,10 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
   reader = new DVReader(ifName, maxLevel, xyMargin);
   reader->printInfo();
   fileSet = reader->fileData();   // then use fileData to do everything.. 
+  if(!fileSet){
+    cerr << "fileSet is set to 0, aborting" << endl;
+    exit(1);
+  }
   imageAnalyser = new ImageAnalyser(fileSet);
   // at which point we can make and show the overlapviewer..
   overlapWindow = new OverlapWindow(fileSet->overlaps());
@@ -393,7 +364,11 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
     colormap.insert(make_pair(fileSet->channel(i), colorSet[i % colorSet.size()]));  // the default..
   }
 
-  channelOffsets = new Q3ButtonGroup(1, Qt::Horizontal, "channel", this);
+  channelOffsets = new Q3ButtonGroup(1, Qt::Horizontal, "channel", this); // a pain to replace with QButtonGroup
+  ch_xoffset = new QLabel("-", this);
+  ch_yoffset = new QLabel("-", this);
+  ch_zoffset = new QLabel("-", this);
+  connect(channelOffsets, SIGNAL(clicked(int)), this, SLOT(channelOffsetIdChanged(int)) );
   // make one DistChooser for each channel ..
   vector<QColor> channelColors;
   for(unsigned int i=0; i < fileSet->channelNo(); i++){
@@ -422,6 +397,11 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
     biases.push_back(0.0);  // the simplest way.. 
     channelColors.push_back(colormap[fileSet->channel(i)].qcolor());
   }
+
+  ///////////  Initialise blobManager to 0, then if we need it make it and 
+  blobManager=0;
+  backgroundWindow = 0;
+
   setWaveColors();
   sliceSignals = new ValueLabels(channelColors, this);
 
@@ -435,27 +415,27 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
   QPushButton* adjustOverlapsButton = new QPushButton("Adjust Overlaps", this);
   connect(adjustOverlapsButton, SIGNAL(clicked()), olapEditor, SLOT(show()) );
 
-  // input individual offsets... 
+  // input individual offsets...
   
-  Q3ButtonGroup* offSetButtons = new Q3ButtonGroup();
-  connect(offSetButtons, SIGNAL(clicked(int)), this, SLOT(offSetChanged(int)) );
+  QButtonGroup* offSetButtons = new QButtonGroup();
+  connect(offSetButtons, SIGNAL(buttonClicked(int)), this, SLOT(offSetChanged(int)) );
   ArrowButton* x_plus = new ArrowButton(90, this);
-  offSetButtons->insert(x_plus, XMINUS);
+  offSetButtons->addButton(x_plus, XMINUS);
   ArrowButton* x_minus = new ArrowButton(270, this);
-  offSetButtons->insert(x_minus, XPLUS);
+  offSetButtons->addButton(x_minus, XPLUS);
   ArrowButton* y_plus = new ArrowButton(0, this);
-  offSetButtons->insert(y_plus, YMINUS);
+  offSetButtons->addButton(y_plus, YMINUS);
   ArrowButton* y_minus = new ArrowButton(180, this);
-  offSetButtons->insert(y_minus, YPLUS);
+  offSetButtons->addButton(y_minus, YPLUS);
   ArrowButton* z_plus = new ArrowButton(0, this);
-  offSetButtons->insert(z_plus, ZMINUS);
+  offSetButtons->addButton(z_plus, ZMINUS);
   ArrowButton* z_minus = new ArrowButton(180, this);
-  offSetButtons->insert(z_minus, ZPLUS);
+  offSetButtons->addButton(z_minus, ZPLUS);
   // 
   QPushButton* x_y_resetButton = new QPushButton("x/y", this);
-  offSetButtons->insert(x_y_resetButton, XYRESET);
+  offSetButtons->addButton(x_y_resetButton, XYRESET);
   QPushButton* z_resetButton = new QPushButton("z", this);
-  offSetButtons->insert(z_resetButton, ZRESET);
+  offSetButtons->addButton(z_resetButton, ZRESET);
   
   x_y_resetButton->setFixedSize(35, 35);
   z_resetButton->setFixedSize(35, 35);
@@ -471,9 +451,6 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
 //  connect(dropClusterWindow, SIGNAL(drawClusters(vector<Cluster>&)), flatView, SLOT(setClusterDrops(vector<Cluster>&)) );
   // and lets see what happens.. 
 
-  ///////////  Initialise blobManager to 0, then if we need it make it and 
-  blobManager=0;
-  backgroundWindow = 0;
 
   // Make an imagebuilderwidget and stick it at the bottom..
 
@@ -574,7 +551,11 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
   offSetGrid->addWidget(z_minus, 2, 4);
   offSetGrid->addWidget(x_y_resetButton, 1, 1);
   offSetGrid->addWidget(z_resetButton, 1, 4);
+  offSetGrid->addWidget(ch_xoffset, 3, 0);
+  offSetGrid->addWidget(ch_yoffset, 3, 1);
+  offSetGrid->addWidget(ch_zoffset, 3, 2);
   offSetGrid->setRowStretch(3, 3);
+
   offSetBox->addWidget(channelOffsets);
   box->addWidget(updateDist);
   box->addWidget(useComponents);
@@ -584,7 +565,10 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
   box->addStretch();
   
   // and lets set the projection..
-  setProjection();
+  //setProjection();
+
+  // projeciton has already been painted as a result of setWaveColors called above.. 
+  //  paintProjection();
 
   // And if we have any optional commands. then do those and exit (this allows us to script the thing)
   if(opt_commands.size()){
@@ -616,23 +600,39 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
 }
 
 void DeltaViewer::offSetChanged(int id){
-    int n = channelOffsets->selectedId();
-    if(n == -1){
-	return;
-    }
-    cout << "offSetsChanged n is : " << n << endl;
-    if((uint)n >= waveOffsets.size()){
-	cerr << "offSetChanged n is too large .. " << endl;
-	return;
-    }
-    waveOffsets[n].changeOffset(id);
-    cout << "offsetf for : " << waveOffsets[n].w() << " : " << waveOffsets[n].x() << "\t" << waveOffsets[n].y() << "\t" << waveOffsets[n].z() << endl;
+  cout << "offSetChanged something should happen" << endl;
+  int n = channelOffsets->selectedId();
+  if(n < 0){
+    return;
+  }
+  cout << "offSetsChanged n is : " << n << endl;
+  if((uint)n >= waveOffsets.size()){
+    cerr << "offSetChanged n is too large .. " << endl;
+    return;
+  }
+  waveOffsets[n].changeOffset(id);
+  cout << "offsetf for : " << waveOffsets[n].w() << " : " << waveOffsets[n].x() << "\t" << waveOffsets[n].y() << "\t" << waveOffsets[n].z() << endl;
+  fileSet->setChannelOffsets(waveOffsets);
+  paintProjection();
+  channelOffsetIdChanged(n);
+  //    reader->setOffsets(n, waveOffsets[n].x(), waveOffsets[n].y(), waveOffsets[n].z());
+  //    reader->setImageData();
+  //    displayImage(); // slices ?  not yet.. 
+  //    displaySlices();
+  
+}
 
-//    reader->setOffsets(n, waveOffsets[n].x(), waveOffsets[n].y(), waveOffsets[n].z());
-//    reader->setImageData();
-//    displayImage(); // slices ?  not yet.. 
-//    displaySlices();
-
+void DeltaViewer::channelOffsetIdChanged(int id){
+  if((uint)id >= waveOffsets.size())
+    return;
+  QString x, y, z;
+  x.setNum(-waveOffsets[id].x());
+  y.setNum(-waveOffsets[id].y());
+  z.setNum(-waveOffsets[id].z());
+  ch_xoffset->setText(x);
+  ch_yoffset->setText(y);
+  ch_zoffset->setText(z);
+  cout << "Offset of : wave : " << id << " is : " << waveOffsets[id].x() << "," << waveOffsets[id].y() << "," << waveOffsets[id].z() << endl;
 }
 
 void DeltaViewer::setWaveColors(){
@@ -643,7 +643,9 @@ void DeltaViewer::setWaveColors(){
 	colormap.insert(make_pair(wl, color_map(r, g, b)));
     }
     // but don't update image.. as this is used mostly only for the init..
+    cout << "setWaveColors blobManager is : " << blobManager << endl;
     setLinePlotterColors();
+    cout << "setWaveColors blobManager is : " << blobManager << endl;
     paintProjection();
 }
 
@@ -740,17 +742,18 @@ void DeltaViewer::setImage(int slice){
     sectionSpin->blockSignals(false);
 
     // This depends on the order of the colorChoosers and hence is not particularly a good thing
-    vector<channel_info> chinfo;
-    for(uint i=0; i < colorChoosers.size(); ++i){
-      if(i >= scales.size() || i >= biases.size()){
-	cerr << "DeltaViewer::setImage colorChoosers.size is larger than scales.size or biases.size()" << endl;
-	exit(1);
-      }
-      float r, g, b;
-      colorChoosers[i]->color(&r, &g, &b);
-      chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
-				     colorChoosers[i]->includeInMerger(), colorChoosers[i]->subtractColor()) );
-    }
+    vector<channel_info> chinfo = collect_channel_info();
+    ////     vector<channel_info> chinfo;
+    // for(uint i=0; i < colorChoosers.size(); ++i){
+    //   if(i >= scales.size() || i >= biases.size()){
+    // 	cerr << "DeltaViewer::setImage colorChoosers.size is larger than scales.size or biases.size()" << endl;
+    // 	exit(1);
+    //   }
+    //   float r, g, b;
+    //   colorChoosers[i]->color(&r, &g, &b);
+    //   chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
+    // 				     colorChoosers[i]->includeInMerger(), colorChoosers[i]->subtractColor()) );
+    // }
 
     // but more importantly do something to actually update the image.. 
     float* data = new float[textureSize * textureSize * 3];
@@ -848,91 +851,95 @@ void DeltaViewer::int_color(int i, float& r, float& g, float& b){
   b = float( (i * m + 75) % max ) / float(max);
 }
 
-void DeltaViewer::setProjection(){
-    // first check if we have a projection file..
 
-    //int margin = xyMargin;
-    int margin = 0;
+/* setProjection is a historical function from when I handled the projection data from within the deltaViewer
+   Since it is now handled by fileSet and FrameStack, I don't think that I need it. However, I'm leaving this
+   code here for a while to see if it's removal will cause some problems.
+*/
+// void DeltaViewer::setProjection(){
+//     //int margin = xyMargin;
 
-    int w = completeArea.pw - margin * 2;
-    int h = completeArea.ph - margin * 2;
-
-    float* fpro = new float[w * h];
-    projection_means.resize(fileSet->channelNo());
-    projection_stds.resize(fileSet->channelNo());
-    for(int i=0; i < fileSet->channelNo(); ++i){
-//	int wl = fileSet->channel((uint)i);
-	memset((void*)fpro, 0, sizeof(float) * w * h);
-	if(!fileSet->readToFloatPro(fpro, margin, w, margin, h, i)){
-	    cerr << "Set projection unable to get floats for means and stds: " << endl;
-	    projection_means[i] = 0;
-	    projection_stds[i] = 1.0;
-	    continue;
-	}
-	if(!mean_std(projection_means[i], projection_stds[i], fpro, w * h)){
-	    projection_means[i] = 0;
-	    projection_stds[i] = 1.0;
-	    cerr << "Unable to get mean and standard deviation for projection values" << endl;
-	}
-    }
-    delete []fpro;
-    for(uint i=0; i < projection_means.size(); ++i){
-	cout << "Channel : " << fileSet->channel(i) << "\t mean : " << projection_means[i] << "\tstd : " << projection_stds[i] << endl;
-    }
+//   // not sure why we do the below, as we don't seem to use the projection_means or standards anywwhere, but,
+//   // lets not do it more than once..
+//   if(!projection_means.size() || !projection_stds.size()){
+//     int margin = 0;
     
+//     int w = completeArea.pw - margin * 2;
+//     int h = completeArea.ph - margin * 2;
+    
+//     float* fpro = new float[w * h];
+//     projection_means.resize(fileSet->channelNo());
+//     projection_stds.resize(fileSet->channelNo());
+//     for(int i=0; i < fileSet->channelNo(); ++i){
+//       //	int wl = fileSet->channel((uint)i);
+//       memset((void*)fpro, 0, sizeof(float) * w * h);
+//       if(!fileSet->readToFloatPro(fpro, margin, w, margin, h, i)){
+// 	cerr << "Set projection unable to get floats for means and stds: " << endl;
+// 	projection_means[i] = 0;
+// 	projection_stds[i] = 1.0;
+// 	continue;
+//       }
+//       if(!mean_std(projection_means[i], projection_stds[i], fpro, w * h)){
+// 	projection_means[i] = 0;
+// 	projection_stds[i] = 1.0;
+// 	cerr << "Unable to get mean and standard deviation for projection values" << endl;
+//       }
+//     }
+//     delete []fpro;
+//     for(uint i=0; i < projection_means.size(); ++i){
+//       cout << "Channel : " << fileSet->channel(i) << "\t mean : " << projection_means[i] << "\tstd : " << projection_stds[i] << endl;
+//     }
+//   }
 
 
-    float maxLevel = 4096;   // fix this at some point..
-    vector<color_map> cv;
-    for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
-      //	cout << "color map wave length = " << (*it).first << "  color " << (*it).second.r << "," << (*it).second.g << "," << (*it).second.b << endl;
-	cv.push_back((*it).second);
-    }
-
-    // delete any known projection data..
-    for(uint i=0; i < projection_data.size(); i++){
-	delete projection_data[i];
-    }
-    projection_data.resize(0);
-
-    float* data = new float[textureSize * textureSize * 3];
-    cout << "data size is " << textureSize * textureSize * 3 << endl;
-    int rowCounter = 0;
-    int colCounter = 0;
-    int textureCounter = 0;
-    for(int yb = currentView.py; yb < currentView.py + currentView.ph; yb += textureSize){
-	colCounter = 0;
-	int th = yb + textureSize < currentView.py + currentView.ph ? textureSize : (currentView.py + currentView.ph) - yb;
-	// which is a bit of an ugly way of putting it..
-	float yf = fileSet->ypos() + float(yb) * currentView.yscale;
-	float hf = th * currentView.yscale;
-	for(int xb = currentView.px; xb < currentView.px + currentView.pw; xb += textureSize){
-	    projection_data.push_back(new raw_data(fileSet->channelNo(), textureSize * textureSize));
-	    int tw = xb + textureSize < currentView.px + currentView.pw ? textureSize : (currentView.px + currentView.pw) - xb;
-	    // at this point...
-	    // 1. convert the coordinates to float coordinates, since this is more convenient for handling file stacks
-	    // 2. get the appropriate data from fileSet
-	    // 3. set image in glviewer (specifying which thingy and so on.. 
-	    //float xf = fileSet->xpos() + float(xb) * currentView.xscale;
-	    //float wf = tw * currentView.xscale;
-	    cout << "making projection for : " << colCounter << "," << rowCounter << " requesting " 
-		 << "  pixels : " << xb << "," << yb << "   " << tw << "," << th << endl; 
-	    memset((void*)data, 0, textureSize * textureSize * 3 * sizeof(float));
-	    
-	    if(fileSet->mip_projection(data, xb, yb, textureSize, textureSize, maxLevel, biases, scales, cv, projection_data.back())){
-		textureCounter++;
-		// and in this case let's copy data to the appropriate texture..
-		projection->setImage(data, textureSize, textureSize, colCounter, rowCounter);
-	    }
-	    colCounter++;
-	}
-	rowCounter++;
-    }
-    delete []data;
-//    if(projection->isVisible())
-    projection->updateGL();
-
-}
+//   float maxLevel = 4096;   // fix this at some point..
+//   vector<color_map> cv;
+//   for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
+//     //	cout << "color map wave length = " << (*it).first << "  color " << (*it).second.r << "," << (*it).second.g << "," << (*it).second.b << endl;
+//     cv.push_back((*it).second);
+//   }
+  
+//   // delete any known projection data..
+//   for(uint i=0; i < projection_data.size(); i++){
+//     delete projection_data[i];
+//   }
+//   projection_data.resize(0);
+  
+//   float* data = new float[textureSize * textureSize * 3];
+//   cout << "data size is " << textureSize * textureSize * 3 << endl;
+//   int rowCounter = 0;
+//   int colCounter = 0;
+//   int textureCounter = 0;
+//   for(int yb = currentView.py; yb < currentView.py + currentView.ph; yb += textureSize){
+//     colCounter = 0;
+//     int th = yb + textureSize < currentView.py + currentView.ph ? textureSize : (currentView.py + currentView.ph) - yb;
+//     // which is a bit of an ugly way of putting it..
+//     //float yf = fileSet->ypos() + float(yb) * currentView.yscale;
+//     float hf = th * currentView.yscale;
+//     for(int xb = currentView.px; xb < currentView.px + currentView.pw; xb += textureSize){
+//       projection_data.push_back(new raw_data(fileSet->channelNo(), textureSize * textureSize));
+//       int tw = xb + textureSize < currentView.px + currentView.pw ? textureSize : (currentView.px + currentView.pw) - xb;
+//       // at this point...
+//       // 2. get the appropriate data from fileSet
+//       // 3. set image in glviewer (specifying which thingy and so on.. 
+//       cout << "making projection for : " << colCounter << "," << rowCounter << " requesting " 
+// 	   << "  pixels : " << xb << "," << yb << "   " << tw << "," << th << endl; 
+//       memset((void*)data, 0, textureSize * textureSize * 3 * sizeof(float));
+      
+//       if(fileSet->mip_projection(data, xb, yb, textureSize, textureSize, maxLevel, biases, scales, cv, projection_data.back())){
+// 	textureCounter++;
+// 	// and in this case let's copy data to the appropriate texture..
+// 	projection->setImage(data, textureSize, textureSize, colCounter, rowCounter);
+//       }
+//       colCounter++;
+//     }
+//     rowCounter++;
+//   }
+//   delete []data;
+//   //    if(projection->isVisible())
+//   projection->updateGL();
+  
+// }
 
 // // WARNING WARNING WARNING
 // both the paintProjection() and completeProjection functions make assumptions about the structure of the raw_data structs making up the
@@ -942,67 +949,45 @@ void DeltaViewer::setProjection(){
 // 
 /////
 void DeltaViewer::paintProjection(){
-    if(!projection_data.size()){
-	cerr << "paintProjection no raw data to work with" << endl;
-	return;
-    }
+    // if(!projection_data.size()){
+    // 	cerr << "paintProjection no raw data to work with" << endl;
+    // 	return;
+    // }
+  
+  cout << "paint Projection 1 blobManager: " << blobManager << endl;
+
+  vector<color_map> cv;
+  for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
+    //	cout << "color map wave length = " << (*it).first << "  color " << (*it).second.r << "," << (*it).second.g << "," << (*it).second.b << endl;
+    cv.push_back((*it).second);
+  }
+  
+  float* data = new float[textureSize * textureSize * 3];
+  float* dptr;
+  int rowCounter = 0;
+  int colCounter = 0;
+  
+  //    int textureCounter = 0;
+  cout << "paint  Projection 2 blobManager: " << blobManager << endl;
+  for(int yb = completeArea.py; yb < completeArea.py + completeArea.ph; yb += textureSize){
+    colCounter = 0;
     
-    vector<color_map> cv;
-    for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
-      //	cout << "color map wave length = " << (*it).first << "  color " << (*it).second.r << "," << (*it).second.g << "," << (*it).second.b << endl;
-	cv.push_back((*it).second);
+    for(int xb = completeArea.px; xb < completeArea.px + completeArea.pw; xb += textureSize){
+      memset((void*)data, 0, sizeof(float) * 3 * textureSize * textureSize);
+      fileSet->mip_projection(data, xb, yb, textureSize, textureSize, maxLevel, biases, scales, cv);
+      
+      paintPeaks(data, xb, yb, textureSize, textureSize);
+      cout << "paint Projection 3 blobManager : " << blobManager << endl;
+      paintBlobs(data, xb, yb, 0, textureSize, textureSize, true);
+      paintParameterData(data, xb, yb, textureSize, textureSize);
+      paintNuclei(data, xb, yb, textureSize, textureSize);
+      projection->setImage(data, textureSize, textureSize, colCounter, rowCounter);
+      colCounter++;
     }
-
-    float* data = new float[textureSize * textureSize * 3];
-    float* dptr;
-    int rowCounter = 0;
-    int colCounter = 0;
-
-//    int textureCounter = 0;
-
-    for(int yb = completeArea.py; yb < completeArea.py + completeArea.ph; yb += textureSize){
-	colCounter = 0;
-
-//	int th = yb + textureSize < completeArea.py + completeArea.ph ? textureSize : (completeArea.py + completeArea.ph) - yb;
-
-	for(int xb = completeArea.px; xb < completeArea.px + completeArea.pw; xb += textureSize){
-	  memset((void*)data, 0, sizeof(float) * 3 * textureSize * textureSize);
-	  fileSet->mip_projection(data, xb, yb, textureSize, textureSize, maxLevel, biases, scales, cv);
-	    // check that width is not too big.. 
-
-//	    int tw = xb + textureSize < completeArea.px + completeArea.pw ? textureSize : (completeArea.px + completeArea.pw) - xb;
-
-	    // at this point...
-	    // 1. convert the coordinates to float coordinates, since this is more convenient for handling file stacks
-	    // 2. get the appropriate data from fileSet
-	    // 3. set image in glviewer (specifying which thingy and so on.. 
-
-	    // memset((void*)data, 0, textureSize * textureSize * 3 * sizeof(float));
-	    // for(int y=0; y < textureSize; y++){
-	    // 	for(int x=0; x < textureSize; x++){
-	    // 	    for(uint w=0; w < scales.size(); w++){   // the wavelenght index..
-	    // 		float v = biases[w] + scales[w] * projection_data[rowCounter * texColNo + colCounter] ->values[w][y * textureSize + x];
-	    // 		if(v > 0){
-	    // 		    dptr = data + 3 * (y * textureSize + x);
-	    // 		    dptr[0] += v * cv[w].r;
-	    // 		    dptr[1] += v * cv[w].g;
-	    // 		    dptr[2] += v * cv[w].b;
-	    // 		}
-	    // 	    }
-	    // 	}
-	    // }
-
-	    paintPeaks(data, xb, yb, textureSize, textureSize);
-	    paintBlobs(data, xb, yb, 0, textureSize, textureSize, true);
-	    paintParameterData(data, xb, yb, textureSize, textureSize);
-	    paintNuclei(data, xb, yb, textureSize, textureSize);
-	    projection->setImage(data, textureSize, textureSize, colCounter, rowCounter);
-	    colCounter++;
-	}
-	rowCounter++;
-    }
-    delete []data;
-    projection->updateGL();
+    rowCounter++;
+  }
+  delete []data;
+  projection->updateGL();
 }
 
 void DeltaViewer::exportProjection(){
@@ -1044,38 +1029,38 @@ QColor DeltaViewer::wiColor(int wi){
 }
 
 // WARNING.. see above WARNING for paintProjection()
-float* DeltaViewer::completeProjection(unsigned int waveIndex){
-    if(waveIndex >= scales.size()){
-	cerr << "DeltaViewer::completeProjection waveIndex is too large" << endl;
-	return(0);
-    }
-    if(!projection_data.size()){
-	cerr << "DeltaViewer::completeProjection no raw data to work with" << endl;
-	return(0);
-    }
-    // assign the float area..
-    float* pdata = new float[completeArea.pw * completeArea.ph];
-    int rowCounter = 0;
-    int colCounter = 0;
+// float* DeltaViewer::completeProjection(unsigned int waveIndex){
+//     if(waveIndex >= scales.size()){
+// 	cerr << "DeltaViewer::completeProjection waveIndex is too large" << endl;
+// 	return(0);
+//     }
+//     if(!projection_data.size()){
+// 	cerr << "DeltaViewer::completeProjection no raw data to work with" << endl;
+// 	return(0);
+//     }
+//     // assign the float area..
+//     float* pdata = new float[completeArea.pw * completeArea.ph];
+//     int rowCounter = 0;
+//     int colCounter = 0;
 
-//    int textureCounter = 0;
+// //    int textureCounter = 0;
 
-    for(int yb = completeArea.py; yb < completeArea.py + completeArea.ph; yb += textureSize){
-	colCounter = 0;
-	int th = yb + textureSize < completeArea.py + completeArea.ph ? textureSize : (completeArea.py + completeArea.ph) - yb;
-	for(int xb = completeArea.px; xb < completeArea.px + completeArea.pw; xb += textureSize){
-	    int tw = xb + textureSize < completeArea.px + completeArea.pw ? textureSize : (completeArea.px + completeArea.pw) - xb;
-	    // now copy one line at a time from projection_data[rowCounter * texColNo + colCounter]->values
-	    // to the appropriate area of p_data...
-	    for(int y=0; y < th; ++y){
-		memcpy(pdata + (yb + y) * completeArea.pw + xb, projection_data[rowCounter * texColNo + colCounter]->values[waveIndex] + y * textureSize, tw * sizeof(float));
-	    }
-	    ++colCounter;
-	}
-	++rowCounter;
-    }
-    return(pdata);
-}
+//     for(int yb = completeArea.py; yb < completeArea.py + completeArea.ph; yb += textureSize){
+// 	colCounter = 0;
+// 	int th = yb + textureSize < completeArea.py + completeArea.ph ? textureSize : (completeArea.py + completeArea.ph) - yb;
+// 	for(int xb = completeArea.px; xb < completeArea.px + completeArea.pw; xb += textureSize){
+// 	    int tw = xb + textureSize < completeArea.px + completeArea.pw ? textureSize : (completeArea.px + completeArea.pw) - xb;
+// 	    // now copy one line at a time from projection_data[rowCounter * texColNo + colCounter]->values
+// 	    // to the appropriate area of p_data...
+// 	    for(int y=0; y < th; ++y){
+// 		memcpy(pdata + (yb + y) * completeArea.pw + xb, projection_data[rowCounter * texColNo + colCounter]->values[waveIndex] + y * textureSize, tw * sizeof(float));
+// 	    }
+// 	    ++colCounter;
+// 	}
+// 	++rowCounter;
+//     }
+//     return(pdata);
+// }
 
 void DeltaViewer::peakColorsChanged(){
     paintProjection();
@@ -1187,6 +1172,8 @@ void DeltaViewer::paintPeaks(float* area, int px, int py, int w, int h){
 }
 
 void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h, bool isProjection){
+  cout << "blobManger is : " << endl;
+  cout << "\t::" << blobManager << endl;
     if(!blobManager)
 	return;
     set<BlobMapperWidget*> blobs = blobManager->blobMapperWidgets();
@@ -1546,36 +1533,36 @@ void DeltaViewer::paintParameterData(float* area, int px, int py, int w, int h){
     }
 }
 
-bool DeltaViewer::readProjection(ifstream& in){
-    int pw, ph, cno, tsize, panelNo;
-    in.read((char*)&pw, sizeof(int));
-    in.read((char*)&ph, sizeof(int));
-    in.read((char*)&cno, sizeof(int));
-    in.read((char*)&tsize, sizeof(int));
-    in.read((char*)&panelNo, sizeof(int));
-    if(pw != completeArea.pw || ph != completeArea.ph || cno != fileSet->channelNo() || tsize != textureSize || panelNo != texRowNo * texColNo){
-	cerr << "DeltaViewer::readProjection one of the parameters is unsuitable " << pw << ", " << ph << ", " << cno << ", " << tsize << ", " << panelNo << endl;
-	return(false);
-    }
-    // to make sure.. 
-    for(uint i=0; i < projection_data.size(); i++){
-	delete projection_data[i];
-    }
-    projection_data.resize(0);
-    for(int i=0; i < panelNo; i++){
-	projection_data.push_back(new raw_data(cno, textureSize * textureSize));
-	for(int j=0; j < cno; j++){
-	    in.read((char*)projection_data.back()->values[j], sizeof(float) * textureSize * textureSize);
-	}
-    }
-    if(in.fail()){
-	cerr << "DeltaViewer::readProjection we seem to have failed to read to one of the panels return false" << endl;
-	return(false);
-    }
-    // if we are here just call paintProjection and return true..
-    paintProjection();
-    return(true);
-}
+// bool DeltaViewer::readProjection(ifstream& in){
+//     int pw, ph, cno, tsize, panelNo;
+//     in.read((char*)&pw, sizeof(int));
+//     in.read((char*)&ph, sizeof(int));
+//     in.read((char*)&cno, sizeof(int));
+//     in.read((char*)&tsize, sizeof(int));
+//     in.read((char*)&panelNo, sizeof(int));
+//     if(pw != completeArea.pw || ph != completeArea.ph || cno != fileSet->channelNo() || tsize != textureSize || panelNo != texRowNo * texColNo){
+// 	cerr << "DeltaViewer::readProjection one of the parameters is unsuitable " << pw << ", " << ph << ", " << cno << ", " << tsize << ", " << panelNo << endl;
+// 	return(false);
+//     }
+//     // to make sure.. 
+//     for(uint i=0; i < projection_data.size(); i++){
+// 	delete projection_data[i];
+//     }
+//     projection_data.resize(0);
+//     for(int i=0; i < panelNo; i++){
+// 	projection_data.push_back(new raw_data(cno, textureSize * textureSize));
+// 	for(int j=0; j < cno; j++){
+// 	    in.read((char*)projection_data.back()->values[j], sizeof(float) * textureSize * textureSize);
+// 	}
+//     }
+//     if(in.fail()){
+// 	cerr << "DeltaViewer::readProjection we seem to have failed to read to one of the panels return false" << endl;
+// 	return(false);
+//     }
+//     // if we are here just call paintProjection and return true..
+//     paintProjection();
+//     return(true);
+// }
 
 void DeltaViewer::newStackSelected(float x, float y){
   cout << "Deltaviewer new Stack selected at " << x << "," << y << endl;
@@ -1584,8 +1571,8 @@ void DeltaViewer::newStackSelected(float x, float y){
 
 void DeltaViewer::adjustStackPosition(float x, float y, QPoint p){
   fileSet->adjustStackPosition(x, y, p);
-  setProjection();
-  //  paintProjection();
+  //setProjection();
+  paintProjection();
   setImage(currentSliceNo);
 }
 
@@ -1934,6 +1921,7 @@ vector<channel_info> DeltaViewer::collect_channel_info(){
     //				     useComponents->isChecked(), colorChoosers[i]->subtractColor()) );
     chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
 				   colorChoosers[i]->includeInMerger(), colorChoosers[i]->subtractColor()) );
+    chinfo.back().finfo = fileSet->channelInfo(i);
     cout << "pushed back" << endl;
   }
   return(chinfo);

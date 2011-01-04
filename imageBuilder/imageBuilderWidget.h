@@ -104,6 +104,8 @@ class ImageBuilderWidget: public QWidget
   void objectCreated(QString);
   void objectDeleted(QString);
   void setObjectList();
+
+  void displayMessage(const char* message);
 };
 
 #endif

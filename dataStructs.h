@@ -102,6 +102,9 @@ struct fluorInfo {  // information about fluoresence
   friend bool operator ==(const fluorInfo& a, const fluorInfo& b){
     return(a.emission == b.emission && a.excitation == b.excitation && a.exposure == b.exposure);
   }
+  friend bool operator !=(const fluorInfo& a, const fluorInfo& b){
+    return(!(a == b));
+  }
 };
 
 
@@ -276,10 +279,10 @@ struct raw_data {
     }
     ~raw_data(){
 	for(uint i=0; i < channels; i++){
-	    delete values[i];
+	    delete []values[i];
 	}
-	delete values;
-	delete positions;
+	delete []values;
+	delete []positions;
     }
 };
 
@@ -347,6 +350,16 @@ struct channel_info {
     bg_subtract = bgs; contrast = cnt;
     include = true;
   }
+  friend bool operator <(const channel_info& a, const channel_info& b){
+    if(a.finfo != b.finfo)
+      return(a.finfo < b.finfo);
+    if(a.maxLevel != b.maxLevel)
+      return(a.maxLevel < b.maxLevel);
+    if(a.bias != b.bias)
+      return(a.bias < b.bias);
+    return(a.scale != b.scale);
+  }
+    
 };
 
 struct distribution {   // a struct that holds the distribution for some values..

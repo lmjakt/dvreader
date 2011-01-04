@@ -230,7 +230,7 @@ bool FileSet::finalise(){
     x_positions.assign(x_set.begin(), x_set.end());
     y_positions.assign(y_set.begin(), y_set.end());
     z_positions.assign(z_set.begin(), z_set.end());   // I have a feeling that these vectors may not be very useful, but .. you never know..
-    
+
     // these values are likely to be useful. 
     float xscale = frameWidth / float(pixelWidth);
     float yscale = frameHeight / float(pixelHeight);
@@ -238,7 +238,20 @@ bool FileSet::finalise(){
     // to be complete, we essentially have to have a thingy at each x and y position.. and there should always be an overlap..
     // that is the simplest thing to take into account..
     completeRectangle = true;
-    frameNo = frames[x_positions[0]][y_positions[0]]->frameNo();
+    // it is possible that [0][0] is not defined, but we want a frame number from somewhere..
+    frameNo = 0;
+    for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); ++it){
+      for(map<float, FrameStack*>::iterator iit=(*it).second.begin(); iit != (*it).second.end(); ++iit){
+	if((*iit).second->frameNo() > frameNo)
+	  frameNo = (*iit).second->frameNo();
+      }
+    }
+    if(!frameNo){
+      cerr << "FileSet::finalise framestacks appear to have no frames. aborting" << endl;
+      exit(1);
+    }
+
+    //    frameNo = frames[x_positions[0]][y_positions[0]]->frameNo();
     for(uint i=0; i < x_positions.size(); i++){
 	if(!frames.count(x_positions[i])){
 	    cerr << "No framestacks defined for x position x: " << x_positions[i] << endl;  // though this shouldn't be possible..
@@ -319,12 +332,16 @@ bool FileSet::finalise(){
 	for(uint j=0; j < y_positions.size(); j++){
 	  float tx = x_positions[i];
 	  float ty = y_positions[j];
+	  if(!frames.count(tx) || !frames[tx].count(ty))
+	    continue;
 	  frames[tx][ty]->finalise(maxIntensity);    //
 	}
       }
       for(uint i=0; i < x_positions.size(); i++){
 	for(uint j=0; j < y_positions.size(); j++){
 	  cout << "frame " << i << ", " << j << endl;
+	  if(!frames.count(x_positions[i]) || !frames[ x_positions[i]].count(y_positions[j]))
+	    continue;
 	  vector<overlap_data*> o_data = frames[x_positions[i]][y_positions[j]]->adjustNeighbourPositions(15, rolloff, 40, 38, i, j);
 	  for(uint k=0; k < o_data.size(); k++){
 	    overlapData.push_back(o_data[k]);
@@ -361,6 +378,7 @@ bool FileSet::finalise(){
 	 << "For a total pixels of        : " << pw << " x " << ph << endl;
     cout << "And completeRectangle is : " << completeRectangle << endl;
     adjustStackBorders();
+    return(true);  // lets see if we can handle incomplete rectangles
     return(completeRectangle);
 }
 
@@ -415,6 +433,17 @@ void FileSet::setBackgroundPars(unsigned int waveIndex, int xm, int ym, float qn
       it->second->setBackgroundPars(waveIndex, xm, ym, qnt, bg_subtract);
     }
   }
+}
+
+bool FileSet::setChannelOffsets(vector<ChannelOffset> offsets){
+  bool ok = true;
+  for(map<float, map<float, FrameStack*> >::iterator ot=frames.begin(); ot !=frames.end(); ++ot){
+    for(map<float, FrameStack*>::iterator it = ot->second.begin(); it != ot->second.end(); ++it){
+      if(!it->second->setChannelOffsets(offsets))
+	ok = false;
+    }
+  }
+  return(ok);
 }
 
 void FileSet::adjustStackBorders(){

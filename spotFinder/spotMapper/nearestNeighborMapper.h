@@ -26,7 +26,7 @@
 #define NEARESTNEIGHBORMAPPER_H
 
 #include <QObject>
-#include "../../abstract/space.h"
+#include "../../abstract/space.h"  // defines Point amongs other things.. 
 #include "../../dataStructs.h"
 #include "../perimeter.h"
 
@@ -102,34 +102,34 @@ class NeighborCluster
 
 class NearestNeighborMapper : public QObject
 {
-    Q_OBJECT
-	public :
-	NearestNeighborMapper(int m){
-	margin = m;
-	space = 0;
-    }
-    ~NearestNeighborMapper();
-    std::vector<int> mapPoints(std::vector<threeDPoint>& points, std::vector<Perimeter>& nuclei);
-    std::vector<twoDPoint> mapOnePoint(threeDPoint& point, std::vector<threeDPoint>& points, std::vector<Perimeter>& nuclei);
-//    std::vector<Point*> findPerimeter(std::vector<Point*>& points, int maxD);
-
-    public slots :
-	void setMargin(int m){
-	margin = m;
-    }
-
-    private :
-	int margin;   // the distance away from the different things that we need to use for calculations.
-    Space* space;
-    std::map<Point*, int> pointIndex;   // these are set up by the space
-    std::vector<Point*> pointArray;
-    void initSpace(std::vector<threeDPoint>& points);
-    void growCluster(NeighborCluster& cluster, std::map<int, NeighborCluster>& clusters, std::vector<Perimeter>& nuclei);
-    int overlapsNucleus(std::vector<Perimeter>& nuclei, Point* p);
-    void setLimits(NeighborCluster& cluster, int& xb, int& xe, int& yb, int& ye, int& zb, int& ze);
-//    double angleFromXaxis(Point* o, Point* p); // clockwise angle -- o is the origin point, p is the point on the circle  
-//    Point* findNextPerimeterPoint(std::vector<Point*>& points, Point* cp, Point* pp, int maxD);
-//    double angleBetweenPoints(Point* pp, Point* cp, Point* np);
+  Q_OBJECT
+    public :
+  NearestNeighborMapper(int m){
+    margin = m;
+    space = 0;
+  }
+  ~NearestNeighborMapper();
+  std::vector<int> mapPoints(std::vector<threeDPoint>& points, std::vector<Perimeter>& nuclei);
+  std::vector<twoDPoint> mapOnePoint(threeDPoint& point, std::vector<threeDPoint>& points, std::vector<Perimeter>& nuclei);
+  //    std::vector<Point*> findPerimeter(std::vector<Point*>& points, int maxD);
+  
+  public slots :
+  void setMargin(int m){
+    margin = m;
+  }
+  
+ private :
+  int margin;   // the distance away from the different things that we need to use for calculations.
+  Space* space;
+  std::map<Point*, int> pointIndex;   // these are set up by the space
+  std::vector<Point*> pointArray;
+  void initSpace(std::vector<threeDPoint>& points);
+  void growCluster(NeighborCluster& cluster, std::map<int, NeighborCluster>& clusters, std::vector<Perimeter>& nuclei);
+  int overlapsNucleus(std::vector<Perimeter>& nuclei, Point* p);
+  void setLimits(NeighborCluster& cluster, int& xb, int& xe, int& yb, int& ye, int& zb, int& ze);
+  //    double angleFromXaxis(Point* o, Point* p); // clockwise angle -- o is the origin point, p is the point on the circle  
+  //    Point* findNextPerimeterPoint(std::vector<Point*>& points, Point* cp, Point* pp, int maxD);
+  //    double angleBetweenPoints(Point* pp, Point* cp, Point* np);
 };
 
 #endif

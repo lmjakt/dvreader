@@ -29,6 +29,7 @@ ImageBuilderWidget::ImageBuilderWidget(FileSet* fs, vector<channel_info> ch, QWi
   builder = new ImageBuilder(fs, ch);
   connect(builder, SIGNAL(stackCreated(QString)), this, SLOT(objectCreated(QString)) );
   connect(builder, SIGNAL(stackDeleted(QString)), this, SLOT(objectDeleted(QString)) );
+  connect(builder, SIGNAL(displayMessage(const char*)), this, SLOT(displayMessage(const char*)) );
   input = new CLineEdit(this);
   historySize = 1000;
   commandPos = 0;
@@ -58,6 +59,9 @@ ImageBuilderWidget::ImageBuilderWidget(FileSet* fs, vector<channel_info> ch, QWi
   QVBoxLayout* vbox = new QVBoxLayout(this);
   vbox->addWidget(outputTabs);
   vbox->addWidget(input);
+
+  // and finally
+  setCaption("Image Builder Control");
 }
 
 ImageBuilderWidget::~ImageBuilderWidget(){
@@ -173,7 +177,9 @@ void ImageBuilderWidget::repeatCommand(bool up){
   }
   if(!up && commandPos < commandHistory.size() - 1){
     input->setText( commandHistory[++commandPos] );
+    return;
   }
+  input->setText("");
 }
 
 void ImageBuilderWidget::makeHelpStatements(){
@@ -300,6 +306,12 @@ void ImageBuilderWidget::setObjectList()
       it != objectDescriptions.end(); ++it)
     qts << (*it) << "\n";
   objectPage->setPlainText(list);
+}
+
+void ImageBuilderWidget::displayMessage(const char* message)
+{
+  output->appendPlainText(message);
+  //  output->appendPlainText("\n");
 }
 
 void ImageBuilderWidget::parseInput(vector<QString> words)
@@ -606,11 +618,17 @@ void ImageBuilderWidget::requestCoverage(vector<QString> words){
 }
 
 void ImageBuilderWidget::printHelp(vector<QString> words){
-  if(words.size() > 1 && helpStrings.count(words[1])){
-    helpPage->appendPlainText(helpStrings[words[1]]);
-    helpPage->appendPlainText("\n");
-    outputTabs->setCurrentWidget(helpPage);
-    return;
+  if(words.size() > 1){
+    if(helpStrings.count(words[1])){
+      helpPage->appendPlainText(helpStrings[words[1]]);
+      helpPage->appendPlainText("\n");
+      outputTabs->setCurrentWidget(helpPage);
+      return;
+    }
+    if(words[1] == "general"){
+      // do something to get the documentation from imageBuilder
+      helpPage->appendPlainText( builder->help(words) );
+    }
   }
   QString helpText;
   QTextStream qts(&helpText);
@@ -621,6 +639,7 @@ void ImageBuilderWidget::printHelp(vector<QString> words){
   for(map<QString, na_function>::iterator it=na_functions.begin(); 
       it != na_functions.end(); ++it)
     qts << "\n" << it->first;
+  qts << "\n" << "general (for ImageBuilder functions)";
   qts << "\n\n";
   helpPage->appendPlainText(helpText);
   outputTabs->setCurrentWidget(helpPage);
