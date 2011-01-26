@@ -5,9 +5,15 @@
 #include <set>
 #include <QString>
 #include <QObject>
+#include <QColor>
 #include <map>
 #include "p_parameter.h"
 #include "f_parameter.h"
+#include "qnt_colors.h"
+#include "stack_info.h"
+#include "blob_set.h"
+#include "Blob_mt_mapper_collection.h"
+#include "../image/imageAnalyser.h"
 
 class FileSet;
 class GLImage;
@@ -20,10 +26,15 @@ class Blob_mt_mapper;
 class QSemaphore;
 class BlobModel;
 class LinePlotter;
+class DistPlotter;
+class ScatterPlotter;
+class PerimeterWindow;
+class NearestNeighborMapper;
 
 struct channel_info;
 struct color_map;
 struct backgroundPars;
+struct blob;
 
 class ImageBuilder : public QObject 
 {
@@ -55,7 +66,12 @@ class ImageBuilder : public QObject
   // glImage::setBigImage() function that should be more robust for different
   // image sizes. (Some bugs in the setRGBImage I believe).
   void setRGBImage(float* img, unsigned int width, unsigned int height);
+  void setBigSubImage(float* img, int source_x, int source_y, int source_width, int source_height, 
+		      int source_sub_x, int source_sub_y, int cp_width, int cp_height);
+  void setBigSubOverlay(unsigned char* img, int source_x, int source_y, int source_width, int source_height,
+			int source_sub_x, int source_sub_y, int cp_width, int cp_height);
   void setBigImage(float* img, int source_x, int source_y, int width, int height);
+  void setBigOverlay(unsigned char* img, int source_x, int source_y, int width, int height);
 
   // something to connect functions with.. 
   void pipe_slice(std::vector<p_parameter> pars, unsigned int wi, bool reset_rgb=false);
@@ -73,20 +89,36 @@ class ImageBuilder : public QObject
   void stackDeleted(QString);
   void displayMessage(const char*);
  private:
+  ImageAnalyser* imageAnalyser;   // this is shared with deltaviewer, and it shares the same fileSet as this class
   GLImage* image;
   FileSet* data;
   float* rgbData;
+  unsigned char* overlayData;  // RGBA unsigned byte data for overlays etc.. 
   unsigned short* sBuffer;
   unsigned int texture_size;
   std::vector<channel_info> channels;
   std::vector<DistChooser*> distributions; // specific functions update
-  std::map<unsigned int, float> bg_spectrum;  // the expected spectral response of the background.
+  std::map<unsigned int, float> bg_spectrum;  // the expected spectral response of the backg'''''''round.
   std::map<QString, ImStack*> imageStacks;    // can be assigned by functions, 
   std::multimap<ImStack*, Blob_mt_mapper*> mtMappers; // should be deleted if the ImStack is deleted.
   std::map<QString, std::vector<Blob_mt_mapper*> > mapper_collections; 
+  ////////  I need to find some reasonable way of making sure that mapper_blob_set entries are erased
+  ////////  when their corresponding Blob_mt_mapper objects are deleted (.. Not sure how to do this .. )
+  //// WARNING, WARNING.. mapper_blob_sets should be removed to be replaced by mapper_sets below
+
+  ///// Make sure to remove, or rather rewrite functions that rely in the mapper_blob_sets..
+  //  std::map<QString, std::vector<blob_set> > mapper_blob_sets;  // QString refers to the entries in mapper_blob_set..
+  //////////////////////////////|||||||||||
+  std::map<QString, Blob_mt_mapper_collection*>  mapper_sets;  // Entry into this, rem
+  ///////// WARNING.. entering a vector<Blob_mt_mapper*> into mapper_sets should remove it from mapper_collections.. 
   std::map<QString, BlobModel*> blobModels;
   std::map<QString, LinePlotter*> linePlotters;
+  std::map<QString, DistPlotter*> distPlotters;
+  std::map<QString, ScatterPlotter*> scatterPlotters;
   std::map<QString, QSemaphore*> mapper_collection_semaphores; // at some point make a reasonable data structure containing all of this.
+  std::map<QString, PerimeterData> perimeterData;
+  std::map<QString, PerimeterWindow*> perimeterWindows; 
+  std::map<QString, NearestNeighborMapper*> neighborMappers;
 
   TabWidget* distTabs;
 
@@ -117,7 +149,9 @@ class ImageBuilder : public QObject
   void deleteFloats(float** fl, unsigned int l);
   void toMean(float* mean, unsigned short* add, int l, float fraction);
   void drawCircle(float* image, int imWidth, int imHeight, int x, int y, int r);
-  void project_blobs(Blob_mt_mapper* bmapper, float r=1.0, float g=1.0, float b=1.0);
+  void project_blobs(Blob_mt_mapper* bmapper, qnt_colors& qntColor, unsigned char alpha);
+  void project_blob(blob* b, stack_info& pos, QColor& color);
+  //  void project_blobs(Blob_mt_mapper* bmapper, float r=1.0, float g=1.0, float b=1.0);
   // imStack related stuff ..
   // if add is true add to imageStacks, otherwise delete
   // emit the correct signals..
@@ -138,6 +172,7 @@ class ImageBuilder : public QObject
   // Functions that just take a f_parameter as a starting point
   typedef void (ImageBuilder::*g_function)(f_parameter& par);
   std::map<QString, g_function> general_functions;
+  void read_commands_from_file(f_parameter& par);
   void build_fprojection(f_parameter& par); // usets readToFloat instead of readToShort
   void build_fgprojection(f_parameter& par);  // builds a projection from a blurred stack.
   void setPanelBias(f_parameter& par);
@@ -157,13 +192,26 @@ class ImageBuilder : public QObject
   //  void stackSlice(f_parameter& par);
   void stack_map_blobs(f_parameter& par);  // a testing function. to see if the mt_blob_mapper works.. 
   void map_blobs(f_parameter& par);        // makes stacks to map. Splits the problem into smaller parts.
+  void map_perimeters(f_parameter& par);    // tries to find nuclei, or rather perimeters around things.
+  void project_perimeters(f_parameter& par);
+  void map_blobs_to_perimeters(f_parameter& par);
   void draw_blob_model(f_parameter& par);
+  void compare_model(f_parameter& par);
+  void plot_blob_pars(f_parameter& par);
+  void plot_blob_set_dist(f_parameter& par);
+  void mergeBlobs(f_parameter& par);
+  void readBlobCriteria(f_parameter& par);
   //  void make_blob_model(f_parameter& par); // this is problematic; see .cpp for details
   void project_blob_collections(f_parameter& par);    // projects contents of collection of things.. 
+  void project_blob_sets(f_parameter& par);
   void list_objects(f_parameter& par);       // list object, use parameters to change listing. 
   // This can be used by any of the above, but it's not one of the general_functions itself
+
+  void overlayPoints(std::vector<int> points, unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+  std::vector<QColor> generateColors(unsigned char alpha);
+  
   // note that the below functin may destroy image if it returns a different image.. 
-  float* modifyImage(int x, int y, int w, int h, float* image, f_parameter& par); 
+  float* modifyImage(int x, int y, int w, int h, float* image, f_parameter& par);
   ImStack* imageStack(f_parameter& par);  // convenience function.. 
   ImStack* imageStack(uint wi, int x, int y, int z, uint w, uint h, uint d, bool use_cmap=true);
 
@@ -174,6 +222,10 @@ class ImageBuilder : public QObject
   QString generatePipeSliceHelp(QString& fname);
   QString generateGeneralFunctionHelp(QString& fname);
 
+  //  float getBlobParameter(blob* b, QString parname);
+  bool isPowerOfTwo(unsigned int i){
+    return( (i != 0) && !(i & (i - 1)) );
+  }
 };
 
 #endif

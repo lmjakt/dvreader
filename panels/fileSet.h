@@ -29,6 +29,7 @@
 #include "../dataStructs.h"
 #include "../datastructs/channelOffset.h"
 #include "stack_stats.h"
+#include "../imageBuilder/stack_info.h"
 //#include "fileSetInfo.h"
 //#include "../image/background.h"
 #include <map>
@@ -43,6 +44,7 @@ class BorderInfo;
 class IdMap;
 class FrameStack;
 class FileSetInfo;
+class ImStack;
 
 // Background objects contain a reference to an imageData object; the imageData object
 // provides some higher level access functions for the FileSet Object, and has a pointer
@@ -88,6 +90,10 @@ class FileSet {
     bool mip_projection(float* dest, int xpos, int ypos, unsigned int dest_width, unsigned int dest_height,
 			float maxLevel, std::vector<float> bias, std::vector<float> scale, std::vector<color_map> colors, raw_data* raw=0);
 
+    ImStack* imageStack(std::vector<unsigned int> wave_indices, bool use_cmap);
+    ImStack* imageStack(stack_info sinfo, bool use_cmap);
+    ImStack* imageStack(std::vector<unsigned int> wave_indices, int x, int y, int z,
+			unsigned int w, unsigned int h, unsigned int d, bool use_cmap);
     bool readToFloat(float* dest, int xb, int yb, int zb, int pw, int ph, int pd, unsigned int waveIndex, bool use_cmap=false);  // reads a block of voxels into destination.. 
     bool readToShort(unsigned short* dest, int xb, int yb, unsigned int slice, int pw, int ph, unsigned int waveIndex);
     // the following reads the whole frame into dest; c and r are row and colum respectively.. 

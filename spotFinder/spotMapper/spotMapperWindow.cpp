@@ -282,6 +282,7 @@ void SpotMapperWindow::setPerimeters(vector<PerimeterSet> perimeters, float wl, 
     currentNuclearPerimeter = -1;
     updatePerimeters(x_origin, y_origin);
     plotter->update();
+    show();
 }
 
 void SpotMapperWindow::setBlobs(map<int, threeDPeaks*> Blobs){

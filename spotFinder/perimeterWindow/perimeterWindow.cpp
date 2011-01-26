@@ -27,21 +27,23 @@
 #include <qcolor.h>
 //Added by qt3to4:
 #include <QLabel>
+#include <QPushButton>
 #include <QGridLayout>
 #include <iostream>
-#include "../../deltaViewer.h"
+#include "../../panels/fileSet.h"
+//#include "../../deltaViewer.h"
 
 using namespace std;
 
 double scaleFactor = 10.0;
 
-PerimeterWindow::PerimeterWindow(DeltaViewer* dv, QWidget* parent, const char* name)
+PerimeterWindow::PerimeterWindow(FileSet* fset, QWidget* parent, const char* name)
     : QWidget(parent, name)
 {
-    deltaViewer = dv;
-
+  //    deltaViewer = dv;
+    fileSet = fset;
     sliceNo = -1;
-    waveLength = 0;
+    //    waveLength = 0;
     origin_x = origin_y = perimeter_w = perimeter_h = 0;
     currentSet = currentPerimeter = -1;
 
@@ -116,12 +118,13 @@ void PerimeterWindow::changePerimeter(int delta){
     perSelector->setValue(perSelector->value() + delta);
 }
 
-void PerimeterWindow::setPerimeters(vector<PerimeterSet> perimeters, float wl, int sno){
+void PerimeterWindow::setPerimeters(vector<PerimeterSet> perimeters, channel_info& cinfo, int sno){
     if(!perimeters.size()){
 	cerr << "PerimeterWindow::setPerimeters received an empty set of perimeters,, ignoring.." << endl;
 	return;
     }
-    waveLength = wl;
+    channelInfo = cinfo;
+    //    waveLength = wl;
     sliceNo = sno;
 //    cout << "PerimeterWindow setting perimeters.. " << endl;
     persets = perimeters;
@@ -150,6 +153,14 @@ void PerimeterWindow::setPerimeters(vector<PerimeterSet> perimeters, float wl, i
     redrawPerimeters(1);
 }
 
+vector<Perimeter> PerimeterWindow::selectedPerimeters(){
+  vector<Perimeter> selected;
+  for(uint i=0; i < persets.size(); ++i){
+    if(persets[i].selectedPerimeters.size())
+      selected.insert(selected.end(), persets[i].selectedPerimeters.begin(), persets[i].selectedPerimeters.end());
+  }
+  return(selected);
+}
 
 void PerimeterWindow::newSet(int sno){
     if(sno < 0 || (uint)sno > persets.size()){
@@ -358,13 +369,18 @@ void PerimeterWindow::drawBackground(){
 
     cout << "drawBackground trying to get background for : " << origin_x << "," << origin_y << "\t:" << perimeter_w << "," << perimeter_h << endl;
 //    if(deltaViewer->readToRGB(plotterBackground, origin_x, origin_y, (uint)plotterTextureSize, (uint)plotterTextureSize, (uint)sliceNo)){
-    if(deltaViewer->readToRGB(plotterBackground, origin_x, origin_y, (uint)perimeter_w, (uint)perimeter_h, (uint)sliceNo)){
-	cout << "drawBackground successfully read in the data .." << endl;
-    }else{
-	cout << "drawBackground had some problem in getting the data" << endl;
-//	delete pixels;
-	return;
-    }
+    vector<channel_info> cinfo;
+    cinfo.push_back(channelInfo); // 
+    if(!fileSet->readToRGB(plotterBackground, origin_x, origin_y, (uint)perimeter_w, (uint)perimeter_h, (uint)sliceNo, cinfo))
+      cerr << "PerimeterWindow::drawBackground unable to read in background data from fileSet" << endl;
+    
+//     if(deltaViewer->readToRGB(plotterBackground, origin_x, origin_y, (uint)perimeter_w, (uint)perimeter_h, (uint)sliceNo)){
+// 	cout << "drawBackground successfully read in the data .." << endl;
+//     }else{
+// 	cout << "drawBackground had some problem in getting the data" << endl;
+// //	delete pixels;
+// 	return;
+//     }
     
     // if requested show the mask as a red background 
     int perValue = setSelector->value();
@@ -565,5 +581,8 @@ void PerimeterWindow::drawSelected(){
 }
 
 void PerimeterWindow::acceptPerimeters(){
-    emit perimetersFinalised(persets, waveLength, sliceNo);
+  // This signal should be changed to use the wave index, but I need to 
+  // change it to something else.. 
+  emit  perimetersFinalised(persets, channelInfo.finfo.emission, sliceNo);
+  //    emit perimetersFinalised(persets, waveLength, sliceNo);
 }

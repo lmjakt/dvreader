@@ -33,11 +33,22 @@
 #include <QKeyEvent>
 #include <vector>
 
+struct texture_overlap {
+  int cp_w;
+  int cp_h;
+  int s_bx; int s_by;
+  int t_bx; int t_by;
+  texture_overlap(){
+    cp_w = cp_h = s_bx = s_by = t_bx = t_by = 0;
+  }
+};
+
 class GLImage : public QGLWidget
 {
     Q_OBJECT
-
-public:
+      
+      
+    public:
 
     GLImage(unsigned int width, unsigned int height, unsigned int texSize,  GLfloat aspRatio=1.0, QWidget* parent=0, const char* name=0 );
     GLImage(unsigned int width, unsigned int height, unsigned int texWidth,  unsigned int texHeight,
@@ -49,6 +60,8 @@ public slots:
  void setImage(float* data, int x, int y, int col, int row);           // using an rgb coordinate system.. 
  void setBigImage(float* data, int source_x, int source_y, 
 	       int width, int height);
+ void setBigOverlay(unsigned char* data, int source_x, int source_y,
+		    int width, int height);
  void clearTextures();
  void setMagnification(float m);
  void resetMagnification(){
@@ -79,15 +92,22 @@ protected:
     //virtual GLuint 	makeObject();
 
 private:
-    
+
     void gl_mod_buffer(float* destination, float* source, GLint w, GLint h, GLfloat param);  // try to use gldrawpixels and glreadpixels to modify a data set
     float* make_background(unsigned int width, unsigned int height);   // make a  square of some sort .. 
     bool mapImageToTexture(float* image_data, int source_x, int source_y,
 			   int source_w, int source_h, int tex_x, int tex_y, GLuint texture);
-
+    bool mapOverlayToTexture(unsigned char* image_data, int source_x, int source_y,
+			     int source_w, int source_h, int tex_x, int tex_y, GLuint texture);
+    texture_overlap sourceTextureOverlap(int source_x, int source_y, int source_w, int source_h,
+					 int tex_x, int tex_y);
+    //void generate_overlay_textures();
+    
     //    bool animation;
     //    GLuint object;
     GLuint* textures;
+    GLuint* overlay_textures;  // RGBA GL_UNSIGNED_BYTE overlay textures (that can be switched on or off by some means)
+    bool showOverlay;
     GLint twidth, theight;   // the number of textures, not the
     //    GLint textureSize;     // the size of the texture.. 
     GLint textureWidth;
@@ -121,7 +141,7 @@ private:
     QPoint lineEnd;    // if we draw a line on top of stuff.. 
     
     signals :
-	void nextImage();
+    void nextImage();
     void previousImage();
     void firstImage();
     void lastImage();

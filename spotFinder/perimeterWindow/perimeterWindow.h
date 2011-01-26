@@ -30,71 +30,77 @@
 #include "../../distanceMapper/compareController.h"
 #include "../perimeter.h"
 //#include "../../deltaViewer.h"
+#include "../../dataStructs.h"
 #include <vector>
 #include <qspinbox.h>
 #include <qlabel.h>
 #include <QCheckBox>
 
-class DeltaViewer;
+//class DeltaViewer;
+class FileSet;
 
 class PerimeterWindow : public QWidget
 {
-    Q_OBJECT
-	public :
-	PerimeterWindow(DeltaViewer* dv, QWidget* parent=0, const char* name=0);
-    ~PerimeterWindow(){
-	delete plotterBackground;
-    }
-    void setPerimeters(std::vector<PerimeterSet> perimeters, float wl, int sno);
-
-    signals :
-	void perimetersFinalised(std::vector<PerimeterSet>, float, int);
-    
-    private :
-	// giving everyone a piece of the FileSet might be a bit dodgy, but it's convenient
-	DeltaViewer* deltaViewer;
-
-    PerimeterPlotter* plotter;
-    CompareController* compareController;
-    ObjectComparer* perimeterComparer;
-    std::vector<PerimeterSet> persets;
-    QSpinBox* setSelector; // selects the set
-    QSpinBox* perSelector; // selects which perimeter to include.. 
-
-    QLabel* setLabel;
-    QLabel* perLabel;
-
-    QSpinBox* scaleSelector;  // set the scale of the drawing if it doesn't quite fit
-    QCheckBox* pixelCheck;
- 
-
-   // and then some slots ..
-    int sliceNo;      
-    float waveLength;
-    int currentSet, currentPerimeter;  // if either of these change we may need to update the thingy.. 
-
-    // these refer to the current max/min of the displayed area. Note that we don't set this
-    // if we are displaying things from more than one area.. 
-    int origin_x, origin_y, perimeter_w, perimeter_h;
-    int plotterTextureSize;
-    float* plotterBackground;
-
-    // some function to create continuous lines from QPolygons..
-    std::vector<int> boundaryFromPolygon(QPolygon poly, int xo, int yo, int gw);
-
-    private slots :
-	void redrawPerimeters(int value);  // value actually ignored, poll the different selectors.. 
-    void newSet(int sno);   // set the value of the thingy..
-    void setScale(int scale);
-    void drawBackground();
-    void comparePerimeters(float, float);
-    void changeSet(int delta);
-    void changePerimeter(int delta);
-    void splitPerimeter(QList<QPolygon> polys);
-    void drawSelected();  // draws the selected thing for a given perimeter set
-    void acceptPerimeters();
-    
-
+  Q_OBJECT
+    public :
+  //	PerimeterWindow(DeltaViewer* dv, QWidget* parent=0, const char* name=0);
+  PerimeterWindow(FileSet* fset, QWidget* parent=0, const char* name=0);
+  ~PerimeterWindow(){
+    delete plotterBackground;
+  }
+  void setPerimeters(std::vector<PerimeterSet> perimeters, channel_info& cinfo, int sno);
+  //    void setPerimeters(std::vector<PerimeterSet> perimeters, float wl, int sno);
+  std::vector<Perimeter> selectedPerimeters();
+  
+ signals :
+  void perimetersFinalised(std::vector<PerimeterSet>, float, int);
+  
+ private :
+  // giving everyone a piece of the FileSet might be a bit dodgy, but it's convenient
+  //DeltaViewer* deltaViewer;
+  FileSet* fileSet;
+  PerimeterPlotter* plotter;
+  CompareController* compareController;
+  ObjectComparer* perimeterComparer;
+  std::vector<PerimeterSet> persets;
+  QSpinBox* setSelector; // selects the set
+  QSpinBox* perSelector; // selects which perimeter to include.. 
+  
+  QLabel* setLabel;
+  QLabel* perLabel;
+  
+  QSpinBox* scaleSelector;  // set the scale of the drawing if it doesn't quite fit
+  QCheckBox* pixelCheck;
+  
+  
+  // and then some slots ..
+  int sliceNo; 
+  channel_info channelInfo;
+  //  float waveLength;
+  int currentSet, currentPerimeter;  // if either of these change we may need to update the thingy.. 
+  
+  // these refer to the current max/min of the displayed area. Note that we don't set this
+  // if we are displaying things from more than one area.. 
+  int origin_x, origin_y, perimeter_w, perimeter_h;
+  int plotterTextureSize;
+  float* plotterBackground;
+  
+  // some function to create continuous lines from QPolygons..
+  std::vector<int> boundaryFromPolygon(QPolygon poly, int xo, int yo, int gw);
+  
+  private slots :
+  void redrawPerimeters(int value);  // value actually ignored, poll the different selectors.. 
+  void newSet(int sno);   // set the value of the thingy..
+  void setScale(int scale);
+  void drawBackground();
+  void comparePerimeters(float, float);
+  void changeSet(int delta);
+  void changePerimeter(int delta);
+  void splitPerimeter(QList<QPolygon> polys);
+  void drawSelected();  // draws the selected thing for a given perimeter set
+  void acceptPerimeters();
+  
+  
 };
-	
+
 #endif

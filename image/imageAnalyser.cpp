@@ -1145,6 +1145,7 @@ void ImageAnalyser::fillPerimeter(float* dest, unsigned int w, unsigned int h, v
 	    floodFill(perMask, perWidth, perHeight, bvalue, outValue, perWidth-1, py);
 	}
     }
+    cout << "finished flood filling from the left and right boundaries" << endl;
     for(int px = 0; px < perWidth; ++px){
 	if(!perMask[px]){
 //	    cout << "calling flood fill " << px << ",0" << endl;
@@ -1157,7 +1158,7 @@ void ImageAnalyser::fillPerimeter(float* dest, unsigned int w, unsigned int h, v
     }
     // so if that is correct then only false values are defined as inside the perimeter.. (not part of the perimeter as well).
     
-
+    cout << "flood fill returned, now we can do other stuff.." << endl;
     // then go through the mask and determine if we are inside or outside of the thingy
     // Note that this algorithm has two problems
     // 1. left boundaries get included but not right boundarids
@@ -1176,24 +1177,27 @@ void ImageAnalyser::fillPerimeter(float* dest, unsigned int w, unsigned int h, v
 void ImageAnalyser::floodFill(char* mask, int perWidth, int perHeight, char bvalue, char fvalue, int x, int y){
     // the mask contains all os except for a perimeter point.. 
     // start at intenal position x, y (and fill values with fvalue)
-    int p = y * perWidth + x;
-    mask[p] = fvalue;
-    // check values in all four directions..
-//    cout << "\tbeginning of flood fill " << x << "," << y << endl;
-
-    if(x - 1 >= 0 && !mask[p - 1]){
-	floodFill(mask, perWidth, perHeight, bvalue, fvalue, x-1, y);
-    }
-    if(x + 1 < perWidth && !mask[p + 1]){
-	floodFill(mask, perWidth, perHeight, bvalue, fvalue, x+1, y);
-    }
-    if(y - 1 >= 0 && !mask[p - perWidth]){
-	floodFill(mask, perWidth, perHeight, bvalue, fvalue, x, y-1);
-    }
-    if(y + 1 < perHeight && !mask[p + perWidth]){
-	floodFill(mask, perWidth, perHeight, bvalue, fvalue, x, y+1);
-    }
-//    cout << "end of flood fill" << endl;
+  if(x == 80 && y == 354)
+    cout << "hello : " << x << "," << y << endl;
+  int p = y * perWidth + x;
+  //cout << "\tbeginning of flood fill p: " << p << " : " << x << "," << y << " pwidth : " << perWidth << " pheight : " << perHeight << endl;
+  mask[p] = fvalue;
+  //cout << "\t\t" << p << " : " << perWidth << ", " << perHeight << endl;
+  // check values in all four directions..
+  
+  if(x - 1 >= 0 && !mask[p - 1]){
+    floodFill(mask, perWidth, perHeight, bvalue, fvalue, x-1, y);
+  }
+  if(x + 1 < perWidth && !mask[p + 1]){
+    floodFill(mask, perWidth, perHeight, bvalue, fvalue, x+1, y);
+  }
+  if(y - 1 >= 0 && !mask[p - perWidth]){
+    floodFill(mask, perWidth, perHeight, bvalue, fvalue, x, y-1);
+  }
+  if(y + 1 < perHeight && !mask[p + perWidth]){
+    floodFill(mask, perWidth, perHeight, bvalue, fvalue, x, y+1);
+  }
+  //    cout << "end of flood fill" << endl;
 }
 
 

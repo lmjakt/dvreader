@@ -27,6 +27,24 @@ void blob::size(uint& s){
     
 }
 
+// stupid ugly hack.. 
+float getBlobParameter(blob* b, QString parname)
+{
+  if(parname == "volume")
+    return((float)b->points.size());
+  if(parname == "sum")
+    return(b->sum);
+  if(parname == "max")
+    return(b->max);
+  if(parname == "min")
+    return(b->min);
+  if(parname == "aux")
+    return(b->aux1);
+  if(parname == "mean")
+    return( b->sum / (float)b->points.size());
+  return(0);
+}
+
 // void blob::childNo(unsigned int& c){
 //     c += blobs.size();
 //     for(uint i=0; i < blobs.size(); ++i)

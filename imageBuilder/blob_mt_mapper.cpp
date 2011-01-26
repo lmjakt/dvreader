@@ -7,11 +7,40 @@
 #include "../image/blob.h"
 #include "../image/blobModel.h"
 #include "../image/two_d_background.h"
+#include "../panels/fileSet.h"
 
 using namespace std;
 
+
+// the following constructor is deprecated and should be replaced by one that takes
+// a stack_info and FileSet argument, and then sets the data itself when needed..
+
+Blob_mt_mapper::Blob_mt_mapper(stack_info s_info, FileSet* fset, unsigned int mapper_id, bool free_memory)
+{
+  fileSet = fset;
+  pos = s_info;
+  map_id = mapper_id;
+  qsem = 0;
+  destroy_memory = free_memory;
+  bg_xm = bg_ym = 0; 
+  bg_q = 0.0;
+  blobModel = 0;
+  stack = 0;
+  blobMap = 0;
+  mask = 0;
+  minEdge = 0;
+  minPeak = 1.0;
+  stack_channel = 0;
+  // stack_width, stack_height and stack_depth are still used by a couple of inline functions (linear and toVol)
+  // as I suspect that might be faster. ?? 
+  stack_width = pos.w; //stack->w();   // references to these should be replaced with pos.w and so on.. 
+  stack_height = pos.h; //stack->h();
+  stack_depth = pos.d; //stack->d();
+}
+
 Blob_mt_mapper::Blob_mt_mapper(ImStack* imStack, unsigned int mapper_id, bool free_memory)
 {
+  fileSet = 0;
   map_id = mapper_id;
   stack = imStack;
   qsem = 0;
@@ -19,8 +48,9 @@ Blob_mt_mapper::Blob_mt_mapper(ImStack* imStack, unsigned int mapper_id, bool fr
   bg_xm = bg_ym = 0;
   bg_q = 0.0;
   blobModel = 0;
-  stack->pos(pos.x, pos.y, pos.z);
-  stack->dims(pos.w, pos.h, pos.d);
+  pos = stack->info();
+  //  stack->pos(pos.x, pos.y, pos.z);
+  //stack->dims(pos.w, pos.h, pos.d);
   unsigned int stack_size = stack->w() * stack->h() * stack->d();
   blobMap = new blob*[stack_size];
   mask = new bool[stack_size];
@@ -63,8 +93,16 @@ void Blob_mt_mapper::setBlobModel(BlobModel* b_model)
 void Blob_mt_mapper::mapBlobs(unsigned int wi, float minimumEdge, float minimumPeak, QSemaphore* sem)
 {
   qsem = sem;
+  qsem->acquire();  // sem is released at the end of run. acquired here to limit memory usage.
+  setImageStack();
+  if(!stack){
+    emit error("Blob_mt_mapper::mapBlobs failed to obtain a stack giving up");
+    qsem->release();
+    return;
+  }
   if(wi >= stack->ch()){
     emit error("Blob_mt_mapper wi too large");
+    qsem->release();
     return;
   }
   stack_channel = wi;
@@ -72,10 +110,13 @@ void Blob_mt_mapper::mapBlobs(unsigned int wi, float minimumEdge, float minimumP
     subtract_background();
   minEdge = minimumEdge;
   minPeak = minimumPeak;
-  unsigned int stack_size = stack->w() * stack->h() * stack->d();
-  memset((void*)blobMap, 0, sizeof(blob*) * stack_size);
-  memset((void*)mask, false, stack_size);
+  // blobMap and mask are set up in the setBlobMap.. 
+  // unsigned int stack_size = stack->w() * stack->h() * stack->d();
+  // memset((void*)blobMap, 0, sizeof(blob*) * stack_size);
+  // memset((void*)mask, false, stack_size);
   deleteBlobs();
+  setBlobMap();
+  cout << "calling start" << endl;
   start();
 }
 
@@ -113,17 +154,225 @@ vector<blob*> Blob_mt_mapper::rblobs(){
   return(bl);
 }
 
+// all 0 if no model specified.. 
+vector<float> Blob_mt_mapper::blob_model_correlations()
+{  
+  vector<float> correlations(blobs.size(), 0);
+  if(!blobModel)
+    return(correlations);
+  // use a resolution multiplier of 1.0 for the model.
+  int s_range, z_radius;
+  float* model = blobModel->model(s_range, z_radius, 1.0);
+  // width of model = 1 + z_radius * 2, height = 1 + s_range;
+  int m_width = 1 + z_radius * 2;
+  int m_height = 1 + s_range;
+  // we would like to normalise the blob model at this point. As this 
+  z_normalise(model, m_width * m_height);
+  
+  // we need to check whether or not we have the actual stack data;
+  // if we have to create it then we should also delete if afterwards..
+  bool keepStack = stack;
+  if(!stack){
+    cout << "Calling setImageStack" << endl;
+    setImageStack();
+    cout << "setImageStack returned" << endl;
+  }
+  if(!stack){
+    cerr << "Blob_mt_mapper unable to obtain image stack. let's die here" << endl;
+    exit(1);
+  }
+  float* stack_data = stack->stack(stack_channel);
+  if(!stack_data){
+    cerr << "Blob_mt_mapper unable to obtain stack data. dying" << endl;
+    exit(1);
+  }
+  int i = 0;
+  float* blob_values = new float[ 2 * m_width * m_height * m_height ];  // 2 * to overcome rounding errors.. 
+  cout << "Location : " << pos.x << "," << pos.y << "," << pos.z << endl;
+  for(multimap<unsigned int, blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
+    float bx, by, bz;
+    blob* b = (*it).second;
+    determineBlobCenter(b, bx, by, bz);  // the center of the blob will be set to these values..
+    // now we need to normalise the data points
+    unsigned int blob_value_no = 0;
+    vector<float> xy_offset;
+    vector<float> z_offset;
+    int x, y, z;
+    for(uint j=0; j < b->points.size(); ++j){
+      toVol(b->points[j], x, y, z);
+      // check to make sure that the point is within the model. If so, add it to the 
+      // blob_values and increment blob_value_no.
+      if( (int)roundf( e_dist(bx, by, (float)x, (float)y) ) < m_height
+	  &&
+	  (int)roundf( fabs((float)z - bz) ) <= z_radius ){
+	blob_values[blob_value_no] = stack_data[ b->points[j] ];
+	++blob_value_no;
+	z_offset.push_back( (float)z - bz );
+	xy_offset.push_back( e_dist(bx, by, (float)x, (float)y ));
+	//	if(blob_value_no >= (m_width * m_height * m_height))
+	//  cerr << "blob_value_no is getting too large, bugger : " << blob_value_no << " >= " << m_width * m_height * m_height << endl;
+      }
+    }
+    z_normalise(blob_values, blob_value_no);
+    for(uint j=0; j < blob_value_no; ++j){
+      int mx = int(roundf(z_offset[j])) + z_radius;
+      int my = int(roundf(xy_offset[j]));
+      if(mx >= m_width || my >= m_height || mx < 0 || my < 0){
+	cerr << "Blob_mt_mapper, model correlation mx or my to large : " << mx << ", " << my << endl;
+	cout << j << " : " << bx << "," << by << "," << bz << " - " 
+	     << x << "," << y << "," << z << "  ==> " << xy_offset[j] << "," << z_offset[j] << endl;
+	cout << "and mx, my : " << mx << "," << my << endl;
+	continue;
+      }
+      correlations[i] += blob_values[j] * model[ my * m_width + mx ];
+    }
+    correlations[i] /= (float)blob_value_no;
+    b->aux1 = correlations[i];
+    ++i;
+  }
+  // delete lots of things.. 
+  delete []model;
+  delete blob_values;
+  if(!keepStack)
+    freeMemory();
+    //    delete stack;
+  return correlations;
+}
+
+vector<blob_set> Blob_mt_mapper::blob_sets(std::vector<Blob_mt_mapper*> mappers)
+{
+  vector<blob_set> bsets;
+  // first check to make sure that the mappers have unique mapper ids, and that all are
+  // 2 ^ n (how to check that?)
+  map<unsigned int, Blob_mt_mapper*> mapKey;
+  unsigned int key_sum = 0;
+  for(unsigned int i=0; i < mappers.size(); ++i){
+    if(mappers[i]->pos != pos){
+      cerr << "Blob_mt_mapper::blob_sets mappers cover different regions" << endl;
+      return(bsets);
+    }
+    if(!isPowerOfTwo(mappers[i]->map_id)){
+      cerr << "Mapper in position " << i << " has an illegal map_id " << mappers[i]->map_id << endl;
+      return(bsets);
+    }
+    if(mapKey.count(mappers[i]->map_id)){
+      cerr << "Mapper in position " << i << " has duplicate map_id " << endl;
+      return(bsets);
+    }
+    mapKey[ mappers[i]->map_id ] = mappers[i];
+    key_sum += mappers[i]->map_id;
+  }
+  
+  unsigned int stack_size = pos.w * pos.h * pos.d;
+  unsigned int* id_map = new unsigned int[stack_size];
+  unsigned int* peak_id_map = new unsigned int[stack_size];
+  memset((void*)id_map, 0, sizeof(unsigned int) * stack_size);
+  memset((void*)peak_id_map, 0, sizeof(unsigned int) * stack_size);
+  // then simply assign the overlapping ids onto this map usig binary or \=
+  for(vector<Blob_mt_mapper*>::iterator mit=mappers.begin(); mit != mappers.end(); ++mit){
+    unsigned int m_id = (*mit)->map_id;
+    for(multimap<unsigned int, blob*>::iterator bit=(*mit)->blobs.begin(); bit != (*mit)->blobs.end(); ++bit){
+      peak_id_map[ (*bit).second->peakPos ] |= m_id;
+      for(vector<off_set>::iterator pit = (*bit).second->points.begin(); pit != (*bit).second->points.end(); ++pit){
+	id_map[ *pit ] |= m_id;
+      }
+    }
+  }
+  // Then all we need to do is some sort of magic to deconvolve the resulting mixtures.. 
+  // I can't think of an efficient way of doing this, 
+  map<unsigned int, vector<unsigned int> > classes;
+  for(unsigned int i=0; i < stack_size; ++i){
+    if(peak_id_map[i])
+      classes[ id_map[i] ].push_back(i);
+  }
+  // then reverse iterate across such that we take the highest (containing many points)
+  set<blob*> mappedBlobs;  // use to make sure we don't double count anything.
+  for(map<unsigned int, vector<unsigned int> >::reverse_iterator rit=classes.rbegin();
+      rit != classes.rend(); ++rit){
+    for(vector<unsigned int>::iterator it=(*rit).second.begin(); it != (*rit).second.end(); ++it){
+      vector<Blob_mt_mapper*> maps = unmix_id((*rit).first, mapKey);
+      if(maps.size()){
+	bsets.push_back(blob_set());
+      }else{
+	cerr << "Blob_mt_mapper::blob_sets unmix_id " << (*rit).first << "  didn't obtain any mappers" << endl;
+	exit(1);
+      }
+      for(unsigned int i=0; i < maps.size(); ++i){
+	blob* b = maps[i]->blob_at((*it));
+	if(!b){
+	  cerr << "Blob_mt_mapper::blob_sets didn't obtain blob from " << maps[i] << endl;
+	  exit(1);
+	}
+	bsets.back().push(b, maps[i]->map_id, maps[i]);
+      }
+    }
+  }
+  // let's call free memory on all of the mappers used..
+  for(unsigned int i=0; i < mappers.size(); ++i)
+    mappers[i]->freeMemory();
+  delete []id_map;
+  delete []peak_id_map;
+  return(bsets);
+}
+
+/// setImageStack must not be called from within run as the fileSet structure that it depends on
+/// is not thread safe
+// note that it does not reset blobMap or mask. Not sure if this is good or bad.
+void Blob_mt_mapper::setImageStack()
+{
+  if(stack)
+    return;
+  stack = fileSet->imageStack(pos, true);
+  if(!stack){
+    cerr << "Blob_mt_mapper unable to obtain an imageStack. Bugger. " << endl;
+    return;
+  }
+  // unsigned int stack_size = stack->w() * stack->h() * stack->d();
+  // if(!blobMap)
+  //   blobMap = new blob*[stack_size];
+  // if(!mask)
+  //   mask = new bool[stack_size];
+  // memset((void*)blobMap, 0, sizeof(blob*) * stack_size);
+  // memset((void*)mask, 0, sizeof(bool) * stack_size);
+}
+
+void Blob_mt_mapper::setBlobMap()
+{
+  if(blobMap)
+    delete []blobMap;
+  if(mask)
+    delete []mask;
+  blobMap = 0;
+  mask = 0;
+  unsigned int stack_size = pos.d * pos.h * pos.w;
+  if(!stack_size)
+    return;
+  blobMap = new blob*[stack_size];
+  mask = new bool[stack_size];
+  memset((void*)blobMap, 0, sizeof(blob*) * stack_size);
+  memset((void*)mask, 0, sizeof(bool) * stack_size);
+  
+  for(map<unsigned int, blob*>::iterator it = blobs.begin(); it != blobs.end(); ++it){
+    for(vector<off_set>::iterator vit = it->second->points.begin(); vit != it->second->points.end(); ++vit){
+      mask[ *vit ] = true;
+      blobMap[ *vit ] = (*it).second;
+    }
+  }
+  
+}
+
 void Blob_mt_mapper::run()
 {
-  if(qsem)
-    qsem->acquire();
+  //  if(qsem)
+  // qsem->acquire();
+  cout << "Beg of Blob_mt_mapper run() " << pos.x << "," << pos.y << endl;
   float v;
   blob* tempBlob = new blob();
-  for(int z=0; z < stack_depth; ++z){
-    for(int y=0; y < stack_height; ++y){
-      for(int x=0; x < stack_width; ++x){
+  for(uint z=0; z < pos.d; ++z){
+    for(uint y=0; y < pos.h; ++y){
+      for(uint x=0; x < pos.w; ++x){
 	v = stack->lv(stack_channel, x, y, z);
-	if(v < minEdge || mask[ z * stack_width * stack_height + y * stack_width + x])
+	if(v < minEdge || mask[ z * pos.w * pos.h + y * pos.w + x])
 	  continue;
 	tempBlob = initBlob(tempBlob, x, y, z, v);
       }
@@ -134,6 +383,7 @@ void Blob_mt_mapper::run()
     qsem->release();
   if(destroy_memory)
     freeMemory();   // deletes the stack, the map and the mask, but not the blobs.
+  cout << "End of Blob_mt_mapper run() " << pos.x << "," << pos.y << endl;
 }
 
 void Blob_mt_mapper::subtract_background()
@@ -196,11 +446,11 @@ void Blob_mt_mapper::extendBlob(int x, int y, int z, blob* b)
   int mdx, mdy, mdz;
   mdx = mdy = mdz = 0;
   int dxb = x > 0 ? -1 : 0;
-  int dxe = x < (stack_width - 1) ? 1 : 0;
+  int dxe = x < ((int)pos.w - 1) ? 1 : 0;
   int dyb = y > 0 ? -1 : 0;
-  int dye = y < (stack_height -1) ? 1 : 0;
+  int dye = y < ((int)pos.h -1) ? 1 : 0;
   int dzb = z > 0 ? -1 : 0;
-  int dze = z < (stack_depth -1) ? 1 : 0;
+  int dze = z < ((int)pos.d -1) ? 1 : 0;
   
   for(int dx=dxb; dx <= dxe; ++dx){
     for(int dy=dyb; dy <= dye; ++dy){
@@ -218,7 +468,7 @@ void Blob_mt_mapper::extendBlob(int x, int y, int z, blob* b)
     return;
   }
   
-  off_set new_off = (mdz) * stack_width * stack_height + (mdy) * stack_width + (mdx);
+  off_set new_off = (mdz) * pos.w * pos.h + (mdy) * pos.w + (mdx);
   //  cout << "new off is " << new_off << "  " << mdx << "," << mdy << "," << mdz << "  : " << stack_width << "*" << stack_height << "*" << stack_depth << endl;
   if(blobMap[ new_off ] == b)
     return;
@@ -276,18 +526,18 @@ bool Blob_mt_mapper::isSurface(int x, int y, int z, blob* b, bool tight)
 {
   // edge equals surface..
   if(x <= 0 || y <= 0 || z <= 0 ||
-     x >= stack_width-1 || y >= stack_width -1 || z >= stack_depth-1)
+     x >= (int)pos.w-1 || y >= (int)pos.h -1 || z >= (int)pos.d-1)
     return(true);
   
   if(!b)
     return(false);
 
   int dxb = x > 0 ? -1 : 0;
-  int dxe = x < (stack_width - 1) ? 1 : 0;
+  int dxe = x < ((int)pos.w - 1) ? 1 : 0;
   int dyb = y > 0 ? -1 : 0;
-  int dye = y < (stack_height -1) ? 1 : 0;
+  int dye = y < ((int)pos.h -1) ? 1 : 0;
   int dzb = z > 0 ? -1 : 0;
-  int dze = z < (stack_depth -1) ? 1 : 0;
+  int dze = z < ((int)pos.d -1) ? 1 : 0;
   blob* nBlob;
   if(tight){
     for(int dx=dxb; dx <= dxe; ++dx){
@@ -295,7 +545,7 @@ bool Blob_mt_mapper::isSurface(int x, int y, int z, blob* b, bool tight)
 	for(int dz=dzb; dz <= dze; ++dz){
 	  if( !(dx || dy || dz) )
 	    continue;
-	  nBlob = blobMap[ (dz + z) * stack_width * stack_height + (dy + y) * stack_width + (dx + x) ];
+	  nBlob = blobMap[ (dz + z) * pos.w * pos.h + (dy + y) * pos.w + (dx + x) ];
 	  if(nBlob != b)
 	    return(true);
 	}
@@ -305,16 +555,16 @@ bool Blob_mt_mapper::isSurface(int x, int y, int z, blob* b, bool tight)
   }
   
   for(int d=-1; d <= 1; d += 2){
-    if( (d + x) >= 0 && (d + x) < stack_width){
-      if(b != blobMap[(x + d) + y * stack_width + z * stack_width * stack_height])
+    if( (d + x) >= 0 && (d + x) < (int)pos.w){
+      if(b != blobMap[(x + d) + y * pos.w + z * pos.w * pos.h])
 	return(true);
     }
-    if( (d + y) >= 0 && (d + y) < stack_height){
-      if(b != blobMap[x +  (y + d) * stack_width + z * stack_width * stack_height])
+    if( (d + y) >= 0 && (d + y) < (int)pos.h){
+      if(b != blobMap[x +  (y + d) * pos.w + z * pos.w * pos.h])
 	return(true);
     }
-    if( (d + z) >= 0 && (d + z) < stack_depth){
-      if(b != blobMap[x + y * stack_width + (z + d) * stack_width * stack_height])
+    if( (d + z) >= 0 && (d + z) < (int)pos.d){
+      if(b != blobMap[x + y * pos.w + (z + d) * pos.w * pos.h])
 	return(true);
     }
   }
@@ -387,6 +637,16 @@ void Blob_mt_mapper::deleteBlobs()
   blobs.clear();
 }
 
+// // creates a blobMap if not present. (needs to be used carefully to avoid memory leak)
+// // assumes that all blob_mt_mappers refer to the same imageStack area.
+// // Use carefully.. 
+// void Blob_mt_mapper::overlappingBlobs(blob_set& bset)
+// {
+//   if(!blobMap)
+//     setBlobMap();
+  
+// }
+
 void Blob_mt_mapper::freeMemory(){
   delete []blobMap;  // does not delete the blobs.
   delete []mask;
@@ -413,6 +673,7 @@ void Blob_mt_mapper::determineBlobCenter(blob* b, float& fx, float& fy, float& f
   float x_sum = 0;
   float y_sum = 0;
   float z_sum = 0;
+
   float sum = 0;
   for(int x=xb; x <= xe; ++x){
     for(int y=yb; y <= ye; ++y){
@@ -428,4 +689,26 @@ void Blob_mt_mapper::determineBlobCenter(blob* b, float& fx, float& fy, float& f
   fx = x_sum / sum;
   fy = y_sum / sum;
   fz = z_sum / sum;
+}
+
+void Blob_mt_mapper::z_normalise(float* v, unsigned int length)
+{
+  float mean = 0;
+  float std = 0;
+  for(unsigned int i=0; i < length; ++i)
+    mean += v[i];
+  mean /= (float)length;
+  for(unsigned int i=0; i < length; ++i)
+    std += ((mean - v[i]) * (mean - v[i]));
+  std = sqrt( std / (float)length );
+  for(unsigned int i=0; i < length; ++i)
+    v[i] = ( v[i] - mean ) / std;
+}
+
+blob* Blob_mt_mapper::blob_at(off_set pos)
+{
+  if(!blobMap)
+    setBlobMap();
+
+  return( blobMap[ pos ] );
 }

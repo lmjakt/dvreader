@@ -5,12 +5,16 @@
 #include <vector>
 #include <string>
 #include "../image/blob.h"
+#include "blob_set.h"
+#include "stack_info.h"
+#include <math.h>
 #include <map>
 
 class ImStack;
 class Blob;
 class QSemaphore;
 class BlobModel;
+class FileSet;
 // Does essentially the same thing as ../image/blobMapper but uses and ImStack
 // for data access.
 // Rewritten completely for simplicity and to try and enable multithreading
@@ -24,6 +28,7 @@ class Blob_mt_mapper : public QThread
   Q_OBJECT  // enable signals and slots
     
     public:
+  Blob_mt_mapper(stack_info s_info, FileSet* fset, unsigned int mapper_id, bool free_memory=false);
   Blob_mt_mapper(ImStack* imStack, unsigned int mapper_id, bool free_memory=false);
   ~Blob_mt_mapper();
   void setBgPar(uint xm, uint ym, float q);
@@ -33,12 +38,18 @@ class Blob_mt_mapper : public QThread
   void position(int& x, int& y, int& z);
   void dims(unsigned int& w, unsigned int& h, unsigned int& d);
   std::vector<blob*> rblobs();  // shouldn't really be rblobs, .. 
+  std::vector<float> blob_model_correlations();
+  std::vector<blob_set> blob_sets(std::vector<Blob_mt_mapper*> mappers);
+  stack_info position(){ return pos; }
+  unsigned int mapId(){ return map_id; }
   // we need some way of returning the blobs in a reasonable structure
   // For now use the old ../image/blob.h definition. But note that it is probably too memory intensive.
  signals:
   void error(const char*);
   
  private:
+  void setImageStack();
+  void setBlobMap(); // sets the blobMap and the mask (blob) using any blobs defined.. 
   void run();
   void subtract_background();
   blob* initBlob(blob* b, uint x, uint y, uint z, float v);
@@ -49,8 +60,11 @@ class Blob_mt_mapper : public QThread
   void finaliseBlob(blob* b);
   void incrementBlobModel(blob* b);
   void deleteBlobs();
+  //  void overlappingBlobs(blob_set& bset);
   void freeMemory();
   void determineBlobCenter(blob* b, float& fx, float& fy, float& fz);
+  void z_normalise(float* v, unsigned int length);
+  blob* blob_at(off_set pos);  // creates a blobMap if not present.. 
 
   off_set linear(int x, int y, int z){
     return( z * stack_width * stack_height + y * stack_width + x);
@@ -60,13 +74,25 @@ class Blob_mt_mapper : public QThread
     y = (p % (stack_width * stack_height)) / stack_width;
     x = p % stack_width;
   }
+  float e_dist(float x1, float y1, float x2, float y2){
+    return(sqrt( (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) ));
+  }
+  bool isPowerOfTwo(unsigned int i){
+    return( (i != 0) && !(i & (i - 1)) );
+  }
 
-  struct stack_info {
-    int x, y, z;
-    uint w, h, d;
-  };
+  std::vector<Blob_mt_mapper*> unmix_id(unsigned int i, std::map<unsigned int, Blob_mt_mapper*>& key){
+    std::vector<Blob_mt_mapper*> mappers;
+    for(std::map<unsigned int, Blob_mt_mapper*>::iterator it=key.begin(); it != key.end(); ++it){
+      if( i & (*it).first)
+	mappers.push_back((*it).second);
+    }
+    return(mappers);
+  }
 
+  
   ImStack* stack;
+  FileSet* fileSet;
   stack_info pos;
   QSemaphore* qsem;
   bool destroy_memory;  // if true destroys imageStack, blobMap, and mask after mapping blobs. 

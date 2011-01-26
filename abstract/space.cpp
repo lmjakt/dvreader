@@ -108,3 +108,9 @@ vector<Point*> Space::points(int xb, int xe, int yb, int ye, int zb, int ze)
     return(p);
 }
 				      
+vector<Point*> Space::points(int x, int y, int z, int diameter)
+{
+  diameter = abs(diameter);
+  return(points(x - diameter, x + diamter, y - diameter, y + diameter, z - diameter, z + diameter));
+}
+  

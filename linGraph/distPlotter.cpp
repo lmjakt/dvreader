@@ -63,10 +63,25 @@ DistPlotter::DistPlotter(bool useLimits, QWidget* parent)
 DistPlotter::~DistPlotter(){
 }
 
-void DistPlotter::setData(vector<vector<float> >& v, vector<QColor>& c, bool resetLimits){
+void DistPlotter::setSingleData(std::vector<float> v, std::vector<QColor>& c, bool resetLimits){
+  vector<vector<float> > vv;
+  vv.push_back(v);
+  setData(vv, c, resetLimits);
+}
 
+void DistPlotter::setSingleData(std::vector<float> v, bool resetLimits){
+  vector<vector<float> > vv;
+  vv.push_back(v);
+  setData(vv, resetLimits);
+}
+
+void DistPlotter::setData(vector<vector<float> >& v, vector<QColor>& c, bool resetLimits){
+  colors = c;
+  setData(v, resetLimits);
+}
+
+void DistPlotter::setData(vector<vector<float> >& v, bool resetLimits){
     values = v;
-    colors = c;
     //    isLog = lg;
     setLogValues();
 

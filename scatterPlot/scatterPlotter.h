@@ -15,6 +15,8 @@ class ScatterPlotter : public QWidget
     public:
   ScatterPlotter(QWidget* parent=0);
   
+  bool setData(std::vector<float> xv, std::vector<float> yv);
+  bool setData(std::vector<std::vector<float> > xv, std::vector<std::vector<float> > yv);
   bool setData(std::vector<std::vector<float> > xv, std::vector<std::vector<float> > yv, std::vector<QColor> c);
 
   public slots:
@@ -24,6 +26,7 @@ class ScatterPlotter : public QWidget
   std::vector<std::vector<bool > > selectPoints(bool filter);
 
  private :
+  void setDefaultColors();
   bool initData();
   void clearData();
   void setLogValues();
@@ -46,6 +49,7 @@ class ScatterPlotter : public QWidget
   float logModifier; // a term added to lin_x and lin_y to make these loggable if necessary
   
   std::vector<QColor> plotColors;
+  std::vector<QColor> defaultColors;
   std::vector<bool> selectedChannels;
   bool plotLog;
   // all mins and maxes are in linear scale. Convert if necessary. Don't do log if negative values present

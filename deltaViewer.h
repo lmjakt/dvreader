@@ -110,6 +110,7 @@ class DeltaViewer : public QWidget
   void paintCoverage(float maxCount);
   //void setProjection();
   //bool readProjection(ifstream& in);  // read from a file..
+  void showOverlapEditor();
   void newStackSelected(float x, float y);
   void adjustStackPosition(float x, float y, QPoint p);
   void updateFileSetInfo();

@@ -36,28 +36,39 @@
 #include <set>
 
 struct Point {    // 
-    int id;
-    int x, y, z;
-    Point* parent; // only one parent allowed.. This is important for DAGs
-    std::set<Point*> daughters;
-
-    Point(){
-	id = -1;
-	parent = 0;
-    }
-    Point(int X, int Y, int Z){
-	x = X; y = Y; z = Z;
-	parent = 0;
-	id = -1;
-    }
-    friend bool operator <(const Point& a, const Point& b){
-	if(a.z != b.z)
-	    return(a.z < b.z);
-	if(a.y != b.y)
-	    return(a.y < b.y);
-	return(a.x < b.x);
-    }
-    ~Point(){}
+  int id;         // a group id.. 
+  int x, y, z;
+  Point* parent; // only one parent allowed.. This is important for DAGs
+  Point* neighbor; // nearest neighbour with different cluster id.
+  int neighbor_sq_distance;
+  int nearest_perimeter_id; // nearest perimeter (nucleus);
+  float neareast_perimeter_distance;
+  int perimeter_id;          // the id of the group set only 
+  std::set<Point*> daughters;
+  
+  Point(){
+    id = -1;
+    parent = 0;
+    neighbor = 0;
+    neighbor_sq_distance = 0;
+    nearest_perimeter_id = -1;
+  }
+  Point(int X, int Y, int Z){
+    x = X; y = Y; z = Z;
+    parent = 0;
+    id = -1;
+    neighbor = 0;
+    neighbor_sq_distance = 0;
+    nearest_perimeter_id = -1;
+  }
+  friend bool operator <(const Point& a, const Point& b){
+    if(a.z != b.z)
+      return(a.z < b.z);
+    if(a.y != b.y)
+      return(a.y < b.y);
+    return(a.x < b.x);
+  }
+  ~Point(){}
 };
 
 struct Row {
@@ -84,6 +95,7 @@ class Space {
     ~Space();      // have to delete
     Point* insertPoint(int x, int y, int z);
     std::vector<Point*> points(int xb, int xe, int yb, int ye, int zb, int ze);
+    std::vector<Point*> points(int x, int y, int z, int diameter);
 
 };
 

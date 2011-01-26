@@ -31,6 +31,25 @@ f_parameter::f_parameter(vector<QString> pars){
   }
 }
 
+f_parameter::f_parameter(QString line)
+{
+  QStringList pars = line.split(QRegExp("\\s+"), QString::SkipEmptyParts);
+  if(!pars.size()){
+    fname = "null";
+    return;
+  }
+  fname = pars[0];
+  QRegExp rx("(\\w+)=(\\S+)");
+  //rx.setMinimal(true);
+  for(uint i=1; i < pars.size(); ++i){
+    if(rx.indexIn(pars[i]) != -1){
+      parameters.insert(make_pair(rx.cap(1), rx.cap(2)));
+    }else{
+      parameters.insert(make_pair(pars[i], ""));
+    }
+  }
+}
+
 void f_parameter::setFunction(QString& f)
 {
   fname = f;
@@ -83,6 +102,18 @@ bool f_parameter::param(QString par, short& s){
   if(ok)
     s = ts;
   return(ok);
+}
+
+bool f_parameter::param(QString par, unsigned char& uc){
+  unsigned int ui;
+  if(!param(par, ui))
+    return(false);
+  if(ui < 256){
+    uc = (unsigned char)ui;
+    return(true);
+  }
+  uc = 255;
+  return(true);  // ?? 
 }
 
 bool f_parameter::param(QString par, bool& b){
@@ -143,12 +174,45 @@ bool f_parameter::param(QString par, QChar sep, vector<unsigned int>& ints)
   return(true);
 }
 
+bool f_parameter::param(QString par, QChar sep, vector<float>& floats)
+{
+  if(!parameters.count(par))
+    return(false);
+  vector<QString> words = vecArgument(parameters[par], sep);
+  bool ok;
+  float f;
+  for(unsigned int i=0; i < words.size(); ++i){
+    f = words[i].toFloat(&ok);
+    if(ok)
+      floats.push_back(f);
+  }
+  if(floats.size())
+    return(true);
+  return(false);
+}
+
+
 bool f_parameter::param(QString par, QChar sep, vector<QString>& words)
 {
   if(!parameters.count(par))
     return(false);
   words = vecArgument(parameters[par], sep);
   return(true);
+}
+
+bool f_parameter::param(QString par, vector<QColor>& colors)
+{
+  if(!parameters.count(par))
+    return(false);
+  vector<QString> words = vecArgument(parameters[par], ';');
+  vector<QColor> tempColors;
+  for(unsigned int i=0; i < words.size(); ++i)
+    tempColors.push_back(getColor(words[i]));
+  if(tempColors.size()){
+    colors = tempColors;
+    return(true);
+  }
+  return(false);
 }
 
 vector<QString> f_parameter::vecArgument(QString& str, QChar sep)
@@ -170,4 +234,13 @@ vector<QString> f_parameter::vecArgument(QString& str, QChar sep)
   if(word.length())
     strings.push_back(word);
   return(strings);
+}
+
+QColor f_parameter::getColor(QString cname)
+{
+  QRegExp rx("(\\d+),(\\d+),(\\d+)");
+  if(cname.contains(rx))
+    return( QColor(rx.cap(1).toInt(), rx.cap(2).toInt(), rx.cap(3).toInt()) );
+  // otherwise trust in Qt..
+  return(QColor(cname));
 }

@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include "../dataStructs.h"
+#include "stack_info.h"
 
 class ImStack
 {
@@ -18,6 +19,7 @@ class ImStack
   ImStack(ImStack& imstack);
   ~ImStack();
 
+  stack_info info();
   void addChannel(float* data, channel_info& ch_info);
   bool setData(float* data, unsigned int ch);
   std::string description();

@@ -64,6 +64,20 @@ ImStack::~ImStack()
   }
 }
 
+stack_info ImStack::info()
+{
+  stack_info sinfo;
+  sinfo.x = xo;
+  sinfo.y = yo;
+  sinfo.z = zo;
+  sinfo.w = width;
+  sinfo.h = height;
+  sinfo.d = depth;
+  for(uint i=0; i < channels.size(); ++i)
+    sinfo.channels.push_back(channels[i].wave_index);
+  return(sinfo);
+}
+
 void ImStack::addChannel(float* data, channel_info& ch_info)
 {
   imData.push_back(data);

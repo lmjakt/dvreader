@@ -108,19 +108,21 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
   imageAnalyser = new ImageAnalyser(fileSet);
   // at which point we can make and show the overlapviewer..
   overlapWindow = new OverlapWindow(fileSet->overlaps());
-  olapEditor = new OverlapEditorWindow();
-  olapEditor->resize(1024, 1024);
-  olapEditor->setInfo(fileSet->panelInfo());
-  connect(olapEditor, SIGNAL(newFrameSelected(float, float)), 
-	  this, SLOT(newStackSelected(float, float)));
-  connect(olapEditor, SIGNAL(adjustFramePos(float, float, QPoint)),
-	  this, SLOT(adjustStackPosition(float, float, QPoint)));
-  connect(olapEditor, SIGNAL(updateFileSetInfo()),
-	  this, SLOT(updateFileSetInfo()));
+  olapEditor = 0;
+  // olapEditor = new OverlapEditorWindow();
+  // olapEditor->resize(1024, 1024);
+  // olapEditor->setInfo(fileSet->panelInfo());
+  // connect(olapEditor, SIGNAL(newFrameSelected(float, float)), 
+  // 	  this, SLOT(newStackSelected(float, float)));
+  // connect(olapEditor, SIGNAL(adjustFramePos(float, float, QPoint)),
+  // 	  this, SLOT(adjustStackPosition(float, float, QPoint)));
+  // connect(olapEditor, SIGNAL(updateFileSetInfo()),
+  // 	  this, SLOT(updateFileSetInfo()));
   if(fileSet->overlaps().size())
       overlapWindow->show();
   
-  perimeterWindow = new PerimeterWindow(this);
+  perimeterWindow = new PerimeterWindow(fileSet);
+  //  perimeterWindow = new PerimeterWindow(this);
   perimeterWindow->resize(600, 800);
 
 
@@ -413,7 +415,8 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
   connect(exportSpotsButton, SIGNAL(clicked()), this, SLOT(exportPeaks()) );
 
   QPushButton* adjustOverlapsButton = new QPushButton("Adjust Overlaps", this);
-  connect(adjustOverlapsButton, SIGNAL(clicked()), olapEditor, SLOT(show()) );
+  connect(adjustOverlapsButton, SIGNAL(clicked()), this, SLOT(showOverlapEditor()) );
+  //  connect(adjustOverlapsButton, SIGNAL(clicked()), olapEditor, SLOT(show()) );
 
   // input individual offsets...
   
@@ -829,7 +832,7 @@ bool DeltaViewer::readToRGB(float* dest, int xb, int yb, unsigned int tw, unsign
       }
       float r, g, b;
       colorChoosers[i]->color(&r, &g, &b);
-      chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
+      chinfo.push_back(channel_info(i, color_map(r, g, b), maxLevel, biases[i], scales[i],
 				     useComponents->isChecked(), colorChoosers[i]->subtractColor()) );
     }
     return(fileSet->readToRGB(dest, (uint)xb, (uint)yb, tw, th, slice_no, chinfo, 0) );
@@ -1564,7 +1567,24 @@ void DeltaViewer::paintParameterData(float* area, int px, int py, int w, int h){
 //     return(true);
 // }
 
+void DeltaViewer::showOverlapEditor(){
+  if(!olapEditor){
+    olapEditor = new OverlapEditorWindow();
+    olapEditor->resize(1024, 1024);
+    olapEditor->setInfo(fileSet->panelInfo());
+    connect(olapEditor, SIGNAL(newFrameSelected(float, float)), 
+	    this, SLOT(newStackSelected(float, float)));
+    connect(olapEditor, SIGNAL(adjustFramePos(float, float, QPoint)),
+	    this, SLOT(adjustStackPosition(float, float, QPoint)));
+    connect(olapEditor, SIGNAL(updateFileSetInfo()),
+	    this, SLOT(updateFileSetInfo()));
+  }
+  olapEditor->show();
+}
+
 void DeltaViewer::newStackSelected(float x, float y){
+  if(!olapEditor)
+    return;
   cout << "Deltaviewer new Stack selected at " << x << "," << y << endl;
   olapEditor->setBorderImages( fileSet->borderInformation(x, y) );
 }
@@ -1919,7 +1939,7 @@ vector<channel_info> DeltaViewer::collect_channel_info(){
     cout << i << " color : " << r << "," << g << "," << b << endl;
     //      chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
     //				     useComponents->isChecked(), colorChoosers[i]->subtractColor()) );
-    chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
+    chinfo.push_back(channel_info(i, color_map(r, g, b), maxLevel, biases[i], scales[i],
 				   colorChoosers[i]->includeInMerger(), colorChoosers[i]->subtractColor()) );
     chinfo.back().finfo = fileSet->channelInfo(i);
     cout << "pushed back" << endl;
@@ -2314,7 +2334,14 @@ void DeltaViewer::findSets(int wi, int minSize, int maxSize, float minValue){
     labelString.setNum(fileSet->channel(wi));
     labelString.append(" Sets");
 
-    perimeterWindow->setPerimeters(perData.perimeterData, (float)fileSet->channel(wi), currentSliceNo);
+    vector<channel_info> channels = collect_channel_info();
+    if(wi >= channels.size()){
+      cerr << "WARNING WARNING Deltaviewer trying to setPerimeters to perimeterWindow, but wi is larger than channels "
+	   << channels.size() << "  <= " << wi << endl;
+      return;
+    }
+    perimeterWindow->setPerimeters(perData.perimeterData, channels[wi], currentSliceNo);
+    //    perimeterWindow->setPerimeters(perData.perimeterData, (float)fileSet->channel(wi), currentSliceNo);
     perimeterWindow->show();
 
     cout << "data given to perimeterWindow and show() called" << endl;

@@ -128,6 +128,9 @@ class Perimeter {
 	}
 	nucleusId = -1;
     }
+    std::vector<int> perimeterPoints(){
+      return(perimeter);
+    }
     unsigned int area();
     bool contains(int x, int y);
     bool sqDistanceLessThan(int sqd, int x, int y);   // returns true if the square of the distance from point x & y is is less than sqd

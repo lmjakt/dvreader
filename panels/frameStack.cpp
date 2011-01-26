@@ -651,17 +651,22 @@ bool FrameStack::readToRGB(float* dest, int xpos, int ypos,
 	 << raw->channels << " != " << chinfo.size() << endl;
     exit(1);
   }
+  // if chinfo is not channel_offsets size, then we can make
+  vector<ChannelOffset> offsets = channelOffsets;
+
   if(chinfo.size() != channelOffsets.size()){
     cerr << "FrameStack::readToRGB channelOffsets is a different size fo chinfo: "
 	 << channelOffsets.size() << " != " << chinfo.size() << endl;
-    exit(1);
+    vector<ChannelOffset> tempOff(chinfo.size()); // initialises to 0 .. 
+    offsets = tempOff;
+    //    exit(1);
   }
   int dest_x, source_x, dest_y, source_y;
   unsigned int subWidth, subHeight;
   bool foundOverlap = false;
   // check if it overlaps with the border positions..
   for(unsigned int i=0; i < chinfo.size(); ++i){
-    if(globalToLocal(xpos + channelOffsets[i].x(), ypos + channelOffsets[i].y(), dest_width, dest_height, dest_x, 
+    if(globalToLocal(xpos + offsets[i].x(), ypos + offsets[i].y(), dest_width, dest_height, dest_x, 
 		     source_x, dest_y, source_y, subWidth, subHeight)){
       if(raw){
 	if(sections[slice_no]->readToRGB(dest, source_x, source_y, subWidth, subHeight, 

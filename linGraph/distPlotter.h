@@ -16,7 +16,12 @@ class DistPlotter : public QWidget
     DistPlotter(bool useLimits, QWidget* parent=0);
     ~DistPlotter();
   
+    void setSingleData(std::vector<float> v, std::vector<QColor>& c, bool resetLimits);
+    void setSingleData(std::vector<float> v, bool resetLimits);
+
     void setData(std::vector<std::vector<float> >& v, std::vector<QColor>& c, bool resetLimits);
+    void setData(std::vector<std::vector<float> >& v, bool resetLimits);
+
     void setLog(bool l);
 
     public slots:

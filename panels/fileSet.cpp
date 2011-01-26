@@ -35,6 +35,7 @@
 #include "idMap.h"
 #include "../image/background.h"
 #include "../image/imageData.h"
+#include "../imageBuilder/imStack.h"
 
 using namespace std;
 
@@ -552,6 +553,42 @@ bool FileSet::mip_projection(float* dest, int xpos, int ypos, unsigned int dest_
   }
   cerr << "FileSet::mip_projection buffer read to from " << counter << " filestacks" << endl;
   return(counter > 0);   // which is nicer than saying return counter.. because...
+}
+
+ImStack* FileSet::imageStack(vector<unsigned int> wave_indices, bool use_cmap)
+{
+  return(imageStack(wave_indices, 0, 0, 0, pwidth(), pheight(), sectionNo(), use_cmap));
+}
+
+ImStack* FileSet::imageStack(stack_info sinfo, bool use_cmap)
+{
+  return(imageStack(sinfo.channels, sinfo.x, sinfo.y, sinfo.z, sinfo.w, sinfo.h, sinfo.d, use_cmap));
+}
+
+// the problem is that we don't have any channel_info (which includes colors and all sorts of nice things.
+ImStack* FileSet::imageStack(vector<unsigned int> wave_indices, int x, int y, int z,
+			     unsigned int w, unsigned int h, unsigned int d, bool use_cmap)
+{
+  if(!w || !h || !d)
+    return(0);
+  vector<unsigned int> wi;  // the ones we use
+  vector<channel_info> ch_info;
+  for(uint i=0; i < wave_indices.size(); ++i){
+    if(wave_indices[i] < flInfo.size()){
+      wi.push_back(wave_indices[i]);
+      ch_info.push_back( channel_info(wave_indices[i], channelInfo(wave_indices[i])) );
+    }
+  }
+  if(!wi.size())
+    return(0);
+  float** stack_data = new float*[wi.size()];
+  for(uint i=0; i < wi.size(); ++i){
+    stack_data[i] = new float[ w * h * d ];
+    memset((void*)stack_data[i], 0, sizeof(float) * w * h * d);
+    readToFloat(stack_data[i], x, y, z, w, h, d, wi[i], use_cmap);
+  }
+  ImStack* imStack = new ImStack(stack_data, ch_info, x, y, z, w, h, d);
+  return(imStack);
 }
 
 bool FileSet::readToFloat(float* dest, int xb, int yb, int zb, int pw, int ph, int pd, unsigned int waveIndex, bool use_cmap){

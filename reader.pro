@@ -111,6 +111,10 @@ HEADERS		= \
 		imageBuilder/f_parameter.h \
 	       	imageBuilder/centerFinder.h \
 		imageBuilder/blob_mt_mapper.h \
+		imageBuilder/stack_info.h \
+		imageBuilder/qnt_colors.h \
+		imageBuilder/blob_set.h \
+		imageBuilder/Blob_mt_mapper_collection.h \
 		util/matrix.h	
 SOURCES		= \
 		dvReader.cpp \
@@ -212,6 +216,9 @@ SOURCES		= \
 		imageBuilder/f_parameter.cpp \
 		imageBuilder/centerFinder.cpp \
 		imageBuilder/blob_mt_mapper.cpp \
+		imageBuilder/qnt_colors.cpp \
+		imageBuilder/blob_set.cpp \
+		imageBuilder/Blob_mt_mapper_collection.cpp \
 		util/matrix.cpp \
 		globalVariables.cpp \
 		main.cpp

@@ -18,11 +18,26 @@ ScatterPlotter::ScatterPlotter(QWidget* parent)
   m_size = 6;
   selectingPath = false;
   setFocusPolicy(Qt::StrongFocus);
+  setDefaultColors();
+}
+
+bool ScatterPlotter::setData(vector<float> xv, vector<float> yv)
+{
+  vector<vector<float> > xvv;
+  vector<vector<float> > yvv;
+  xvv.push_back(xv);
+  yvv.push_back(yv);
+  return(setData(xvv, yvv));
+}
+
+bool ScatterPlotter::setData(vector<vector<float> > xv, vector<vector<float> > yv)
+{
+  return(setData(xv, yv, defaultColors));
 }
 
 bool ScatterPlotter::setData(vector<vector<float> > xv, vector<vector<float> > yv, vector<QColor> c)
 {
-  if(xv.size() != yv.size() || xv.size() != c.size()){
+  if(xv.size() != yv.size()){
     cerr << "ScatterPlotter::setData null or differently sized data vectors "
 	 << xv.size() << "\t" << yv.size() << " : " << c.size() << endl;
     return(false);
@@ -82,6 +97,17 @@ vector<vector<bool> > ScatterPlotter::selectPoints(bool filter){
 				selectPath.contains( valueToPlotCoordinates(lin_x[i][j], lin_y[i][j], w, h )) );
     }
     return(selection);
+}
+
+void ScatterPlotter::setDefaultColors(){
+  plotColors.push_back(QColor(255, 0, 0));
+  plotColors.push_back(QColor(0, 255, 0));
+  plotColors.push_back(QColor(0, 0, 255));
+  plotColors.push_back(QColor(255, 0, 255));
+  plotColors.push_back(QColor(0, 255, 255));
+  plotColors.push_back(QColor(125, 125, 0));
+  plotColors.push_back(QColor(120, 120, 120));
+  defaultColors = plotColors;
 }
 
 bool ScatterPlotter::initData(){
@@ -193,7 +219,7 @@ void ScatterPlotter::paintEvent(QPaintEvent* e){
   for(uint i=0; i < xv.size(); ++i){
     if(!selectedChannels[i])
       continue;
-    p.setPen(QPen(plotColors[i], 0));
+    p.setPen(QPen(plotColors[i % plotColors.size()], 0));
     for(uint j=0; j < xv[i].size(); ++j){
 	float xf = xv[i][j];
 	float yf = yv[i][j];

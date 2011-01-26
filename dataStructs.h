@@ -329,6 +329,7 @@ struct color_map {
 };
 
 struct channel_info {
+  unsigned int wave_index;
   fluorInfo finfo;
   color_map color;
   float maxLevel;
@@ -342,13 +343,24 @@ struct channel_info {
     maxLevel = 4096;
     bias = 0;
     scale = 1.0;
+    wave_index = 0;
     include = true;
     bg_subtract = contrast = false;
   }
-  channel_info(color_map cm, float ml, float b, float s, bool bgs, bool cnt){
+  channel_info(unsigned int wi, color_map cm, float ml, float b, float s, bool bgs, bool cnt){
     color = cm; maxLevel = ml; bias = b; scale = s; 
     bg_subtract = bgs; contrast = cnt;
     include = true;
+    wave_index = wi;
+  }
+  channel_info(unsigned int wi, fluorInfo fl){
+    finfo = fl;
+    maxLevel = 4096;
+    bias = 0;
+    scale = 1.0;
+    include = true;
+    bg_subtract = contrast = false;
+    wave_index = wi;
   }
   friend bool operator <(const channel_info& a, const channel_info& b){
     if(a.finfo != b.finfo)
@@ -357,7 +369,7 @@ struct channel_info {
       return(a.maxLevel < b.maxLevel);
     if(a.bias != b.bias)
       return(a.bias < b.bias);
-    return(a.scale != b.scale);
+    return(a.scale < b.scale);
   }
     
 };

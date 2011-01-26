@@ -13,8 +13,13 @@
 #include "../stat/stat.h"
 #include "../image/gaussian.h"
 #include "../image/blobModel.h"
+#include "../image/imageAnalyser.h"
 #include "../panels/stack_stats.h"
 #include "../linGraph/linePlotter.h"
+#include "../linGraph/distPlotter.h"    
+#include "../scatterPlot/scatterPlotter.h"
+#include "../spotFinder/perimeterWindow/perimeterWindow.h"
+#include "../spotFinder/spotMapper/nearestNeighborMapper.h"
 #include <string.h>
 #include <iostream>
 #include <stdlib.h>
@@ -22,6 +27,7 @@
 #include <unistd.h>
 #include <QTextStream>
 #include <QSemaphore>
+#include <QFile>
 
 using namespace std;
 
@@ -29,6 +35,7 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   : QObject(parent)
 {
   data = fs;
+  imageAnalyser = 0;  // make a new one if necessary.. 
   texture_size = 1024;  // this must be an even 2^n
   int texColNo = (data->pwidth() % texture_size) ? 1 + (data->pwidth() / texture_size) : data->pwidth() / texture_size;
   int texRowNo = (data->pheight() % texture_size) ? 1 + (data->pheight() / texture_size) : data->pheight() / texture_size;
@@ -38,8 +45,11 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   image->setCaption("ImageBuilder Image");
 
   rgbData = new float[ data->pwidth() * data->pheight() * 3];
+  overlayData = new unsigned char[4 * data->pwidth() * data->pheight() ];
+  memset((void*)overlayData, 0, sizeof(unsigned char) * 4 * data->pwidth() * data->pheight());
   sBuffer = new unsigned short[ data->pwidth() * data->pheight() ];
-  channels = ch;
+  channels = ch;class ImageAnalyser;
+
 
   distTabs = new TabWidget();
   distTabs->setCaption("ImageBuilder Distributions");
@@ -61,6 +71,7 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
 
   // a set of general functions taking instances of the f_parameter class
   // as an argument.
+  general_functions["read_commands"] = &ImageBuilder::read_commands_from_file;
   general_functions["set_panel_bias"] = &ImageBuilder::setPanelBias;
   general_functions["set_frame_bgpar"] = &ImageBuilder::setFrameBackgroundPars;
   general_functions["find_center"] = &ImageBuilder::findCenter;
@@ -79,7 +90,16 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   general_functions["stack_project"] = &ImageBuilder::stack_project;
   general_functions["set_stack_par"] = &ImageBuilder::setStackPar;
   general_functions["map_blobs"] = &ImageBuilder::stack_map_blobs;
+  general_functions["map_perimeters"] = &ImageBuilder::map_perimeters;
+  general_functions["draw_perimeters"] = &ImageBuilder::project_perimeters;
+  general_functions["map_blobs_to_perimeters"] = &ImageBuilder::map_blobs_to_perimeters;
+  general_functions["compare_model"] = &ImageBuilder::compare_model;
+  general_functions["blob_pars"] = &ImageBuilder::plot_blob_pars;
+  general_functions["blob_set_dist"] = &ImageBuilder::plot_blob_set_dist;
+  general_functions["merge_blobs"] = &ImageBuilder::mergeBlobs;
+  general_functions["read_criteria"] = &ImageBuilder::readBlobCriteria;
   general_functions["project_blobs"] = &ImageBuilder::project_blob_collections;
+  general_functions["project_blob_sets"] = &ImageBuilder::project_blob_sets;
   general_functions["draw_model"] = &ImageBuilder::draw_blob_model;
   general_functions["list"] = &ImageBuilder::list_objects;
   //general_functions["p_mean"] = &ImageBuilder::p_mean_panel;  // may be useful to do things like blurring.
@@ -91,11 +111,14 @@ ImageBuilder::~ImageBuilder()
   delete image;
   delete []rgbData;
   delete []sBuffer;
+  delete []overlayData;
   // I may need to delete the distributions separately, not sure,,
   delete distTabs;
   for(map<QString, ImStack*>::iterator it=imageStacks.begin();
       it != imageStacks.end(); ++it)
     delete (*it).second;
+  if(imageAnalyser)
+    delete imageAnalyser;
 }
 
 bool ImageBuilder::buildSlice(std::set<unsigned int> wi, unsigned int slice)
@@ -247,6 +270,42 @@ bool ImageBuilder::buildProjection(std::vector<unsigned int> wi, unsigned int be
   return(ok);   // not very meaningful
 }
 
+
+void ImageBuilder::read_commands_from_file(f_parameter& par){
+  QString fileName;
+  QString error;
+  QTextStream qts(&error);
+  if(!par.param("file", fileName)){
+    qts << "Specify file containing the commands\n";
+    warn(error);
+    return;
+  }
+  QFile file(fileName);
+  if(!file.open(QIODevice::ReadOnly | QIODevice::Text)){
+    qts << "Unable to open file : " << fileName << "\n";
+    warn(error);
+    return;
+  }
+  QTextStream in(&file);
+  vector<f_parameter> pars;
+  vector<QString> commandLines;
+  while(!in.atEnd()){
+    QString line = in.readLine();
+    if(line.length() && line.contains(QRegExp("\\w+"))){
+      pars.push_back( f_parameter( line ) );
+      commandLines.push_back(line);
+    }
+  }
+  cout << "ImageBuilder::read_commands_from_file : read in a total of : " << pars.size() << " commands" << endl;
+  
+  for(unsigned int i=0; i < pars.size(); ++i){
+    warn(commandLines[i]);
+    general_command(pars[i]);
+  }
+  
+}
+
+
 void ImageBuilder::build_fprojection(f_parameter& par)
 {
   int x = 0;
@@ -254,7 +313,7 @@ void ImageBuilder::build_fprojection(f_parameter& par)
   int width = data->pwidth();
   int height = data->pheight();
   int beg = 0;
-  int end = data->sectionNo();
+  int end = data->sectionNo() - 1;
   vector<int> waves;
   bool use_cmap=true;
   // override the defaults if specified.
@@ -836,7 +895,8 @@ void ImageBuilder::toRGB(float* fb, float* rgb, channel_info& ci, unsigned long 
 void ImageBuilder::toRGB(float* fb, float* rgb, channel_info& ci, unsigned long l,
 			 int x_off, int y_off, int width, int height, bool clear)
 {
-  // In any case if clear is true, then lets clear..
+  // In any case if clear is true, then lets clear..class ImageAnalyser;
+
   if(clear)
     memset((void*)rgbData, 0, sizeof(float) * data->pwidth() * data->pheight() * 3);
   // the rgbData defaults to the size of data->pwidth() * data->pheight() 
@@ -906,10 +966,64 @@ void ImageBuilder::setRGBImage(float* img, unsigned int width, unsigned int heig
   image->updateGL();
 }
 
+
+// source_x is the position of the source image
+// image is in float rgb format.. 
+void ImageBuilder::setBigSubImage(float* img, int source_x, int source_y, 
+				  int source_width, int source_height,
+				  int source_sub_x, int source_sub_y,
+				  int cp_width, int cp_height)
+{
+  if(cp_width <= 0 || cp_height <= 0 || source_sub_x < 0 || source_sub_y < 0)
+    return;
+  if(source_sub_x + cp_width >= source_width || source_sub_y + cp_height >= source_height)
+    return;
+  float* sub_image = new float[ 3 * cp_width * cp_height ];
+  for(int y=0; y < cp_height; ++y){
+    memcpy( (void*)(sub_image + 3 * (y * cp_width)), 
+	    (void*)(img + 3 * ((y + source_sub_y) * source_width + source_sub_x) ),
+	    sizeof(float) * cp_width * 3);
+  }
+  setBigImage(sub_image, source_x + source_sub_x, source_y + source_sub_y, cp_width , cp_height);
+  delete []sub_image;
+}
+
+void ImageBuilder::setBigSubOverlay(unsigned char* img, int source_x, int source_y,
+				    int source_width, int source_height,
+				    int source_sub_x, int source_sub_y,
+				    int cp_width, int cp_height)
+{
+  if(cp_width <= 0 || cp_height <= 0 || source_sub_x < 0 || source_sub_y < 0)
+    return;
+  if(source_sub_x >= source_width || source_sub_y >= source_height){
+    return;
+  }
+  cp_width = source_sub_x + cp_width <= source_width ? cp_width : (source_width - source_sub_x);
+  cp_height = source_sub_y + cp_height <= source_height ? cp_height : (source_height - source_sub_y);
+
+  unsigned char* sub_image = new unsigned char[ 4 * cp_width * cp_height ];
+  for(int y=0; y < cp_height; ++y){
+    memcpy( (void*)(sub_image + 4 * (y * cp_width)), 
+	    (void*)(img + 4 * ((y + source_sub_y) * source_width + source_sub_x) ),
+	    sizeof(unsigned char) * cp_width * 4);
+  }
+  setBigOverlay(sub_image, source_x + source_sub_x, source_y + source_sub_y, cp_width , cp_height);
+  delete []sub_image;
+}
+
 void ImageBuilder::setBigImage(float* img, int source_x, int source_y, int width, int height){
   if(!image->isVisible())
     image->show();
   image->setBigImage(img, source_x, source_y, width, height);
+  image->updateGL();
+}
+
+void ImageBuilder::setBigOverlay(unsigned char* img, int source_x, int source_y, int width, int height)
+{
+  if(!image->isVisible())
+    image->show();
+  image->setBigOverlay(img, source_x, source_y, width, height);
+  image->updateGL();
 }
 
 void ImageBuilder::pipe_slice(std::vector<p_parameter> pars, unsigned int wi, bool reset_rgb){
@@ -1106,44 +1220,86 @@ void ImageBuilder::drawCircle(float* image, int imWidth, int imHeight, int x, in
 } 
 
 // draw outlines on RGB-data...
-void ImageBuilder::project_blobs(Blob_mt_mapper* bmapper, float r, float g, float b)
+//void ImageBuilder::project_blobs(Blob_mt_mapper* bmapper, float r, float g, float b)
+void ImageBuilder::project_blobs(Blob_mt_mapper* bmapper, qnt_colors& qntColor, unsigned char alpha)
 {
   int x, y, z;
   uint w, h, d;
   bmapper->position(x, y, z);
   bmapper->dims(w, h, d);
   
-
+  unsigned char r,g,b;
+  QString color_par = qntColor.par;
+  
   int imWidth = data->pwidth();
   int imHeight = data->pheight();
 
   // may not actually need the thingy.
   vector<blob*> blobs = bmapper->rblobs();
   for(uint i=0; i < blobs.size(); ++i){
+    // obtain the color from the qntColor struct.. 
+    qntColor.setColor( getBlobParameter(blobs[i], color_par), r, g, b );
     uint peakSlice = blobs[i]->peakPos / (w * h);
     int px = x + (blobs[i]->peakPos % w);
     int py = y + ((blobs[i]->peakPos % (w * h)) / w);
     if(px > 0 && px < imWidth && py > 0 && py < imHeight){
-      int off = 3 * (py * imWidth + px);
-      rgbData[off] = r;
-      rgbData[off + 1] = g;
-      rgbData[off + 2] = b;
+      int off = 4 * (py * imWidth + px);
+      overlayData[off] = r;
+      overlayData[off + 1] = g;
+      overlayData[off + 2] = b;
+      overlayData[off + 3] = alpha;
     }
     for(uint j=0; j < blobs[i]->points.size(); ++j){
       if(blobs[i]->surface[j] && blobs[i]->points[j] / (w * h) == peakSlice){
     	px = x + (blobs[i]->points[j] % w);
     	py = y + ((blobs[i]->points[j] % (w * h)) / w);
     	if(px > 0 && px < imWidth && py > 0 && py < imHeight){
-    	  int off = 3 * (py * imWidth + px);
-    	  rgbData[off] += 0.5;
-    	  rgbData[off + 1] += 0.5;
-    	  rgbData[off + 2] += 0.5;
+    	  int off = 4 * (py * imWidth + px);
+    	  overlayData[off] = r;
+    	  overlayData[off + 1] = g;
+    	  overlayData[off + 2] = b;
+	  overlayData[off + 3] = alpha;
+	  //    	  rgbData[off] += 0.5;
+    	  //rgbData[off + 1] += 0.5;
+    	  //rgbData[off + 2] += 0.5;
     	}
       }
     }
   }
   // and then simply set the thingy.. 
-  setRGBImage(rgbData, data->pwidth(), data->pheight());
+  //  setRGBImage(rgbData, data->pwidth(), data->pheight());
+  setBigSubOverlay(overlayData, 0, 0, data->pwidth(), data->pheight(), x, y, w, h);
+}
+
+void ImageBuilder::project_blob(blob* b, stack_info& pos, QColor& color)
+{
+  unsigned char red, green, blue, alpha;
+  red = color.red();
+  green = color.green();
+  blue = color.blue();
+  alpha = color.alpha();
+  int imWidth = data->pwidth();
+  int px, py;
+  unsigned int peak_slice = b->peakPos / (pos.w * pos.h);
+  // first a point for the peak.
+  px = pos.x + b->peakPos % pos.w;
+  py = pos.y + ((b->peakPos % (pos.w * pos.h)) / pos.w );
+  unsigned int off = 4 * (py * imWidth + px);
+  overlayData[off] = red;
+  overlayData[off + 1] = green;
+  overlayData[off + 2] = blue;
+  overlayData[off + 3] = alpha;
+  for(uint i=0; i < b->points.size(); ++i){
+    if(b->surface[i] && b->points[i] / (pos.w * pos.h) == peak_slice){
+      px = pos.x + (b->points[i] % pos.w);
+      py = pos.y + ((b->points[i] % (pos.w * pos.h)) / pos.w);
+      off = 4 * (py * imWidth + px);
+      overlayData[off] = red;
+      overlayData[off + 1] = green;
+      overlayData[off + 2] = blue;
+      overlayData[off + 3] = alpha;
+    }
+  }
 }
 
 void ImageBuilder::updateStacks(QString& name, ImStack* stack, bool add)
@@ -1628,7 +1784,8 @@ void ImageBuilder::subStackBackground(f_parameter& par)
     for(int y=0; y < (int)stack->h(); ++y){
       float* dest = data + y * stack->w(); 
       for(int x=0; x < (int)stack->w(); ++x){
-	if(zp == 20 && y == 400 && !(x % 50))
+	if(zp == 20 && y == 400 && !(x % 50))class ImageAnalyser;
+
 	  cout << zp << "," << y << "," << x << " dest " << *dest << "  bg " << tdb.bg(x,y) << " = " << (*dest) - tdb.bg(x,y) << endl;
 	(*dest) -= tdb.bg(x,y);
 	(*dest) = (*dest) < 0 ? 0 : (*dest);
@@ -1860,10 +2017,15 @@ void ImageBuilder::stack_project(f_parameter& par)
     memset((void*)rgbData, 0, sizeof(float) * data->pwidth() * data->pheight() * 3);
   toRGB(projection, rgbData, cinfo, w * h, xp, yp, w, h, false);
 
+  unsigned char blob_alpha = 125;
+  par.param("blob_alpha", blob_alpha);
+
   if(mtMappers.count(stack) && paintBlobs){
+    qnt_colors qntColors;
     for(multimap<ImStack*, Blob_mt_mapper*>::iterator it=mtMappers.lower_bound(stack);
 	it != mtMappers.upper_bound(stack); ++it){
-      project_blobs( (*it).second );
+      //      project_blobs( (*it).second );
+      project_blobs( (*it).second, qntColors, blob_alpha );
     }
   }
   setRGBImage(rgbData, data->pwidth(), data->pheight());
@@ -1896,8 +2058,8 @@ void ImageBuilder::stack_map_blobs(f_parameter& par)
   QString errorMessage("");
   QTextStream error(&errorMessage);
   if(!par.param("stack", stackName) || !imageStacks.count(stackName)){
-    error << "ImageBuilder::stack_map_blobs No stack with name will try map_blobs() " << stackName.toAscii().constData(); // << "\n";
-    warn(errorMessage);
+    //error << "ImageBuilder::stack_map_blobs No stack with name will try map_blobs() " << stackName.toAscii().constData(); // << "\n";
+    //warn(errorMessage);
     map_blobs(par);
     return;
   }
@@ -1985,22 +2147,34 @@ void ImageBuilder::map_blobs(f_parameter& par)
   stack_width = stack_width == 0 ? 256 : stack_width;
   QSemaphore* sem = new QSemaphore(stack_no);
   mapper_collection_semaphores.insert(make_pair(map_name, sem));
-
+  
   for(int x=0; x < data->pwidth(); x += stack_width){
     for(int y=0; y < data->pheight(); y += stack_width){
-      sem->acquire();
-      ImStack* stack = imageStack(wi, x, y, 0, stack_width, stack_width, data->sectionNo(), use_cmap);
-      if(!stack){
-	sem->release();
-	continue;
-      }
-      sem->release();
-      Blob_mt_mapper* mapper = new Blob_mt_mapper(stack, mapper_id, true);  // stack will be deleted at end of run()
+      /// semaphore used to restrict the number of stacks created at any given time
+      /// we use the same semaphore that is used by the mapper in the mapBlobs function, since
+      /// this means that we can only create a new image stack when the mapper has finished mapping
+      /// and deleted it's internal ImStack. 
+      stack_info s_info(wi, x, y, 0, stack_width, stack_width, data->sectionNo());
+      Blob_mt_mapper* mapper = new Blob_mt_mapper(s_info, data, mapper_id, true);
+      // Need to rewrite to make use of use_cmap ..
+      //  Mapper should be able to get it's own data from thingy. and do the correct thing.
+
+      // sem->acquire();
+      // ImStack* stack = imageStack(wi, x, y, 0, stack_width, stack_width, data->sectionNo(), use_cmap);
+      // if(!stack){
+      // 	sem->release();
+      // 	continue;
+      // }
+      // sem->release();
+      // Blob_mt_mapper* mapper = new Blob_mt_mapper(stack, mapper_id, true);  // stack will be deleted at end of run()
+
       if(bg_xm)
 	mapper->setBgPar(bg_xm, bg_ym, bg_q);
       if(blobModel)
 	mapper->setBlobModel(blobModel);
+      cout << x << "," << y << " starting mapBlobs available : " << sem->available() << endl;
       mapper->mapBlobs(0, min_edge, min_peak, sem);
+      cout << "\t\tmapBlobs returned available : " << sem->available() << endl; 
       mappers.push_back(mapper); 
     }
   }
@@ -2018,6 +2192,175 @@ void ImageBuilder::map_blobs(f_parameter& par)
     }
     blobModels[map_name] = blobModel;
   }
+}
+
+void ImageBuilder::map_perimeters(f_parameter& par){
+  QString mapName;
+  float minValue;
+  int min, max;  // square root of the minimum area.. 
+  unsigned int z;
+  bool use_cmap = true;
+  unsigned int wi;
+  
+  QString error;
+  QTextStream qts(&error);
+  if(!par.param("map", mapName))
+    qts << "Please specify the perimeter map name (map=..)\n";
+  //  if(perimeterData.count(mapName) || perimeterWindows.count(mapName))
+  //  qts << "Please use a unique map name : " << mapName << " already used\n";
+  if(!par.param("min", min))
+    qts << "Please specify a minimum size of the perimeter (min=..)\n";
+  if(!par.param("max", max))
+    qts << "Specify max size of perimeter (max=..)\n";
+  if(!par.param("wi", wi))
+    qts << "Specify wave index to use : (wi=..)\n";
+  if(wi >= channels.size())
+    qts << "Wave index specified is too large " << wi << " >= " << channels.size() << "\n";
+  if(!par.param("value", minValue))
+    qts << "Speicfy min value for perimeters (value=..)\n";
+  if(!par.param("z", z))
+    qts << "Specify which section to use (z=..)\n";
+    
+  if(error.length()){
+    warn(error);
+    return;
+  }
+  par.param("use_cmap", use_cmap);
+  
+  if(!imageAnalyser)
+    imageAnalyser = new ImageAnalyser(data);
+  
+  if(!imageAnalyser){
+    warn("map_perimeters unable to make an imageAnalyser object");
+    return;
+  }
+  
+  float* image = new float[data->pwidth() * data->pheight()];
+  if(!data->readToFloat(image, 0, 0, z, data->pwidth(), data->pheight(), 1, wi, use_cmap)){
+    warn("map_perimeters unable to obtain image using readToFloat");
+    delete []image;
+    return;
+  }
+  
+  PerimeterData perData = imageAnalyser->findPerimeters(image, data->pwidth(), data->pheight(), 
+							min, max, minValue);
+  // PerimeterData, or perSets at least does some sort of reference counting, so I believe I can just
+  // do
+  perimeterData[mapName] = perData;
+  if(!perimeterWindows.count(mapName))
+    perimeterWindows[mapName] = new PerimeterWindow(data);
+  perimeterWindows[mapName]->setPerimeters(perData.perimeterData, channels[wi], z);
+  perimeterWindows[mapName]->show();
+}
+
+void ImageBuilder::project_perimeters(f_parameter& par)
+{
+  QString mapName;
+  unsigned char r=255;
+  unsigned char g=255;
+  unsigned char b=255;
+  unsigned char alpha = 125;
+  bool clear=true;
+  
+  QString error;
+  QTextStream qts(&error);
+  if(!par.param("map", mapName))
+    qts << "Please specify the perimeter map name (map=..)\n";
+  if(!perimeterWindows.count(mapName))
+    qts << "Unknown mapName : " << mapName << "\n";
+  
+  if(error.length()){
+    warn(error);
+    return;
+  }
+
+  par.param("r", r);
+  par.param("g", g);
+  par.param("b", b);
+  par.param("a", alpha);
+  par.param("clear", clear);
+
+  if(clear)
+    memset((void*)overlayData, 0, sizeof(unsigned char) * 4 * data->pwidth() * data->pheight());
+  vector<Perimeter> perimeters = perimeterWindows[mapName]->selectedPerimeters();
+  for(unsigned int i=0; i < perimeters.size(); ++i)
+    overlayPoints(perimeters[i].perimeterPoints(), r, g, b, alpha);
+    
+  setBigOverlay(overlayData, 0, 0, data->pwidth(), data->pheight());
+}
+
+// maps blob_sets to perimeters specified by some QString
+void ImageBuilder::map_blobs_to_perimeters(f_parameter& par)
+{
+  QString blobName;
+  QString mapName;  // the name of the perimeterWindow, and given to the neighborMapper
+  int mapperMargin;  // max distance between dots I believe..
+  int imageMargin;   // don't use blobs next to the edge, due to background subtraction artefacts
+  
+  QString error;
+  QTextStream qts(&error);
+  if(!par.param("blobs", blobName))
+    qts << "Specify name of mapper sets (blobs=..)\n";
+  if(!mapper_sets.count(blobName))
+    qts << "Unknown mapper set: " << blobName << "\n";
+  if(!par.param("mapName", mapName))
+    qts << "Specify name of perimeter window (mapName=..)\n";
+  if(!perimeterWindows.count(mapName))
+    qts << "Unknown perimter window : " << mapName << "\n";
+  if(!par.param("max", mapperMargin))
+    qts << "Specify max point point distance (max=..)\n";
+  if(!par.param("margin", imageMargin))
+    qts << "Specify suitable image Margin\n";
+  if(error.length()){
+    warn(error);
+    return;
+  }
+  vector<Perimeter> nuclei = perimeterWindows[mapName]->selectedPerimeters();
+  vector<blob_set> blobs = mapper_sets[blobName]->blobSets();
+  vector<threeDPoint> points;
+  vector<unsigned int> point_indices; // since we don't include everything..
+  points.reserve(blobs.size());
+  point_indices.reserve(blobs.size());
+  
+  // select points lying with the margins specified..
+  int w=data->pwidth();
+  int h=data->pheight();
+  blob* b;
+  int x; int y; int z;
+  for(unsigned int i=0; i < blobs.size(); ++i){
+    b = blobs[i].b(0);
+    if(!b)
+      continue;
+    if(b->min_x <= imageMargin || b->min_y <= imageMargin)
+      continue;
+    if(b->max_x >= (w - imageMargin) || b->max_y >= (h - imageMargin))
+      continue;
+    x = b->peakPos % w;
+    y = (b->peakPos % (w * h)) / w;
+    z = b->peakPos / (w * h);
+    points.push_back(threeDPoint(x, y, z, i));
+    point_indices.push_back(i);
+  }
+  if(!neighborMappers.count(mapName))
+    neighborMappers[mapName] = new NearestNeighborMapper(mapperMargin);
+  neighborMappers[mapName]->setMargin(mapperMargin);
+  
+  vector<int> groupIds = neighborMappers[mapName]->mapPoints(points, nuclei);
+  // and then use these to draw the points in some way.. 
+  if(groupIds.size() != points.size()){
+    cerr << "GROUPIDS SIZE IS NOT THE SAME AS POINTS SIZE ? " << endl;
+    return;
+  }
+  vector<QColor> colors = generateColors(125);
+  memset((void*)overlayData, 0, sizeof(unsigned char) * 4 * data->pwidth() * data->pheight());
+  for(unsigned int i=0; i < point_indices.size(); ++i){
+    QColor col = colors[ groupIds[i] % colors.size()];
+    blob_set& b = blobs[ point_indices[i] ];
+    stack_info pos = b.position();
+    for(unsigned int j=0; j < b.size(); ++j)
+      project_blob( b.b(j), pos, col );
+  }
+  setBigOverlay(overlayData, 0, 0, data->pwidth(), data->pheight());
 }
 
 void ImageBuilder::draw_blob_model(f_parameter& par)
@@ -2048,7 +2391,7 @@ void ImageBuilder::draw_blob_model(f_parameter& par)
   float* model = blobModels[modelName]->model(s_range, z_radius, res_multiplier);
   cout << "called blobModels : " << s_range << "," << z_radius << "," << res_multiplier << endl;
   // the easiest way to draw this map..
-  channel_info cinfo(color_map(1, 1, 1), 1, bias, scale, false, false);  // colors, max level, bias, scale, bg_subtract, contrast
+  channel_info cinfo(1, color_map(1, 1, 1), 1, bias, scale, false, false);  // pseudo_wave_index, colors, max level, bias, scale, bg_subtract, contrast
   int w = 1 + (2 * z_radius);
   int h = 1 + s_range;
   if(!w || !h)
@@ -2062,6 +2405,249 @@ void ImageBuilder::draw_blob_model(f_parameter& par)
 
   delete []model;
   setRGBImage(rgbData, data->pwidth(), data->pheight());  // not the most efficient way of doing it obviously.. 
+}
+
+// goes through the specified blobmappers (from mapper_collections) and obtains a set of similarity scores
+// plots the distribution of these same ones. Later allow the selective drawing of blobs selected on the
+// basis of similarity to the thingy.. 
+void ImageBuilder::compare_model(f_parameter& par)
+{
+  QString mapper_name = "";
+  QString errorMessage;
+  QTextStream qts(&errorMessage);
+  if(!par.param("blobs", mapper_name))
+    qts << "No mapper name specified\n";
+  if(mapper_name.length() && !mapper_collections.count(mapper_name))
+    qts << "No mapper collection named : " << mapper_name << "\n";
+
+  if(errorMessage.length()){
+    warn(errorMessage);
+    return;
+  }
+  vector<float> correlations;
+  vector<Blob_mt_mapper*>& mappers = mapper_collections[mapper_name];
+  for(vector<Blob_mt_mapper*>::iterator it=mappers.begin(); it != mappers.end(); ++it){
+    vector<float> corr = (*it)->blob_model_correlations();
+    cout << "Inserting correlations into big vector: " << corr.size() << " : " << correlations.size()
+	 << endl;
+    correlations.insert(correlations.end(), corr.begin(), corr.end());
+  }
+  if(!correlations.size()){
+    warn("compare_model: didn't obtain any blob correlations. Suspect a bug");
+    return;
+  }
+  // default to just plotting the distribution of the scores..
+  // the range of values should lie between -1 and +1, but let's not suppose that
+  // until it's been checked.
+
+  for(uint i=0; i < correlations.size(); ++i)
+    cout << "  " << correlations[i];
+  cout << endl;
+
+  if(!distPlotters.count("BlobParameters"))
+    distPlotters["BlobParameters"] = new DistPlotter(true);  // true = useLimits, don't actually remember what is the meaning
+  distPlotters["BlobParameters"]->setSingleData(correlations, true);  // true = resetLimits (make sure to use min to max range.. 
+  distPlotters["BlobParameters"]->show();
+}
+
+void ImageBuilder::plot_blob_pars(f_parameter& par)
+{
+  QString mapper_name = "";
+  QString x_par = "";
+  QString y_par = "";
+  QString errorMessage;
+  QTextStream qts(&errorMessage);
+  if(!par.param("blobs", mapper_name))
+    qts << "plot_blob_pars : no mapper (blobs=) name specified\n";
+  if(mapper_name.length() && !mapper_collections.count(mapper_name))
+    qts << "No mapper collection named : " << mapper_name << "\n";
+  if(!par.param("x", x_par))
+    qts << "plot_blob_pars : no x parameter specified\n";
+  if(!par.param("y", y_par))
+    qts << "plot_blob_pars : no y parameter specified\n";
+  if(errorMessage.length()){
+    warn(errorMessage);
+    return;
+  }
+  vector<float> x_values;
+  vector<float> y_values;
+  
+  vector<Blob_mt_mapper*>& mappers = mapper_collections[mapper_name];
+  for(vector<Blob_mt_mapper*>::iterator it=mappers.begin(); it != mappers.end(); ++it){
+    vector<blob*> blobs = (*it)->rblobs();
+    for(unsigned int i=0; i < blobs.size(); ++i){
+      x_values.push_back( getBlobParameter(blobs[i], x_par) );
+      y_values.push_back( getBlobParameter(blobs[i], y_par) );
+    }
+  }
+  if(!scatterPlotters.count("BlobPars"))
+    scatterPlotters["BlobPars"] = new ScatterPlotter();
+  scatterPlotters["BlobPars"]->setData(x_values, y_values);
+  scatterPlotters["BlobPars"]->show();
+}
+
+void ImageBuilder::plot_blob_set_dist(f_parameter& par)
+{
+  QString bset_name;
+  QString error;
+  QTextStream qts(&error);
+  if(!par.param("blobs", bset_name))
+    qts << "plot_blob_set_pars : no blob set name (blobs=..) specified\n";
+  //  if(!mapper_blob_sets.count(bset_name))
+  if(!mapper_sets.count(bset_name))
+    qts << "plot_blob_set_pars : no blob set with " << bset_name << " known\n";
+  //  unsigned int set_id = 0;
+  // unsigned int mapper_id = 0;
+  
+  vector<unsigned int> set_ids;
+  vector<unsigned int> mapper_ids;
+
+  if(!par.param("set", ',', set_ids))
+    qts << "plot_blob_set_pars no blob set id specfied (set=..)\n";
+  if(!par.param("map", ',', mapper_ids))
+    qts << "plot_blob_set_pars no mapper id specified (map=..)\n";
+  if(error.length()){
+    warn(error);
+    return;
+  }
+  set<unsigned int> set_ids_set;
+  set_ids_set.insert(set_ids.begin(), set_ids.end());
+
+  QString parName;
+  if(!par.param("par", parName))
+    qts << "plot_blob_set_pars no parameter name specified (par=..)\n";
+  // if(!isPowerOfTwo(mapper_id))
+  //   qts << "plot_blob_set_pars mapper id should be an even power of two\n";
+  // if(mapper_id > set_id)
+  //   qts << "plot_blob_set_pars mapper id should be lower than or equal to set_id\n";
+  if(error.length()){
+    warn(error);
+    return;
+  }
+  vector<vector<float> > values;
+  map<unsigned int, map<unsigned int, vector<float> > > value_sets;  // mapper_id, set_id --> value
+  vector<blob_set> blobs = mapper_sets[bset_name]->blobSets();
+  //  vector<blob_set>& blobs = mapper_blob_sets[bset_name];
+  for(uint i=0; i < blobs.size(); ++i){
+    if(set_ids_set.count(blobs[i].id())){
+      //    if(blobs[i].id() == set_id){
+      for(unsigned int j=0; j < mapper_ids.size(); ++j){
+	blob* blob = blobs[i].blob_with_id(mapper_ids[j]);
+	if(blob)
+	  value_sets[ mapper_ids[j] ][ blobs[i].id() ].push_back( getBlobParameter(blob, parName) );
+	//	  values.push_back(getBlobParameter(blob, parName));
+      }
+    }
+  }
+  for(map<unsigned int, map<unsigned int, vector<float> > >::iterator it=value_sets.begin();
+      it != value_sets.end(); ++it){
+    for(map<unsigned int, vector<float> >::iterator iit=(*it).second.begin();
+	iit != (*it).second.end(); ++iit){
+      values.push_back( (*iit).second );
+    }
+  }
+  if(!distPlotters.count("BlobParameters"))
+    distPlotters["BlobParameters"] = new DistPlotter(true);
+  DistPlotter* plotter = distPlotters["BlobParameters"];
+  plotter->setData(values, true);
+  plotter->show();
+}
+
+void ImageBuilder::mergeBlobs(f_parameter& par)
+{
+  vector<QString> mapperNames;
+  if(!par.param("blobs", ',', mapperNames)){
+    warn("mergeBlobs No mapperNames specified (blobs=n1,n2,n3)");
+    return;
+  }
+  vector<vector<Blob_mt_mapper*> > mappers;
+  vector<QString> used_mapperNames;
+  for(unsigned int i=0; i < mapperNames.size(); ++i){
+    if(mapper_collections.count(mapperNames[i])){
+      mappers.push_back(mapper_collections[mapperNames[i]]);
+      used_mapperNames.push_back(mapperNames[i]);  // remove these from mapper_collections if successful.. 
+    }else{
+      warn("mergeBlobs unknown mapper collection name");
+    }
+  }
+  if(mappers.size() < 2){
+    warn("mergeBlobs mapper size is less than two");
+    return;
+  }
+  vector<blob_set> blob_sets;
+  // check that the sizes of the mapper collections are the same..
+  unsigned int map_no = mappers[0].size();
+  if(!map_no){
+    warn("mergeBlobs map collections appear to be empty");
+    return;
+  }
+  for(uint i=0; i < map_no; ++i){
+    vector<Blob_mt_mapper*> bmt;
+    for(uint j=0; j < mappers.size(); ++j){
+      if(mappers[j].size() != map_no){
+	warn("mergeBlobs individual maps contain different numbers of submaps");
+	return;
+      }
+      bmt.push_back(mappers[j][i]);
+    }
+    vector<blob_set> bs = bmt[0]->blob_sets(bmt);
+    blob_sets.insert(blob_sets.end(), bs.begin(), bs.end());
+    cout << i <<  "  Added " << bs.size() << " blob_sets, giving a total of : " << blob_sets.size() << endl;
+  }
+  // let's count the numbers..
+  map<unsigned int, int> counts;
+  map<unsigned int, std::vector<blob_set> > blob_set_map;
+  for(unsigned int i=0; i < blob_sets.size(); ++i){
+    if(!counts.count(blob_sets[i].id()))
+      counts[blob_sets[i].id()] = 0;
+    counts[blob_sets[i].id()]++;
+    blob_set_map[ blob_sets[i].id() ].push_back(blob_sets[i]);
+  }
+  cout << "Class Counts : " << endl;
+  for(map<unsigned int, int>::iterator it=counts.begin(); it != counts.end(); ++it)
+    cout << (*it).first << " : " << (*it).second << endl;
+  //// TEMPORARY HACK, STORE THE VECTOR AS .. ////
+  //  mapper_blob_sets[ mapperNames[0] ] = blob_sets;
+  ///// REMOVE mapper_blob_sets later on,, for now.. let's leave it there until I've rewritten some
+  ///// other functions.. 
+  
+  // lets make a Blob_mt_mapper_collection, and then remove the Blob_mt_mappers from the mapper_collections.
+  map<unsigned int, vector<Blob_mt_mapper*> > mapper_map;
+  for(unsigned int i=0; i < used_mapperNames.size(); ++i){
+    mapper_map[ mapper_collections[used_mapperNames[i]][0]->mapId() ] = mapper_collections[ used_mapperNames[i] ];
+    mapper_collections.erase(used_mapperNames[i]);
+  }
+  Blob_mt_mapper_collection* mapper_set = new Blob_mt_mapper_collection();
+  mapper_set->setMappers(blob_set_map, mapper_map);class ImageAnalyser;
+
+  if(mapper_sets.count(used_mapperNames[0]))
+    delete mapper_sets[ used_mapperNames[0] ];  // not yet implemented.. 
+  mapper_sets.insert(make_pair( used_mapperNames[0], mapper_set));
+  QString criteriaFileName;
+  if(par.param("criteria", criteriaFileName))
+    mapper_set->readCriteriaFromFile(criteriaFileName);
+
+}
+
+void ImageBuilder::readBlobCriteria(f_parameter& par)
+{
+  QString mapName;
+  QString error;
+  QTextStream qts(&error);
+  if(!par.param("map", mapName))
+    qts << "readBlobCriter : no map name specified\n";
+  if(!mapper_sets.count(mapName))
+    qts << "readBlobCriteria : no map with name : " << mapName << "\n";
+  QString fileName;
+  if(!par.param("criteria", fileName))
+    qts << "readBlobCritera : no fileName specified" << endl;
+  if(error.length()){
+    warn(error);
+    return;
+  }
+  if(!mapper_sets[ mapName ]->readCriteriaFromFile(fileName))
+    warn("Blob_mt_mapper unable to read criteria from file");
+  
 }
 
 /* make_blob_model is problematic, because in larger data sets it is necessary for
@@ -2114,15 +2700,79 @@ void ImageBuilder::project_blob_collections(f_parameter& par)
   r = g = b = 1.0;
   par.param("r", r);
   par.param("g", g);
-  par.param("b", b);
+  par.param("b", b);  
+  qnt_colors qntColors( QColor(255 * r, 255 * g, 255 * b) ); // a default one.
+  
+  QString qntPar;
+  vector<QColor> qColors;
+  vector<float> qntBreaks;
+  if(par.param("qntpar", qntPar) && par.param("col", qColors) && par.param("breaks", ',', qntBreaks))
+    qntColors = qnt_colors(qntPar, qColors, qntBreaks);
+
+  cout << "project_blob_collections qntPar, qColors, qntBreaks : " << qntPar.ascii()
+       << " : " << qColors.size() << " : " << qntBreaks.size() << endl;
+  cout << "qntColors .. " << qntColors.colors.size() << " : " << qntColors.breaks.size() << endl;
+
+  bool clearData = true;
+  par.param("clear", clearData);
+  if(clearData)
+    memset(overlayData, 0, sizeof(unsigned char) * 4 * data->pwidth() * data->pheight());
+
+  unsigned char alpha = 125;
+  par.param("alpha", alpha);
+
   for(uint i=0; i < collNames.size(); ++i){
     if(!mapper_collections.count(collNames[i]))
       continue;
     for(vector<Blob_mt_mapper*>::iterator it=mapper_collections[collNames[i]].begin();
 	it != mapper_collections[collNames[i]].end(); ++it){
-      project_blobs((*it), r, g, b);
+      //      project_blobs((*it), r, g, b);
+      project_blobs((*it), qntColors, alpha);
     }
   }
+}
+
+void ImageBuilder::project_blob_sets(f_parameter& par)
+{
+  QString blob_set_name;
+  if(!par.param("blobs", blob_set_name)){
+    warn("project_blob_sets : no blob_set specified (blobs=..)");
+    return;
+  }
+  //  if(!mapper_blob_sets.count(blob_set_name)){
+  if(!mapper_sets.count(blob_set_name)){
+    warn("project_blob_sets : unknown blob_set_name");
+    return;
+  }
+  // some default colors and stuff.. 
+  unsigned char alpha = 120;
+  par.param("alpha", alpha);
+  vector<QColor> colors = generateColors(alpha);
+ 
+  par.param("color", colors);  // uses ; to define.. 
+
+  bool clear = true;
+  par.param("clear", clear);
+  if(clear)
+    memset((void*)overlayData, 0, sizeof(unsigned char) * 4 * data->pwidth() * data->pheight());
+  
+  for(unsigned int i=0; i < colors.size(); ++i)
+    colors[i].setAlpha(alpha);
+
+  // We can also specify a vector of superIds, or a vector of param names to use
+  // with an exisiting parameter set .. 
+  vector<QString> paramNames;
+  vector<unsigned int> superIds;
+  par.param("filter", ',', paramNames);
+  par.param("set_ids", ',', superIds);
+  // the blobSets() functions handles empty vectors to indicate all superIds or no parameters
+  vector<blob_set> blobs = mapper_sets[blob_set_name]->blobSets(superIds, paramNames);;
+  for(unsigned int i=0; i < blobs.size(); ++i){
+    stack_info pos = blobs[i].position();
+    for(unsigned int j=0; j < blobs[i].size(); ++j)
+      project_blob( blobs[i].b(j), pos, colors[ blobs[i].id() % colors.size() ]);
+  }
+  setBigOverlay(overlayData, 0, 0, data->pwidth(), data->pheight());
 }
 
 // add optional parameters later..
@@ -2148,6 +2798,33 @@ void ImageBuilder::list_objects(f_parameter& par)
       os << (*it).first.toAscii().constData() << "\n";
   }
   emit displayMessage(os.str().c_str());
+}
+
+void ImageBuilder::overlayPoints(vector<int> points, unsigned char r, unsigned char g, unsigned char b, unsigned char a){
+  unsigned int l = data->pwidth() * data->pheight();
+  for(unsigned int i=0; i < points.size(); ++i){
+    if(points[i] < 0)
+      continue;
+    if((unsigned int)points[i] >= l)
+      continue;
+    overlayData[ 4 * points[i] ] = r;
+    overlayData[ 1 + 4 * points[i] ] = g;
+    overlayData[ 2 + 4 * points[i] ] = b;
+    overlayData[ 3 + 4 * points[i] ] = a;
+  }
+}
+
+vector<QColor> ImageBuilder::generateColors(unsigned char alpha)
+{
+  vector<QColor> colors;
+  colors.push_back(QColor(0, 0, 255, alpha));
+  colors.push_back(QColor(0, 255, alpha));
+  colors.push_back(QColor(255, 0, 0, alpha));
+  colors.push_back(QColor(0, 255, 255, alpha));
+  colors.push_back(QColor(255, 0, 255, alpha));
+  colors.push_back(QColor(255, 255, 0, alpha));
+  colors.push_back(QColor(255, 255, 255, alpha));
+  return(colors);
 }
 
 // this function may destroy image. image should be set to the return value.
@@ -2336,3 +3013,21 @@ QString ImageBuilder::generateGeneralFunctionHelp(QString& fname)
     return("set_stack_par stack= wi= par=(sandb s= b=)\n");
   return("Unknown general command\n");
 }
+
+// // stupid ugly hack.. 
+// float ImageBuilder::getBlobParameter(blob* b, QString parname)
+// {
+//   if(parname == "volume")
+//     return((float)b->points.size());
+//   if(parname == "sum")
+//     return(b->sum);
+//   if(parname == "max")
+//     return(b->max);
+//   if(parname == "min")
+//     return(b->min);
+//   if(parname == "aux")
+//     return(b->aux1);
+//   if(parname == "mean")
+//     return( b->sum / (float)b->points.size());
+//   return(0);
+// }
