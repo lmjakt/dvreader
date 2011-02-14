@@ -87,6 +87,7 @@ class Blob_mt_mapper_collection {
   //bool setCriteria(unsigned int class_id, unsigned int mapper_id, Criteria criteria);
   bool readCriteriaFromFile(QString& fileName);
 
+  bool mapperDimensions(int& w, int& h, int& d);
   std::vector<blob_set> blobSets();
   std::vector<blob_set> blobSets(std::vector<unsigned int> superIds);
   std::vector<blob_set> blobSets(std::vector<QString> parNames);

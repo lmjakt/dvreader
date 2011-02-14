@@ -39,6 +39,7 @@ HEADERS		= \
 		spotFinder/spotMapper/spotMapper.h \
 		spotFinder/spotMapper/nearestNeighborMapper.h \
 		spotFinder/spotMapper/spotPerimeterMapper.h \
+		spotFinder/spotMapper/NNMapper2.h \
 		spotFinder/cell.h \
 		spotFinder/channelSelector.h \
 		maskPainter.h \
@@ -150,6 +151,7 @@ SOURCES		= \
 		spotFinder/spotMapper/spotMapper.cpp \
 		spotFinder/spotMapper/nearestNeighborMapper.cpp \
 		spotFinder/spotMapper/spotPerimeterMapper.cpp \
+		spotFinder/spotMapper/NNMapper2.cpp \
 		spotFinder/cell.cpp \
 		spotFinder/channelSelector.cpp \
 		maskPainter.cpp \

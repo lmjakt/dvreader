@@ -8,6 +8,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <set>
 #include <QColor>
 
 class f_parameter {
@@ -28,6 +29,7 @@ class f_parameter {
   bool param(QString par, std::string& s);
   bool param(QString par, QString& str);
   bool param(QString par, QChar sep, std::vector<int>& ints);  // assumes comma seperated.
+  bool param(QString par, QChar sep, std::set<int>& ints);
   bool param(QString par, QChar sep, std::vector<unsigned int>& ints);
   bool param(QString par, QChar sep, std::vector<float>& floats);
   bool param(QString par, QChar sep, std::vector<QString>& words);

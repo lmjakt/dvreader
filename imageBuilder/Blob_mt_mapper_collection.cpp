@@ -1,4 +1,6 @@
 #include "Blob_mt_mapper_collection.h"
+#include "blob_mt_mapper.h"
+#include "stack_info.h"
 #include <QTextStream>
 #include <QStringList>
 #include <QFile>
@@ -92,6 +94,20 @@ bool Blob_mt_mapper_collection::readCriteriaFromFile(QString& fileName){
     cout << "inserted a Criteria with super id " << super_id << " and mapper id : " << criteria.m_id() << endl;
   }
   // Should run some completeness checks, but leave that for later.. 
+  return(true);
+}
+
+bool Blob_mt_mapper_collection::mapperDimensions(int& w, int& h, int& d){
+  stack_info pos;
+  map<unsigned int, vector<Blob_mt_mapper*> >::iterator it = mappers.begin();
+  if(it == mappers.end())
+    return(false);
+  if(!(*it).second.size())
+    return(false);
+  pos = (*it).second[0]->position();
+  w = pos.w;
+  h = pos.h;
+  d = pos.d;
   return(true);
 }
 

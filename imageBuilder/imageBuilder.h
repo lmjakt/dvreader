@@ -29,7 +29,8 @@ class LinePlotter;
 class DistPlotter;
 class ScatterPlotter;
 class PerimeterWindow;
-class NearestNeighborMapper;
+//class NearestNeighborMapper;
+class NNMapper2;
 
 struct channel_info;
 struct color_map;
@@ -118,7 +119,7 @@ class ImageBuilder : public QObject
   std::map<QString, QSemaphore*> mapper_collection_semaphores; // at some point make a reasonable data structure containing all of this.
   std::map<QString, PerimeterData> perimeterData;
   std::map<QString, PerimeterWindow*> perimeterWindows; 
-  std::map<QString, NearestNeighborMapper*> neighborMappers;
+  std::map<QString, NNMapper2*> neighborMappers;     // The key should also refer to keys in mapper_sets, This is assumed, but cannot be guaranteed
 
   TabWidget* distTabs;
 
@@ -204,6 +205,7 @@ class ImageBuilder : public QObject
   //  void make_blob_model(f_parameter& par); // this is problematic; see .cpp for details
   void project_blob_collections(f_parameter& par);    // projects contents of collection of things.. 
   void project_blob_sets(f_parameter& par);
+  void project_blob_ids(f_parameter& par);   // colour blobs by id (group or perimeter id). Assumes there is a mapping between collection_sets
   void list_objects(f_parameter& par);       // list object, use parameters to change listing. 
   // This can be used by any of the above, but it's not one of the general_functions itself
 

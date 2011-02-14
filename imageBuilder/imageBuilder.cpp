@@ -19,7 +19,8 @@
 #include "../linGraph/distPlotter.h"    
 #include "../scatterPlot/scatterPlotter.h"
 #include "../spotFinder/perimeterWindow/perimeterWindow.h"
-#include "../spotFinder/spotMapper/nearestNeighborMapper.h"
+//#include "../spotFinder/spotMapper/nearestNeighborMapper.h"
+#include "../spotFinder/spotMapper/NNMapper2.h"
 #include <string.h>
 #include <iostream>
 #include <stdlib.h>
@@ -100,6 +101,7 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   general_functions["read_criteria"] = &ImageBuilder::readBlobCriteria;
   general_functions["project_blobs"] = &ImageBuilder::project_blob_collections;
   general_functions["project_blob_sets"] = &ImageBuilder::project_blob_sets;
+  general_functions["project_blob_ids"] = &ImageBuilder::project_blob_ids;
   general_functions["draw_model"] = &ImageBuilder::draw_blob_model;
   general_functions["list"] = &ImageBuilder::list_objects;
   //general_functions["p_mean"] = &ImageBuilder::p_mean_panel;  // may be useful to do things like blurring.
@@ -2250,7 +2252,9 @@ void ImageBuilder::map_perimeters(f_parameter& par){
   if(!perimeterWindows.count(mapName))
     perimeterWindows[mapName] = new PerimeterWindow(data);
   perimeterWindows[mapName]->setPerimeters(perData.perimeterData, channels[wi], z);
+  perimeterWindows[mapName]->resize(500, 600);
   perimeterWindows[mapName]->show();
+  perimeterWindows[mapName]->raise();
 }
 
 void ImageBuilder::project_perimeters(f_parameter& par)
@@ -2323,6 +2327,11 @@ void ImageBuilder::map_blobs_to_perimeters(f_parameter& par)
   point_indices.reserve(blobs.size());
   
   // select points lying with the margins specified..
+  int stack_width, stack_height, stack_depth;
+  if(!mapper_sets[blobName]->mapperDimensions(stack_width, stack_height, stack_depth)){
+    cerr << "ImageBuilder map_blobs_to_perimeter unable to get stack position" << endl;
+    exit(1);
+  }
   int w=data->pwidth();
   int h=data->pheight();
   blob* b;
@@ -2331,27 +2340,29 @@ void ImageBuilder::map_blobs_to_perimeters(f_parameter& par)
     b = blobs[i].b(0);
     if(!b)
       continue;
-    if(b->min_x <= imageMargin || b->min_y <= imageMargin)
+    x = b->peakPos % stack_width;
+    y = (b->peakPos % (stack_width * stack_height)) / stack_width;
+    z = b->peakPos / (stack_width * stack_height);
+    blobs[i].adjust_pos(x, y, z);  // sets the offsets..
+    if(x <= imageMargin || y < imageMargin)
       continue;
-    if(b->max_x >= (w - imageMargin) || b->max_y >= (h - imageMargin))
+    if(x >= (w - imageMargin) || y >= (h - imageMargin))
       continue;
-    x = b->peakPos % w;
-    y = (b->peakPos % (w * h)) / w;
-    z = b->peakPos / (w * h);
     points.push_back(threeDPoint(x, y, z, i));
     point_indices.push_back(i);
   }
   if(!neighborMappers.count(mapName))
-    neighborMappers[mapName] = new NearestNeighborMapper(mapperMargin);
-  neighborMappers[mapName]->setMargin(mapperMargin);
+    neighborMappers[mapName] = new NNMapper2(mapperMargin);
+  neighborMappers[mapName]->setMaxDistance(mapperMargin);
   
-  vector<int> groupIds = neighborMappers[mapName]->mapPoints(points, nuclei);
+  neighborMappers[mapName]->mapPoints(points, point_indices, nuclei);
+  vector<int> groupIds = neighborMappers[mapName]->pointNuclearIds();  // pointGroupIds or pointNuclearIds
   // and then use these to draw the points in some way.. 
   if(groupIds.size() != points.size()){
     cerr << "GROUPIDS SIZE IS NOT THE SAME AS POINTS SIZE ? " << endl;
     return;
   }
-  vector<QColor> colors = generateColors(125);
+  vector<QColor> colors = generateColors(255);
   memset((void*)overlayData, 0, sizeof(unsigned char) * 4 * data->pwidth() * data->pheight());
   for(unsigned int i=0; i < point_indices.size(); ++i){
     QColor col = colors[ groupIds[i] % colors.size()];
@@ -2590,7 +2601,7 @@ void ImageBuilder::mergeBlobs(f_parameter& par)
       }
       bmt.push_back(mappers[j][i]);
     }
-    vector<blob_set> bs = bmt[0]->blob_sets(bmt);
+    vector<blob_set> bs = bmt[0]->blob_sets(bmt);  // this does the actual merging.. 
     blob_sets.insert(blob_sets.end(), bs.begin(), bs.end());
     cout << i <<  "  Added " << bs.size() << " blob_sets, giving a total of : " << blob_sets.size() << endl;
   }
@@ -2606,10 +2617,6 @@ void ImageBuilder::mergeBlobs(f_parameter& par)
   cout << "Class Counts : " << endl;
   for(map<unsigned int, int>::iterator it=counts.begin(); it != counts.end(); ++it)
     cout << (*it).first << " : " << (*it).second << endl;
-  //// TEMPORARY HACK, STORE THE VECTOR AS .. ////
-  //  mapper_blob_sets[ mapperNames[0] ] = blob_sets;
-  ///// REMOVE mapper_blob_sets later on,, for now.. let's leave it there until I've rewritten some
-  ///// other functions.. 
   
   // lets make a Blob_mt_mapper_collection, and then remove the Blob_mt_mappers from the mapper_collections.
   map<unsigned int, vector<Blob_mt_mapper*> > mapper_map;
@@ -2771,6 +2778,74 @@ void ImageBuilder::project_blob_sets(f_parameter& par)
     stack_info pos = blobs[i].position();
     for(unsigned int j=0; j < blobs[i].size(); ++j)
       project_blob( blobs[i].b(j), pos, colors[ blobs[i].id() % colors.size() ]);
+  }
+  setBigOverlay(overlayData, 0, 0, data->pwidth(), data->pheight());
+}
+
+void ImageBuilder::project_blob_ids(f_parameter& par)
+{
+  QString blobName;  //
+  QString mapName;   // refers to the map name, not the blob name
+  unsigned char alpha = 120;
+  QString errorString;
+  QTextStream qts(&errorString);
+  if(!par.param("blobs", blobName))
+    qts << "Please specify name of mapper sets (blobs=)\n";
+  if(!mapper_sets.count(blobName))
+    qts << "Name of mapper set (blobs) does not map to a mapper set\n";
+  if(!par.param("map", mapName))
+    qts << "Name of map does not map to a neighborMapper (map=)\n";
+  if(!neighborMappers.count(mapName))
+    qts << "Name of mapper set (blobs) does not map to a NNMapper2\n";
+  if(errorString.length()){
+    warn(errorString);
+    return;
+  }
+  par.param("alpha", alpha);
+  vector<QColor> colors = generateColors(alpha);
+  if(par.param("col", colors)){
+    for(unsigned int i=0; i < colors.size(); ++i)
+      colors[i].setAlpha(alpha);
+  }
+  if(colors.size() < 2)           // we'll run into trouble later on.. 
+    colors = generateColors(alpha);
+
+  set<int> selected_ids;
+  par.param("ids", ',', selected_ids);
+
+  vector<unsigned int> pointIndices = neighborMappers[mapName]->pointIndices();
+  QString id_type;
+  par.param("id_type", id_type);
+  if(id_type != "nucleus" && id_type != "group")
+    id_type = "nucleus";
+  vector<int> ids;
+  if(id_type == "nucleus"){
+    ids = neighborMappers[mapName]->pointNuclearIds();
+  }else{
+    ids = neighborMappers[mapName]->pointGroupIds();
+  }
+  if(ids.size() != pointIndices.size()){
+    warn("project_blob_ids ids and pointIndices have different sizes\n");
+    return;
+  }
+  vector<blob_set> blobs = mapper_sets[blobName]->blobSets();
+
+  bool clear = true;
+  par.param("clear", clear);
+  if(clear)
+    memset((void*)overlayData, 0, sizeof(unsigned char) * 4 * data->pwidth() * data->pheight());
+  for(uint i=0; i < pointIndices.size(); ++i){
+    if(pointIndices[i] >= blobs.size())
+      continue;
+    if(selected_ids.size() && !selected_ids.count(ids[i]))
+      continue;
+    QColor col = colors[ 1 + ids[i] % (colors.size() - 1) ];
+    if(ids[i] < 0)   // if negative set to 0 position
+      col = colors[0];
+    blob_set& b = blobs[ pointIndices[i] ];
+    stack_info pos = b.position();
+    for(unsigned int j=0; j < b.size(); ++j)
+      project_blob( b.b(j), pos, col );
   }
   setBigOverlay(overlayData, 0, 0, data->pwidth(), data->pheight());
 }

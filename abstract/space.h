@@ -42,8 +42,8 @@ struct Point {    //
   Point* neighbor; // nearest neighbour with different cluster id.
   int neighbor_sq_distance;
   int nearest_perimeter_id; // nearest perimeter (nucleus);
-  float neareast_perimeter_distance;
-  int perimeter_id;          // the id of the group set only 
+  int nearest_perimeter_sq_distance;
+  int perimeter_id;          // the final nucleus id..
   std::set<Point*> daughters;
   
   Point(){
@@ -52,6 +52,8 @@ struct Point {    //
     neighbor = 0;
     neighbor_sq_distance = 0;
     nearest_perimeter_id = -1;
+    nearest_perimeter_sq_distance = 0;
+    perimeter_id = -1;
   }
   Point(int X, int Y, int Z){
     x = X; y = Y; z = Z;
@@ -60,6 +62,8 @@ struct Point {    //
     neighbor = 0;
     neighbor_sq_distance = 0;
     nearest_perimeter_id = -1;
+    nearest_perimeter_sq_distance = 0;
+    perimeter_id = -1;
   }
   friend bool operator <(const Point& a, const Point& b){
     if(a.z != b.z)
@@ -95,7 +99,7 @@ class Space {
     ~Space();      // have to delete
     Point* insertPoint(int x, int y, int z);
     std::vector<Point*> points(int xb, int xe, int yb, int ye, int zb, int ze);
-    std::vector<Point*> points(int x, int y, int z, int diameter);
+    std::vector<Point*> points(int x, int y, int z, int radius);
 
 };
 

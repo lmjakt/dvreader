@@ -163,6 +163,16 @@ bool f_parameter::param(QString par, QChar sep, vector<int>& ints)
   return(false);
 }
 
+bool f_parameter::param(QString par, QChar sep, set<int>& ints)
+{
+  vector<int> v;
+  if(!param(par, sep, v) || !v.size())
+    return(false);
+  ints.clear();
+  ints.insert(v.begin(), v.end());
+  return(false);
+}
+
 bool f_parameter::param(QString par, QChar sep, vector<unsigned int>& ints)
 {
   vector<int> s_ints;

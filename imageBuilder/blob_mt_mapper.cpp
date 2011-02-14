@@ -292,7 +292,7 @@ vector<blob_set> Blob_mt_mapper::blob_sets(std::vector<Blob_mt_mapper*> mappers)
     for(vector<unsigned int>::iterator it=(*rit).second.begin(); it != (*rit).second.end(); ++it){
       vector<Blob_mt_mapper*> maps = unmix_id((*rit).first, mapKey);
       if(maps.size()){
-	bsets.push_back(blob_set());
+	bsets.push_back(blob_set(pos.x, pos.y, pos.z));
       }else{
 	cerr << "Blob_mt_mapper::blob_sets unmix_id " << (*rit).first << "  didn't obtain any mappers" << endl;
 	exit(1);

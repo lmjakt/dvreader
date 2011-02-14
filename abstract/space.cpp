@@ -24,6 +24,7 @@
 
 #include "space.h"
 #include <iostream>
+#include <stdlib.h>
 
 using namespace std;
 
@@ -108,9 +109,9 @@ vector<Point*> Space::points(int xb, int xe, int yb, int ye, int zb, int ze)
     return(p);
 }
 				      
-vector<Point*> Space::points(int x, int y, int z, int diameter)
+vector<Point*> Space::points(int x, int y, int z, int radius)
 {
-  diameter = abs(diameter);
-  return(points(x - diameter, x + diamter, y - diameter, y + diameter, z - diameter, z + diameter));
+  radius = abs(radius);
+  return(points(x - radius, x + radius, y - radius, y + radius, z - radius, z + radius));
 }
   
