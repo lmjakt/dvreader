@@ -23,6 +23,7 @@
 //End Copyright Notice
 
 #include "perimeterWindow.h"
+#include "../perimeterSplitter.h"
 #include <qlayout.h>
 #include <qcolor.h>
 //Added by qt3to4:
@@ -514,18 +515,21 @@ void PerimeterWindow::splitPerimeter(QList<QPolygon> polys){
 	return;
     }
  
-    Perimeter* perimeter;
-    if(perNo < 0){
-	perimeter = &persets[setNo].perimeters[0];
-//	perimeter = &persets[setNo].outlinePerimeter;
-    }else{
-	perimeter = &persets[setNo].perimeters[perNo];
-    }
+    Perimeter& perimeter = persets[setNo].perimeters[0];
+    if(perNo >= 0)
+      perimeter = persets[setNo].perimeters[perNo];
+
+//     if(perNo < 0){
+// 	perimeter = persets[setNo].perimeters[0];
+// //	perimeter = &persets[setNo].outlinePerimeter;
+//     }else{
+// 	perimeter = persets[setNo].perimeters[perNo];
+//     }
 
    cout << "\tcurrentSet       " << setNo << endl
 	<< "\tcurrentPerimeter " << perNo << endl;
    // I should probably do a bounds checking on the below.. but ..
-    int gw = (int)perimeter->globalWidth;
+    int gw = (int)perimeter.globalWidth;
 //    int pw = perimeter->maxX - perimeter->minX;
 
     // then just use origin_x and origin_y to work out how to do the whole thing..
@@ -537,8 +541,13 @@ void PerimeterWindow::splitPerimeter(QList<QPolygon> polys){
     // and lets get some new perimeters from the currentperimeter..
     cout << "Calling splitlines on perimeter size of boundaries is " << boundaries.size() << endl
 	 << "                               and origin is          " << origin_x << origin_y << endl;
-    vector<vector<int> > newPer = perimeter->splitPerimeters(boundaries);
-    cout << "obtained a total of " << newPer.size() << " new perimeters from perimeter " << endl;
+    
+    PerimeterSplitter splitter;
+    splitter.splitPerimeter(perimeter, boundaries);
+    vector<vector<int> > newPer = splitter.newPerimetersV();
+
+    //    vector<vector<int> > newPer = perimeter.splitPerimeters(boundaries);
+    // cout << "obtained a total of " << newPer.size() << " new perimeters from perimeter " << endl;
 
     // let's make a vector of outline data to allow us to draw the rest..
     vector<outlineData> outlines;

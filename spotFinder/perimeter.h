@@ -95,7 +95,7 @@ class Perimeter {
 
     Perimeter(std::vector<int> points, unsigned int gw, unsigned int gh, int minx, int miny, int maxx, int maxy){
 	perimeter = points;
-	globalWidth = gw;
+	globalWidth = gw;	
 	globalHeight = gh;
 	minX = minx;
 	minY = miny;
@@ -145,7 +145,7 @@ class Perimeter {
     std::vector<int> tracePerimeter(char* m, int w, int h, int ox, int oy, char bc);
     std::vector<std::vector<int> > splitPerimeters(std::vector<std::vector<int> >& splitLines);
 
-    Perimeter overlaps(Perimeter& p);  // checks if there is an overlap between the two, if such overlap returns the perimeter of the union
+    //Perimeter overlaps(Perimeter& p);  // checks if there is an overlap between the two, if such overlap returns the perimeter of the union
     int nucleusId;                   // This is an arbitrary id, that can be set by external sources. Not much point to make it private
                                      // since it isn't set by Perimeter functions anyway. Note that it will default to -1 indicating no known
                                      // Nucleus.
@@ -153,6 +153,7 @@ class Perimeter {
     int xmax(){ return maxX; }
     int ymin(){ return minY; }
     int ymax(){ return maxY; }
+    int g_width(){ return globalWidth; }
 };
 
 class PerimeterSet { // contains a set of overlapping perimeters as well as the complete perimeter as determine by thingy..

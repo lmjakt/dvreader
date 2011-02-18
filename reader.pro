@@ -31,6 +31,7 @@ HEADERS		= \
 		spotFinder/spotSection.h \
 		spotFinder/spotsWidget.h \
 		spotFinder/perimeter.h \
+		spotFinder/perimeterSplitter.h \
 		spotFinder/perimeterWindow/perimeterPlotter.h \
 		spotFinder/perimeterWindow/perimeterWindow.h \
 		spotFinder/spotDensityWidget.h \
@@ -143,6 +144,7 @@ SOURCES		= \
 		spotFinder/spotSection.cpp \
 		spotFinder/spotsWidget.cpp \
 		spotFinder/perimeter.cpp \
+		spotFinder/perimeterSplitter.cpp \
 		spotFinder/perimeterWindow/perimeterPlotter.cpp \
 		spotFinder/perimeterWindow/perimeterWindow.cpp \
 		spotFinder/spotDensityWidget.cpp \

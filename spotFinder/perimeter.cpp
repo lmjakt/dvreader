@@ -33,142 +33,146 @@
 using namespace std;
 
 
-Perimeter Perimeter::overlaps(Perimeter& p){
-//    cout << "Perimeter::overlaps top" << endl;
-//    MaskPainter* maskPainter = new MaskPainter();
-//    maskPainter->resize(600, 600);
-//    maskPainter->show();
+/* 
+   ::overlaps function removed as I have a feeling that it doesn't work 
+   and it seems that nothing uses it..
+*/
+
+// Perimeter Perimeter::overlaps(Perimeter& p){
+// //    cout << "Perimeter::overlaps top" << endl;
+// //    MaskPainter* maskPainter = new MaskPainter();
+// //    maskPainter->resize(600, 600);
+// //    maskPainter->show();
 
 
-    if(!(p.minX < maxX && p.maxX > minX && p.minY < maxY && p.maxY > minY)){
-	// there can't be any overlap.. return an empty Perimeter
-	cout << "No overlap found returning empty perimeter this : " << minX << " --> " << maxX << " : " << minY << " --> " << maxY 
-	     << "\n                                           that : " << p.minX << " --> " << p.maxX << " : " << p.minY << " --> " << p.maxY << endl;
-	Perimeter ep;
-	return(ep);
-    }
-    // if we are here we have a somewhat trickier thing to deal with..
-    // There are a number of ways to deal with this, but I think the simplest may 
-    // be to fill a mask with values..
-    int left = minX < p.minX ? minX : p.minX;
-    int bot = minY < p.minY ? minY : p.minY;
-    int m_width = maxX > p.maxX ? (maxX - left) : (p.maxX - left);
-    int m_height = maxY > p.maxY ? (maxY - bot) : (p.maxY - bot);
+//     if(!(p.minX < maxX && p.maxX > minX && p.minY < maxY && p.maxY > minY)){
+// 	// there can't be any overlap.. return an empty Perimeter
+// 	cout << "No overlap found returning empty perimeter this : " << minX << " --> " << maxX << " : " << minY << " --> " << maxY 
+// 	     << "\n                                           that : " << p.minX << " --> " << p.maxX << " : " << p.minY << " --> " << p.maxY << endl;
+// 	Perimeter ep;
+// 	return(ep);
+//     }
+//     // if we are here we have a somewhat trickier thing to deal with..
+//     // There are a number of ways to deal with this, but I think the simplest may 
+//     // be to fill a mask with values..
+//     int left = minX < p.minX ? minX : p.minX;
+//     int bot = minY < p.minY ? minY : p.minY;
+//     int m_width = maxX > p.maxX ? (maxX - left) : (p.maxX - left);
+//     int m_height = maxY > p.maxY ? (maxY - bot) : (p.maxY - bot);
     
-    // we can then simple fill this mask with 0, and then depending on thingy.. 
-    char space = 0;
-    char me = 1;
-    char her = 2;
-    char both = 3;
-    // then 0 = no boundary, 1 this boundary, 2 = p.boundary, 3 = c.boundary 
-    // we might be able to do someting like a bit and thingy, but I'm always confused by that.. 
-    char* mask = new char[m_width * m_height];
-    memset((void*)mask, space, m_width * m_height * sizeof(char));
+//     // we can then simple fill this mask with 0, and then depending on thingy.. 
+//     char space = 0;
+//     char me = 1;
+//     char her = 2;
+//     char both = 3;
+//     // then 0 = no boundary, 1 this boundary, 2 = p.boundary, 3 = c.boundary 
+//     // we might be able to do someting like a bit and thingy, but I'm always confused by that.. 
+//     char* mask = new char[m_width * m_height];
+//     memset((void*)mask, space, m_width * m_height * sizeof(char));
 
-    // use binary or to set up mask since the thingy can go backwards on itself.. 
-    // and then ..
-//    cout << "\n" << endl;
+//     // use binary or to set up mask since the thingy can go backwards on itself.. 
+//     // and then ..
+// //    cout << "\n" << endl;
 
-    // int this case I'm using a bitwise or.. this will allow thread boundaries
-    // -- but these are difficult to deal with since we can not use even/odd rules to determine
-    // if we are inside or not.. 
-    //
-    // if we use instead of | , the xor operator ^ then anything visited twice becomes deleted.
-    // but this might give us holes in the perimeter... so that is no good either.. 
+//     // int this case I'm using a bitwise or.. this will allow thread boundaries
+//     // -- but these are difficult to deal with since we can not use even/odd rules to determine
+//     // if we are inside or not.. 
+//     //
+//     // if we use instead of | , the xor operator ^ then anything visited twice becomes deleted.
+//     // but this might give us holes in the perimeter... so that is no good either.. 
     
 
-    for(uint i=0; i < perimeter.size(); ++i){
-	int mask_x = (perimeter[i] % globalWidth) - left;
-	int mask_y = (perimeter[i] / globalWidth) - bot;
-	mask[mask_y * m_width + mask_x] |= me;
-    }
-    // and ..
-    for(uint i=0; i < p.perimeter.size(); ++i){
-	int mask_x = (p.perimeter[i] % globalWidth) - left;  // global Width has to be the same ? otherwise won't make any sense.. 
-	int mask_y = (p.perimeter[i] / globalWidth) - bot;
-	mask[mask_y * m_width + mask_x] |= her;
+//     for(uint i=0; i < perimeter.size(); ++i){
+// 	int mask_x = (perimeter[i] % globalWidth) - left;
+// 	int mask_y = (perimeter[i] / globalWidth) - bot;
+// 	mask[mask_y * m_width + mask_x] |= me;
+//     }
+//     // and ..
+//     for(uint i=0; i < p.perimeter.size(); ++i){
+// 	int mask_x = (p.perimeter[i] % globalWidth) - left;  // global Width has to be the same ? otherwise won't make any sense.. 
+// 	int mask_y = (p.perimeter[i] / globalWidth) - bot;
+// 	mask[mask_y * m_width + mask_x] |= her;
 
-    }
-//    cout << endl;
+//     }
+// //    cout << endl;
 
-    int xoffsets[] = {-1, 0, 1, 1, 1, 0, -1, -1};
-    int yoffsets[] = {1, 1, 1, 0, -1, -1, -1, 0};     // this gives us a clockwise spin around a central position.. 
-    int offset_offsets[] = {5, 6, 7, 0, 1, 2, 3, 4};  //
+//     int xoffsets[] = {-1, 0, 1, 1, 1, 0, -1, -1};
+//     int yoffsets[] = {1, 1, 1, 0, -1, -1, -1, 0};     // this gives us a clockwise spin around a central position.. 
+//     int offset_offsets[] = {5, 6, 7, 0, 1, 2, 3, 4};  //
 
-    int offsetPos = 0;
+//     int offsetPos = 0;
 
-    vector<int> newPerimeter;
-    newPerimeter.reserve(perimeter.size() * 2);
-    newPerimeter.push_back(perimeter[0]);
+//     vector<int> newPerimeter;
+//     newPerimeter.reserve(perimeter.size() * 2);
+//     newPerimeter.push_back(perimeter[0]);    
 
-    int x, y, origin;
-    for(y = 0; y < m_height; ++y){
-	for(x = 0; x < m_width; ++x){
-	    if(mask[y * m_width + x]){
-		break;
-	    }
-	}
-	if(mask[y * m_width + x]){
-	    break;
-	}
-    }
-    origin = y * m_width + x;
-    char includedId = mask[y * m_width + x];  // if we include both then we have overlap.. 
+//     int x, y, origin;
+//     for(y = 0; y < m_height; ++y){
+// 	for(x = 0; x < m_width; ++x){
+// 	    if(mask[y * m_width + x]){
+// 		break;
+// 	    }
+// 	}
+// 	if(mask[y * m_width + x]){
+// 	    break;
+// 	}
+//     }
+//     origin = y * m_width + x;
+//     char includedId = mask[y * m_width + x];  // if we include both then we have overlap.. 
 
-    cout << "Origin is at : " << x << ", " << y << endl;
+//     cout << "Origin is at : " << x << ", " << y << endl;
 
-    if(!mask[origin]){
-	cerr << "MASK begin has a value of 0 this can't be right" << endl;
-	exit(1);
-    }
-    bool keep_going = true;
-    while(keep_going){
-	for(int i=0; i < 8; i++){
-	    int op = (offsetPos + i) % 8;
-	    int nx = x + xoffsets[op];
-	    int ny = y + yoffsets[op];
-	    int np = ny * m_width + nx;
-	    if(np == origin){
-		keep_going = false;
-		break;
-	    }
-	    // make sure that the new position is within bounds..
-	    if(nx < 0 || nx >= m_width || ny < 0 || ny >= m_height){
-		continue;
-	    }
-	    // then check if this position satisfies the criteria..
-	    if(mask[np]){
-		includedId |= mask[np];
-		newPerimeter.push_back((y + bot) * globalWidth + x + left);
-		// and set up the next offsetPos.
-		offsetPos = offset_offsets[op];
-		x = nx;
-		y = ny;
-		break;
-	    }
-	}
-    }
-    bool intersected = (includedId == both);
+    // if(!mask[origin]){
+    // 	cerr << "MASK begin has a value of 0 this can't be right" << endl;
+    // 	exit(1);
+    // }
+    // bool keep_going = true;
+    // while(keep_going){
+    // 	for(int i=0; i < 8; i++){
+    // 	    int op = (offsetPos + i) % 8;
+    // 	    int nx = x + xoffsets[op];
+    // 	    int ny = y + yoffsets[op];
+    // 	    int np = ny * m_width + nx;
+    // 	    if(np == origin){
+    // 		keep_going = false;
+    // 		break;
+    // 	    }
+    // 	    // make sure that the new position is within bounds..
+    // 	    if(nx < 0 || nx >= m_width || ny < 0 || ny >= m_height){
+    // 		continue;
+    // 	    }
+    // 	    // then check if this position satisfies the criteria..
+    // 	    if(mask[np]){
+    // 		includedId |= mask[np];
+    // 		newPerimeter.push_back((y + bot) * globalWidth + x + left);
+    // 		// and set up the next offsetPos.
+    // 		offsetPos = offset_offsets[op];
+    // 		x = nx;
+    // 		y = ny;
+    // 		break;
+    // 	    }
+    // 	}
+    // }
+    // bool intersected = (includedId == both);
 
-    // it is possible that one of the perimeters completely contains the other one
-    // and in some cases this is probable..
-    if(intersected
-       ||
-       isContainedInRegion(mask, me, her, left, bot, m_width, m_height)
-       ||
-       p.isContainedInRegion(mask, her, me, left, bot, m_width, m_height))
-    {
-	delete mask;
-	return(Perimeter(newPerimeter, globalWidth, globalHeight, left, bot, left + m_width, bot + m_height));
-    }
+//     // it is possible that one of the perimeters completely contains the other one
+//     // and in some cases this is probable..
+//     if(intersected
+//        ||
+//        isContainedInRegion(mask, me, her, left, bot, m_width, m_height)
+//        ||
+//        p.isContainedInRegion(mask, her, me, left, bot, m_width, m_height))
+//     {
+// 	delete mask;
+// 	return(Perimeter(newPerimeter, globalWidth, globalHeight, left, bot, left + m_width, bot + m_height));
+//     }
     
-    Perimeter ep;
-    cout << "No intersect found returning empty perimeter" << endl;
-    return(ep);
-    delete mask;
-
-    // otherwise make a new perimeter with the new perimeter thingy ..
-}
+//     Perimeter ep;
+//     cout << "No intersect found returning empty perimeter" << endl;
+//     delete mask;
+//     return(ep);
+//     // otherwise make a new perimeter with the new perimeter thingy ..
+// }
 
 void Perimeter::printRange(){
     cout << "\nPerimeter::printRange  " << minX << " -> " << maxX << "  :: " << minY << " --> " << maxY << endl;
