@@ -219,6 +219,12 @@ int countIntersects(char* mask, char b, int xb, int yb, int xe, int ye, int w, i
     return(count);  // and then we don't need to use the count variable.. 
 }    
 
+/*
+  It seems that I might be able to remove isContainedInRegion, though it's quite good to keep it here
+  as it illustrates how one can answer the questions for an irregular shape.. by counting boundary crossings
+  But which fails when touching but not crossing a boundary. 
+ */
+
 bool Perimeter::isContainedInRegion(char* mask, char me, char her, int xo, int yo, int w, int h){
     cout << "\nISCONTAINEDINREGION..." << endl;
     // very simple takes a number of points along my perimeter, and makes 4 lines

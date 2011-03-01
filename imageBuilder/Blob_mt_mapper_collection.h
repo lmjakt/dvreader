@@ -4,6 +4,7 @@
 #include <map>
 #include <QString>
 #include "blob_set.h"
+#include "BlobModelSet.h"
 #include <vector>
 
 class Range {
@@ -72,8 +73,10 @@ class ClassCriteria {
 // since I am too lazy to implement copy operators and reference counting.
 class Blob_mt_mapper_collection {
   std::map<unsigned int, std::vector<blob_set> > blobs;
+  std::map<unsigned int, std::vector<blob_set> > alternate_blobs;  // using the corrected blob_set_id (set by assess)
   std::map<unsigned int, ClassCriteria> class_criteria;
-  std::map<unsigned int, std::vector<Blob_mt_mapper*> > mappers;
+  std::map<unsigned int, std::vector<Blob_mt_mapper*> > mappers;  // only used to get dimensions, seems unnecessary
+  std::map<unsigned int, BlobModelSet*> blobModels;
 
   Criteria readCriteria(QString& line, QStringList& params, unsigned int& super_id);
 
@@ -89,11 +92,13 @@ class Blob_mt_mapper_collection {
 
   bool mapperDimensions(int& w, int& h, int& d);
   std::vector<blob_set> blobSets();
-  std::vector<blob_set> blobSets(std::vector<unsigned int> superIds);
-  std::vector<blob_set> blobSets(std::vector<QString> parNames);
-  std::vector<blob_set> blobSets(std::vector<unsigned int> superIds, QString parName);
-  std::vector<blob_set> blobSets(std::vector<unsigned int> superIds, std::vector<QString> parNames);
+  std::vector<blob_set> blobSets(std::vector<unsigned int> superIds, bool use_corrected);
+  std::vector<blob_set> blobSets(std::vector<QString> parNames, bool use_corrected);
+  std::vector<blob_set> blobSets(std::vector<unsigned int> superIds, QString parName, bool use_corrected);
+  std::vector<blob_set> blobSets(std::vector<unsigned int> superIds, std::vector<QString> parNames, bool use_corrected);
   // and a function that fills in the blanks in a reasonable manner.. 
+  void trainModels(std::vector<QString> parNames, int xyr, int zr, bool use_corrected_ids);
+  void setAlternateIds();  // this uses the results of the last instance of assess. Use with care.
 };  
 
 

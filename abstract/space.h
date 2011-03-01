@@ -76,19 +76,21 @@ struct Point {    //
 };
 
 struct Row {
-    std::multimap<int, Point*> pnts;
-    Point* insertPoint(int x, int y, int z);
-    std::vector<Point*> points(int xb, int xe);
-    Row(){}
-    ~Row();
+  std::multimap<int, Point*> pnts;
+  Point* insertPoint(int x, int y, int z);
+  std::vector<Point*> points(int xb, int xe);
+  Point* first_point(int x);
+  Row(){}
+  ~Row();
 };
 
 struct Plane {
-    std::map<int, Row*> rows;
-    Plane(){}
-    ~Plane();
-    Point* insertPoint(int x, int y, int z);
-    std::vector<Point*> points(int xb, int xe, int yb, int ye);  // do not use pointers if space is deleted
+  std::map<int, Row*> rows;
+  Plane(){}
+  ~Plane();
+  Point* insertPoint(int x, int y, int z);
+  std::vector<Point*> points(int xb, int xe, int yb, int ye);  // do not use pointers if space is deleted
+  Point* first_point(int x, int y);
 };
 
 class Space {
@@ -99,8 +101,15 @@ class Space {
     ~Space();      // have to delete
     Point* insertPoint(int x, int y, int z);
     std::vector<Point*> points(int xb, int xe, int yb, int ye, int zb, int ze);
+    std::vector<Point*> plane_points(int xb, int xe, int yb, int ye);
     std::vector<Point*> points(int x, int y, int z, int radius);
-
+    std::vector<Point*> plane_points(int x, int y, int radius);
+    Point* first_point(int x, int y, int z);
+    Point* first_point(int x, int y);
+    
+    int sq_distance(Point* a, Point* b){
+      return( (a->x - b->x) * (a->x - b->x) + (a->y - b->y) * (a->y - b->y) );
+    }
 };
 
 #endif

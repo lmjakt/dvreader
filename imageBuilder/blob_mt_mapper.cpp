@@ -120,6 +120,18 @@ void Blob_mt_mapper::mapBlobs(unsigned int wi, float minimumEdge, float minimumP
   start();
 }
 
+void Blob_mt_mapper::addToBlobModel(BlobModel* bmodel, vector<blob*>& b)
+{
+  if(!stack)
+    setImageStack();
+  for(unsigned int i=0; i < b.size(); ++i){
+    if(b[i]->min_x >= 0 && b[i]->max_x < stack_width &&
+       b[i]->min_y >= 0 && b[i]->max_y < stack_height &&
+       b[i]->min_z >= 0 && b[i]->max_z < stack_depth)
+      incrementBlobModel(b[i], bmodel);
+  }
+}
+
 string Blob_mt_mapper::description()
 {
   ostringstream os;
@@ -154,15 +166,30 @@ vector<blob*> Blob_mt_mapper::rblobs(){
   return(bl);
 }
 
-// all 0 if no model specified.. 
 vector<float> Blob_mt_mapper::blob_model_correlations()
-{  
-  vector<float> correlations(blobs.size(), 0);
+{
+  vector<float> fake_values(blobs.size(), 0);
   if(!blobModel)
+    return(fake_values);
+  vector<blob*> local_blobs;
+  temp_blobs.reserve(blobs.size());
+  for(map<unsigned int, blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
+    local_blobs.push_back((*it).second);
+  return( blob_model_correlations(blobModel, local_blobs) );
+}
+
+// all 0 if no model specified.. 
+// This function is in the mapper object rather than in the model object
+// because it needs access to the stack. The stack data may be deleted,
+// but there is a function to recreate it (setImageStack());
+vector<float> Blob_mt_mapper::blob_model_correlations(BlobModel* bmodel, vector<blob*>& local_blobs)
+{  
+  vector<float> correlations(local_blobs.size(), 0);
+  if(!bmodel)
     return(correlations);
   // use a resolution multiplier of 1.0 for the model.
   int s_range, z_radius;
-  float* model = blobModel->model(s_range, z_radius, 1.0);
+  float* model = bmodel->model(s_range, z_radius, 1.0);
   // width of model = 1 + z_radius * 2, height = 1 + s_range;
   int m_width = 1 + z_radius * 2;
   int m_height = 1 + s_range;
@@ -189,9 +216,9 @@ vector<float> Blob_mt_mapper::blob_model_correlations()
   int i = 0;
   float* blob_values = new float[ 2 * m_width * m_height * m_height ];  // 2 * to overcome rounding errors.. 
   cout << "Location : " << pos.x << "," << pos.y << "," << pos.z << endl;
-  for(multimap<unsigned int, blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
+  for(vector<blob*>::iterator it=local_blobs.begin(); it != local_blobs.end(); ++it){
     float bx, by, bz;
-    blob* b = (*it).second;
+    blob* b = (*it);
     determineBlobCenter(b, bx, by, bz);  // the center of the blob will be set to these values..
     // now we need to normalise the data points
     unsigned int blob_value_no = 0;
@@ -214,6 +241,7 @@ vector<float> Blob_mt_mapper::blob_model_correlations()
       }
     }
     z_normalise(blob_values, blob_value_no);
+    cout << "blob_value_no : " << blob_value_no << endl;
     for(uint j=0; j < blob_value_no; ++j){
       int mx = int(roundf(z_offset[j])) + z_radius;
       int my = int(roundf(xy_offset[j]));
@@ -334,6 +362,14 @@ void Blob_mt_mapper::setImageStack()
   //   mask = new bool[stack_size];
   // memset((void*)blobMap, 0, sizeof(blob*) * stack_size);
   // memset((void*)mask, 0, sizeof(bool) * stack_size);
+}
+
+void Blob_mt_mapper::freeImageStack()
+{
+  if(!stack)
+    return;
+  delete stack;
+  stack = 0;
 }
 
 void Blob_mt_mapper::setBlobMap()
@@ -612,6 +648,13 @@ void Blob_mt_mapper::finaliseBlob(blob* b)
 
 void Blob_mt_mapper::incrementBlobModel(blob* b)
 {
+  if(!blobModel)
+    return;
+  incrementBlobModel(b, blobModel);
+}
+
+void Blob_mt_mapper::incrementBlobModel(blob* b, BlobModel* model)
+{
   int x, y, z;
   ////////// a smarter way to do this is to find the weighted position of the peak
   ///////// using the 27 central voxels. (Basically interpolating the peak.) Otherwise
@@ -621,13 +664,13 @@ void Blob_mt_mapper::incrementBlobModel(blob* b)
   determineBlobCenter(b, fx, fy, fz);
   cout << "Blob_mt_mapper blob peak : " << x << "," << y << "," << z << "  mean peak pos: "
        << fx << "," << fy << "," << fz << endl;
-  blobModel->lockMutex();
-  blobModel->setPeak(fx, fy, fz, stack->lv(stack_channel, b->peakPos));
+  model->lockMutex();
+  model->setPeak(fx, fy, fz, stack->lv(stack_channel, b->peakPos));
   for(uint i=0; i < b->points.size(); ++i){
     toVol(b->points[i], x, y, z);
-    blobModel->addPoint(x, y, z, stack->lv(stack_channel, b->points[i]));
+    model->addPoint(x, y, z, stack->lv(stack_channel, b->points[i]));
   }
-  blobModel->unlockMutex();
+  model->unlockMutex();
 }
 
 void Blob_mt_mapper::deleteBlobs()

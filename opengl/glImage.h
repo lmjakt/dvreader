@@ -75,6 +75,7 @@ public slots:
      emit offSetsSet(0, 0);
  }
  // void setScaleAndBias(float s, float b);
+ void currentView(int& x, int& y, int& w, int& h);
 
 protected:
 

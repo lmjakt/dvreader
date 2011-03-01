@@ -17,6 +17,7 @@ struct blob {
     active = true;
     b_class = super_class = 0;
     class_lr = 0;
+    aux1=0;
   }
   ~blob(){
   }
@@ -57,7 +58,7 @@ struct id_blob {
 
 
 // stupid ugly hack.. 
-extern float getBlobParameter(blob* b, QString parname);
+float getBlobParameter(blob* b, QString parname);
 
 
 #endif

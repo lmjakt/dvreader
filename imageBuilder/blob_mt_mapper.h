@@ -33,22 +33,25 @@ class Blob_mt_mapper : public QThread
   ~Blob_mt_mapper();
   void setBgPar(uint xm, uint ym, float q);
   void setBlobModel(BlobModel* b_model);  // set the blobModel to b_model
+  void addToBlobModel(BlobModel* bmodel, std::vector<blob*>& blbs);
   void mapBlobs(unsigned int wi, float minimumEdge, float minimumPeak, QSemaphore* sem=0); // this will call run()
   std::string description();
   void position(int& x, int& y, int& z);
   void dims(unsigned int& w, unsigned int& h, unsigned int& d);
   std::vector<blob*> rblobs();  // shouldn't really be rblobs, .. 
   std::vector<float> blob_model_correlations();
+  std::vector<float> blob_model_correlations(BlobModel* bmodel, std::vector<blob*>& local_blobs);
   std::vector<blob_set> blob_sets(std::vector<Blob_mt_mapper*> mappers);
   stack_info position(){ return pos; }
   unsigned int mapId(){ return map_id; }
+  void setImageStack();
+  void freeImageStack();
   // we need some way of returning the blobs in a reasonable structure
   // For now use the old ../image/blob.h definition. But note that it is probably too memory intensive.
  signals:
   void error(const char*);
   
  private:
-  void setImageStack();
   void setBlobMap(); // sets the blobMap and the mask (blob) using any blobs defined.. 
   void run();
   void subtract_background();
@@ -59,6 +62,7 @@ class Blob_mt_mapper : public QThread
   void finaliseBlobs();
   void finaliseBlob(blob* b);
   void incrementBlobModel(blob* b);
+  void incrementBlobModel(blob* b, BlobModel* model);
   void deleteBlobs();
   //  void overlappingBlobs(blob_set& bset);
   void freeMemory();

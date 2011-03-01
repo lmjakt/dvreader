@@ -53,6 +53,13 @@ vector<Point*> Row::points(int xb, int xe)
     return(p);
 }
 
+Point* Row::first_point(int x)
+{
+  if(!pnts.count(x))
+    return(0);
+  return( (*pnts.lower_bound(x)).second );
+}
+
 Plane::~Plane()
 {
     while(rows.size()){
@@ -80,6 +87,13 @@ vector<Point*> Plane::points(int xb, int xe, int yb, int ye)
     return(p);
 }
 
+Point* Plane::first_point(int x, int y)
+{
+  if(!rows.count(y))
+    return(0);
+  return( rows[y]->first_point(x) );
+}
+
 Space::~Space()
 {
     while(planes.size()){
@@ -97,16 +111,28 @@ Point* Space::insertPoint(int x, int y, int z)
 
 vector<Point*> Space::points(int xb, int xe, int yb, int ye, int zb, int ze)
 {
-    vector<Point*> p;
-    if(xb > xe || yb > ye || zb > ze){
-	cerr << "Space::points invalid arguments : " << xb << "," << xe << " : " << yb << "," << ye << " : " << zb << "," << ze << endl;
-	return(p);
-    }
-    for(map<int, Plane*>::iterator it = planes.lower_bound(zb); it != planes.upper_bound(ze); it++){
-	vector<Point*> tp = it->second->points(xb, xe, yb, ye);
-	p.insert(p.end(), tp.begin(), tp.end());
-    }
+  vector<Point*> p(0);
+  if(xb > xe || yb > ye || zb > ze){
+    cerr << "Space::points invalid arguments : " << xb << "," << xe << " : " << yb << "," << ye << " : " << zb << "," << ze << endl;
     return(p);
+  }
+  for(map<int, Plane*>::iterator it = planes.lower_bound(zb); it != planes.upper_bound(ze); it++){
+    vector<Point*> tp = it->second->points(xb, xe, yb, ye);
+    p.insert(p.end(), tp.begin(), tp.end());
+  }
+  return(p);
+}
+
+vector<Point*> Space::plane_points(int xb, int xe, int yb, int ye)
+{
+  vector<Point*> p(0);
+  if(xb > xe || yb > ye)
+    return(p);
+  for(map<int, Plane*>::iterator it = planes.begin(); it != planes.end(); ++it){
+    vector<Point*> tp = it->second->points(xb, xe, yb, ye);
+    p.insert(p.end(), tp.begin(), tp.end());
+  }
+  return(p);
 }
 				      
 vector<Point*> Space::points(int x, int y, int z, int radius)
@@ -115,3 +141,26 @@ vector<Point*> Space::points(int x, int y, int z, int radius)
   return(points(x - radius, x + radius, y - radius, y + radius, z - radius, z + radius));
 }
   
+vector<Point*> Space::plane_points(int x, int y, int radius)
+{
+  radius = abs(radius);
+  return(plane_points(x - radius, x + radius, y - radius, y + radius));
+}
+
+Point* Space::first_point(int x, int y, int z)
+{
+  if(!planes.count(z))
+    return(0);
+  return( planes[z]->first_point(x, y) );
+}
+
+Point* Space::first_point(int x, int y)
+{
+  Point* p = 0;
+  for(map<int, Plane*>::iterator it=planes.begin(); it != planes.end(); ++it){
+    p = (*it).second->first_point(x, y);
+    if(p)
+      return(p);
+  }
+  return(p);
+}

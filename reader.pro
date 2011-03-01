@@ -41,6 +41,7 @@ HEADERS		= \
 		spotFinder/spotMapper/nearestNeighborMapper.h \
 		spotFinder/spotMapper/spotPerimeterMapper.h \
 		spotFinder/spotMapper/NNMapper2.h \
+                spotFinder/spotMapper/CellTracer.h \
 		spotFinder/cell.h \
 		spotFinder/channelSelector.h \
 		maskPainter.h \
@@ -117,6 +118,7 @@ HEADERS		= \
 		imageBuilder/qnt_colors.h \
 		imageBuilder/blob_set.h \
 		imageBuilder/Blob_mt_mapper_collection.h \
+		imageBuilder/BlobModelSet.h \
 		util/matrix.h	
 SOURCES		= \
 		dvReader.cpp \
@@ -154,6 +156,7 @@ SOURCES		= \
 		spotFinder/spotMapper/nearestNeighborMapper.cpp \
 		spotFinder/spotMapper/spotPerimeterMapper.cpp \
 		spotFinder/spotMapper/NNMapper2.cpp \
+                spotFinder/spotMapper/CellTracer.cpp \
 		spotFinder/cell.cpp \
 		spotFinder/channelSelector.cpp \
 		maskPainter.cpp \
@@ -223,6 +226,7 @@ SOURCES		= \
 		imageBuilder/qnt_colors.cpp \
 		imageBuilder/blob_set.cpp \
 		imageBuilder/Blob_mt_mapper_collection.cpp \
+		imageBuilder/BlobModelSet.cpp \
 		util/matrix.cpp \
 		globalVariables.cpp \
 		main.cpp

@@ -10,6 +10,8 @@ const int border_id = 2;
 const int within_id = 4;
 const int split_border_id = 8;
 
+const unsigned int minimum_perimeter_length = 200;
+
 PerimeterSplitter::PerimeterSplitter()
 {
   mask = 0;
@@ -41,8 +43,11 @@ unsigned int* PerimeterSplitter::perimeterMask(int& mw, int& mh)
 map<unsigned int, vector<int> > PerimeterSplitter::newPerimeters()
 {
   map<unsigned int, vector<int> > per;
-  for(unsigned int i=0; i < areaIds.size(); ++i)
-    per.insert(make_pair(areaIds[i], tracePerimeter(areaIds[i])));
+  for(unsigned int i=0; i < areaIds.size(); ++i){
+    vector<int> new_per = tracePerimeter(areaIds[i]);
+    if(new_per.size() >= minimum_perimeter_length)
+      per.insert(make_pair(per.size(), new_per));
+  }
   return(per);
 }
 
@@ -88,37 +93,10 @@ void PerimeterSplitter::initMask(Perimeter& per)
 // points are in global coordinates..
 // uses mask, so mask has to be set up correctly first. Makes a boundary from the first to
 // the second intersection point.
-/*
-  The way the split line gets created, it has to start and end outside of the perimeter.
-  This is due to both the border and the split line allowing open diagonal lines, such
-  that they can cross each other. This can be fixed by ensuring that the split lines
-  contain only filled diagonals; (ultimately that is what I should do.. but need to think
-  about how to do it).
-*/
+
 void PerimeterSplitter::addLineToMask(vector<int>& points)
 {
   int x, y;
-  //  int beg, end;
-  //beg = end = -1;
-  //int p = 0;
-  //  unsigned int check_id = border_id + split_border_id;
-  // for(unsigned int i=0; i < points.size(); ++i){
-  //   if(beg != -1 && end != -1)
-  //     break;
-  //   x = (points[i] % globalWidth) - mask_x;
-  //   y = (points[i] / globalWidth) - mask_y;
-  //   p = x + y * maskWidth;
-  //   if(beg == -1 && mask[p] & (border_id + within_id)){
-  //     beg = i;
-  //     continue;
-  //   }
-  //   if(beg != -1 && mask[p] & (border_id + outside_id) ){
-  //     end = i;
-  //     break;
-  //   }
-  // }
-  // if(beg == -1 || end == -1)
-  //   return;
   for(unsigned int i=0; i < points.size(); ++i){
     x = (points[i] % globalWidth) - mask_x;
     y = (points[i] / globalWidth) - mask_y;
@@ -204,6 +182,7 @@ vector<int> PerimeterSplitter::tracePerimeter(unsigned int p_id)
       int nx = x + xoffsets[op];
       int ny = y + yoffsets[op];
       if( ny * maskWidth + nx == mask_origin ){
+	points.push_back( globalWidth * (y + mask_y) + x + mask_x );
 	tracing = false;
 	break;
       }

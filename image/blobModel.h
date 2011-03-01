@@ -4,6 +4,8 @@
 #include <vector>
 #include <QMutex>
 
+struct blob;
+
 struct bmPoint {
   float dxy;
   float dz;
@@ -25,6 +27,8 @@ struct bmPoint {
 class BlobModel {
  public:
   BlobModel(int x, int y, int z, float pv, int xy_radius, int z_radius);
+  BlobModel(int xy_radius, int z_radius);
+  ~BlobModel();
   void setPeak(int x, int y, int z, float pv);
   void setPeak(float x, float y, float z, float pv);  // for a higher-resolution model
   bool addPoint(int x, int y, int z, float v);
@@ -42,6 +46,7 @@ class BlobModel {
   std::vector<bmPoint> points;
 
   float dist(int x, int y);
+  
 
 };
 

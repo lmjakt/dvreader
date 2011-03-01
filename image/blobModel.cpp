@@ -16,6 +16,19 @@ BlobModel::BlobModel(int x, int y, int z, float pv, int xy_radius, int z_radius)
   zp = (float)z;
 }
 
+BlobModel::BlobModel(int xy_radius, int z_radius)
+{
+  xyRadius = fabs((float)xy_radius);
+  zRadius = fabs((float)z_radius);  // makes it > 0 !! 
+  peakValue = 1.0;
+  xp = yp = zp = 0;
+}
+
+BlobModel::~BlobModel()
+{
+
+}
+
 // Use the below to incorporate data from many blobs in the same
 // model.
 void BlobModel::setPeak(int x, int y, int z, float pv)

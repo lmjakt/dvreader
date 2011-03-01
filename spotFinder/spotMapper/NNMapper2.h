@@ -16,6 +16,8 @@ class NNMapper2
   void setMaxDistance(int maxDistance);
   //  void mapPoints(std::vector<threeDPoint>& Points, std::vector<Perimeter>& Nuclei);
   void mapPoints(std::vector<threeDPoint>& Points, std::vector<unsigned int> pointsIndex, std::vector<Perimeter>& Nuclei);
+  void cellMask2D(unsigned short* mask, int xoff, int yoff, unsigned int width, unsigned int height, 
+		  unsigned int max_distance, bool clearMask=true);
   std::vector<int> pointNuclearIds();
   std::vector<int> pointGroupIds();
   std::vector<unsigned int> pointIndices();
@@ -50,6 +52,10 @@ class NNMapper2
   int sq_plane_distance(Point* a, Point* b){
     return( (a->x - b->x) * (a->x - b->x) + (a->y - b->y) * (a->y - b->y));
   }
+  int sq_plane_distance(Point* a, int x, int y){
+    return( (a->x - x) * (a->x - x) + (a->y - y) * (a->y - y) );
+  }
+  
 
 };
 

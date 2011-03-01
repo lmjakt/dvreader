@@ -14,9 +14,12 @@
 
 using namespace std;
 
+// the below can be rewritten much shorter, but want to leave it as a
+// reminder of original intent for now.
 void ClassCriteria::insertCriteria(unsigned int m_id, Criteria criteria){
   if(blob_criteria.count(m_id)){
-    cerr << "Attempt to insert duplicate criteria into a Class Criteria thingy" << endl;
+    cerr << "Changing criteria into a Class Criteria thingy" << endl;
+    blob_criteria[m_id] = criteria;
     return;
   }
   cout << "ClassCriteria id:  " << blob_set_id << " inserting a criteria with mapper_id : " << m_id 
@@ -153,6 +156,15 @@ Criteria Blob_mt_mapper_collection::readCriteria(QString& line, QStringList& par
   return(Criteria(mapper_id, ranges));
 }
 
+void Blob_mt_mapper_collection::setAlternateIds()
+{
+  alternate_blobs.clear();
+  for(map<unsigned int, std::vector<blob_set> >::iterator it=blobs.begin(); it != blobs.end(); ++it){
+    for(vector<blob_set>::iterator vit=(*it).second.begin(); vit != (*it).second.end(); ++vit)
+      alternate_blobs[ (*vit).correctedId() ].push_back( (*vit) );
+  }
+}
+
 vector<blob_set> Blob_mt_mapper_collection::blobSets(){
   vector<blob_set> b;
   for(map<unsigned int, vector<blob_set> >::iterator it=blobs.begin();
@@ -161,58 +173,91 @@ vector<blob_set> Blob_mt_mapper_collection::blobSets(){
   return(b);
 }
 
-vector<blob_set> Blob_mt_mapper_collection::blobSets(vector<unsigned int> superIds){
+vector<blob_set> Blob_mt_mapper_collection::blobSets(vector<unsigned int> superIds, bool use_corrected){
   vector<blob_set> b;
+  map<unsigned int, std::vector<blob_set> >& blobs_r = blobs;
+  if(use_corrected)
+    blobs_r = alternate_blobs;
   for(unsigned int i=0; i < superIds.size(); ++i){
-    if(blobs.count(superIds[i]))
-      b.insert( b.end(), blobs[superIds[i]].begin(), blobs[superIds[i]].end() );
+    if(blobs_r.count(superIds[i]))
+      b.insert( b.end(), blobs_r[superIds[i]].begin(), blobs_r[superIds[i]].end() );
   }
   return(b);
 }
 
-vector<blob_set> Blob_mt_mapper_collection::blobSets(vector<unsigned int> superIds, QString parName){
-  vector<blob_set> b;
-  for(unsigned int i=0; i < superIds.size(); ++i){
-    if(blobs.count(superIds[i]) && class_criteria.count(superIds[i])){
-      ClassCriteria& criteria = class_criteria[superIds[i]];
-      vector<blob_set>& bsets = blobs[superIds[i]];
-      for(unsigned int j=0; j < bsets.size(); ++j){
-	if(!criteria.assess(parName, bsets[j]))  // returns an error code.. if it doesn't pass, hence the !
-	  b.push_back(bsets[j]);
-      }
-    }
-  }
-  return(b);
+vector<blob_set> Blob_mt_mapper_collection::blobSets(vector<unsigned int> superIds, QString parName, bool use_corrected){
+  vector<QString> parNames;
+  parNames.push_back(parName);
+  return(blobSets(superIds, parNames, use_corrected));
+  // vector<blob_set> b;
+  // for(unsigned int i=0; i < superIds.size(); ++i){
+  //   if(blobs.count(superIds[i]) && class_criteria.count(superIds[i])){
+  //     ClassCriteria& criteria = class_criteria[superIds[i]];
+  //     vector<blob_set>& bsets = blobs[superIds[i]];
+  //     for(unsigned int j=0; j < bsets.size(); ++j){
+  // 	if(!criteria.assess(parName, bsets[j]))  // returns an error code.. if it doesn't pass, hence the !
+  // 	  b.push_back(bsets[j]);
+  //     }
+  //   }
+  // }
+  // return(b);
 }
 
-vector<blob_set> Blob_mt_mapper_collection::blobSets(vector<QString> parNames){
+vector<blob_set> Blob_mt_mapper_collection::blobSets(vector<QString> parNames, bool use_corrected){
   vector<unsigned int> superIds;
   for(map<unsigned int, ClassCriteria>::iterator it=class_criteria.begin(); it != class_criteria.end(); ++it)
     superIds.push_back((*it).first);
-  return(blobSets(superIds, parNames));
+  return(blobSets(superIds, parNames, use_corrected));
 }
   
-vector<blob_set> Blob_mt_mapper_collection::blobSets(vector<unsigned int> superIds, vector<QString> parNames){
+vector<blob_set> Blob_mt_mapper_collection::blobSets(vector<unsigned int> superIds, vector<QString> parNames, bool use_corrected){
   if(!superIds.size() && !parNames.size())
     return(blobSets());
   if(superIds.size() && !parNames.size())
-    return( blobSets(superIds) );
+    return( blobSets(superIds, use_corrected) );
   if(!superIds.size() && parNames.size())
-    return( blobSets(parNames) );  // which will actually call this function again.. but what the hell
+    return( blobSets(parNames, use_corrected) );  // which will actually call this function again.. but what the hell
   // and here if both have a reasonable size.. 
   vector<blob_set> b;
+  map<unsigned int, vector<blob_set> >& blobs_r = blobs;
+  if(use_corrected)
+    blobs_r = alternate_blobs;
   for(unsigned int i=0; i < superIds.size(); ++i){
-    if(blobs.count(superIds[i]) && class_criteria.count(superIds[i])){
+    if(blobs_r.count(superIds[i]) && class_criteria.count(superIds[i])){
       ClassCriteria& criteria = class_criteria[superIds[i]];
-      vector<blob_set>& bsets = blobs[superIds[i]];
+      vector<blob_set>& bsets = blobs_r[superIds[i]];
       for(unsigned int j=0; j < bsets.size(); ++j){
+	bool include = true;
 	for(unsigned int k=0; k < parNames.size(); ++k){
 	  if(criteria.assess(parNames[k], bsets[j]))
-	    break;
-	  b.push_back(bsets[j]);
+	    include = false;
 	}
+	if(include)
+	  b.push_back(bsets[j]);
       }
     }
   }
   return(b);
+}
+
+// make models from the 
+void Blob_mt_mapper_collection::trainModels(vector<QString> parNames, int xyr, int zr, bool use_corrected_ids)
+{
+  for(map<unsigned int, std::vector<blob_set> >::iterator it=blobs.begin(); it != blobs.end(); ++it){
+    // then obtain blobs that pass the criteria..
+    vector<unsigned int> sid(1, (*it).first);
+    vector<blob_set> passed = blobSets(sid, parNames, use_corrected_ids);
+    if(!passed.size())
+      continue;
+    if(blobModels.count((*it).first))
+      delete blobModels[(*it).first];
+    blobModels[ (*it).first ] = new BlobModelSet((*it).first, xyr, zr);
+    blobModels[ (*it).first ]->trainModels(passed);
+  }
+  // we can then compare the blobs using the new models..
+  for(map<unsigned int, BlobModelSet*>::iterator it=blobModels.begin(); it != blobModels.end(); ++it){
+    if(blobs.count((*it).first))
+      (*it).second->assessBlobs( blobs[ (*it).first ]);
+  }
+  setAlternateIds();
 }

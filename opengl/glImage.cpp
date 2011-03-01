@@ -318,6 +318,15 @@ void GLImage::setMagnification(float m){
   updateGL();
 }
 
+void GLImage::currentView(int& x, int& y, int& w, int& h)
+{
+  transformPos(0, height(), x, y, false);
+  int x2, y2;
+  transformPos(width(), 0, x2, y2);
+  w = 1 + x2 - x;
+  h = 1 + y2 - y;
+}
+
 void GLImage::transformPos(int x, int y, int& px, int& py, bool setCross){
     px = py = 0;   // in case something doesn't add up at least some kind of reasonable number.. 
     // work out our current coordinates using the offset and the scale values... not sure exactly how, but..

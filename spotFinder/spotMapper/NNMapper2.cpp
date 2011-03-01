@@ -1,6 +1,8 @@
 #include "NNMapper2.h"
+#include "CellTracer.h"
 #include <iostream>
 #include <stdlib.h>
+#include <algorithm>
 
 using namespace std;
 
@@ -34,6 +36,80 @@ void NNMapper2::mapPoints(vector<threeDPoint>& Points, vector<unsigned int> poin
     initCluster(points[i]);
   cout << "\nmapPoints done " << endl;
 }
+
+// use cellTracer with temporary masks to determine the cell shape..
+// Note that perimeter ids have bene set as perimeters index + 1 /////
+void NNMapper2::cellMask2D(unsigned short* mask, int xoff, int yoff, unsigned int width, unsigned int height, 
+			   unsigned int max_distance, bool clearMask)
+{
+  if(clearMask)
+    memset((void*)mask, 0, sizeof(unsigned short) * width * height);
+  
+  map<int, vector<Point*> > cellPoints;
+  for(unsigned int i=0; i < points.size(); ++i){
+    if(points[i]->perimeter_id > 0 && points[i]->id != -1)  // id != 1 excludes points within nuclei
+      cellPoints[ points[i]->perimeter_id ].push_back(points[i]);
+  }
+  CellTracer tracer(pointSpace);
+  for(map<int, vector<Point*> >::iterator it=cellPoints.begin(); it != cellPoints.end(); ++it){
+    cout << "Making map for perimeter with id : " << (*it).first << endl;
+    if(((*it).first - 1) >= (int)perimeters.size())
+      break;
+    int mask_x, mask_y, mask_width, mask_height;
+    unsigned char* cell_mask = tracer.makeCellMask(perimeters[ (*it).first - 1], (*it).second, max_distance, 
+					      mask_x, mask_y, mask_width, mask_height);
+    // and copy non_outside values..
+    for(int y=0; y < mask_height; ++y){
+      if((y + mask_y) >= (yoff + (int)height))
+	break;
+      for(int x=0; x < mask_width; ++x){
+	if((x + mask_x) >= (xoff + (int)width))
+	  break;
+	if(cell_mask[ y * mask_width + x ] != tracer.outside)
+	  mask[ (y + mask_y - yoff) * width + (x + mask_x - xoff) ] = (unsigned short)(*it).first;
+      }
+    }
+    delete []cell_mask;
+  }
+}
+
+// // any given position is given the identity of the closes point as long as that is not -1 or 0. 
+// void NNMapper2::cellMask2D(unsigned short* mask, int xoff, int yoff, unsigned int width, unsigned int height, bool clearMask)
+// {
+//   if(clearMask)
+//     memset((void*)mask, 0, sizeof(unsigned short) * width * height);
+//   for(int y=yoff; y < (yoff + (int)height); ++y){
+//     cout << "y : " << y << endl;
+//     for(int x=xoff; x < (xoff + (int)width); ++x){
+//       Point* f_point = pointSpace->first_point(x, y);
+//       if(f_point){
+// 	if(f_point->perimeter_id > 0)
+// 	  mask[ (y - yoff) * width + (x - xoff) ] = f_point->perimeter_id;
+// 	continue;
+//       }
+//       vector<Point*> npoints;
+//       int radius = (maxD > 0) ? 0 : maxD;  // maxD is max distance, not maxRadius
+//       while(!npoints.size() && radius <= maxD){
+// 	npoints = pointSpace->plane_points(x, y, radius);
+// 	radius = (radius < 2) ? radius + 1 : radius * 2;   
+// 	radius = (radius > maxD && radius < 2 * maxD) ? maxD : radius;
+//       }
+//       if(!npoints.size())
+// 	continue;
+//       int minDist = sq_plane_distance(npoints[0], x, y);
+//       unsigned int min_i = 0;
+//       for(unsigned int i=1; i < npoints.size(); ++i){
+// 	int d = sq_plane_distance(npoints[i], x, y);
+// 	if(d < minDist){
+// 	  minDist = d;
+// 	  min_i = i;
+// 	}
+//       }
+//       if(minDist < sq_maxD && npoints[min_i]->perimeter_id > 0)
+// 	mask[ (y - yoff) * width + (x - xoff) ] = npoints[min_i]->perimeter_id;
+//     }
+//   }
+// }
 
 vector<int> NNMapper2::pointNuclearIds()
 {
@@ -69,7 +145,8 @@ void NNMapper2::initSpaces(vector<threeDPoint>& Points, vector<Perimeter>& Nucle
   for(unsigned int i=0; i < Nuclei.size(); ++i){
     for(unsigned int j=0; j < Nuclei[i].length(); ++j){
       Nuclei[i].pos(j, x, y);
-      perimeterSpace->insertPoint( x, y, z );
+      Point* p = perimeterSpace->insertPoint( x, y, z );
+      p->id = i+1;
     }
   }
   cout << "calling setNucleus" << endl;
@@ -84,14 +161,10 @@ void NNMapper2::initSpaces(vector<threeDPoint>& Points, vector<Perimeter>& Nucle
 void NNMapper2::initCluster(Point* point)
 {
   setNeighbor(point);
-  //  cout << "initCluster point id : " << point->id << "  perimeter id : " << point->perimeter_id << "  nearest distance : " << point->neighbor_sq_distance
-  //     << "  nearest perimeter : " << point->nearest_perimeter_sq_distance << endl;
   if(-1 != point->id){       // point has already been defined..
-    //cout << ".";
     return;
   }
   if(-1 != point->perimeter_id){  // within a nucleus. Don't bother..
-    //cout << "x";
     return;
   }
   
@@ -100,12 +173,10 @@ void NNMapper2::initCluster(Point* point)
      && 
      ( (!point->neighbor) || point->nearest_perimeter_sq_distance < point->neighbor_sq_distance)){    // nearest nuclues is nearer than nearest point
     point->perimeter_id = point->nearest_perimeter_id;
-    //cout << "o";
     return;
   }
   // equally point->neighbor is only set if distance is less thand sq_maxD (otherwise it's 0, not good)
   if(!point->neighbor){   // if second is true (no neighbour), then distance is -1, so not good. 
-    //cout << ":";
     point->id = 0;  // singlet
     return;
   }
@@ -117,10 +188,7 @@ void NNMapper2::initCluster(Point* point)
   vector<Point*> members;
   cluster.insert(make_pair(point->neighbor_sq_distance, point));
   members.push_back(point);
-  cout << id << "  initCluster calling grow : " << point << endl;
-  cout << point->x << "," << point->y << "," << point->z;
   growCluster(cluster, members);
-  cout << endl;
 }
 
 // maybe need to reshift the below..
@@ -155,35 +223,33 @@ void NNMapper2::growCluster(multimap<int, Point*>& cluster, vector<Point*>& memb
   Point* newPoint = point->neighbor;
   
   if(!newPoint){     // this check might be unnecessary since we check stuff above.
-    cout << "unable to obtain neighbor point distance : " << point->neighbor_sq_distance << " == " << (*it).first << endl;
     return;
   }
   if(point->nearest_perimeter_id != -1 &&  point->nearest_perimeter_sq_distance < (*it).first){
     assignNuclearIds( member_points, point->nearest_perimeter_id);
-    cout << "Nuclear perimeter closer than point : cluster size : " << cluster.size() << "  id : " << point->nearest_perimeter_id << endl;
     return;
   }
+  // then newPoint will be used, so let's add to the daughters..
+  point->daughters.insert(newPoint);
   if(newPoint->perimeter_id != -1){
     assignNuclearIds( member_points, newPoint->perimeter_id );
-    cout << "Found point with perimeter defined cluster size : " << cluster.size() << "id : " << newPoint->perimeter_id << endl;
     return;
   }
   /////// newPoint should never have a group id defined but not a nuclear id, hence
   /////// if the logic and implementation of that logic is correct the below should
   /////// never be true.. 
   if(newPoint->id != -1){
-    cerr << "NNMapper2 growCluster newPoint has group id but no perimeter_id logic or implementation error : " << newPoint->id << endl;
+    cerr << "NNMapper2 growCluster newPoint has group id but no perimeter_id logic or implementation error : " 
+	 << newPoint->id << endl;
     exit(1);
   }
   // then simply
   newPoint->id = point->id;
   member_points.push_back(newPoint);
-  cout << "  " << newPoint->x << "," << newPoint->y << "," << newPoint->z;
-  //  cout << " set : " << newPoint << "=" << newPoint->id << endl;
+
   cluster.erase(it); 
   setNeighbor( point );  
   setNeighbor( newPoint ); // both need to be reset.. 
-  //cout << "  new neighbors : " << point->neighbor << " : " << newPoint->neighbor << endl;
   if(point->neighbor)
     cluster.insert(make_pair( point->neighbor_sq_distance, point ));
   if(newPoint->neighbor)
@@ -220,15 +286,18 @@ void NNMapper2::setNeighbor(Point* p){
 
 void NNMapper2::setNucleus()
 {
+  int nuclear_point_count = 0;
   for(unsigned int i=0; i < perimeters.size(); ++i){
     for(unsigned int j=0; j < points.size(); ++j){
       if(perimeters[i].contains(points[j]->x, points[j]->y)){
-	points[j]->perimeter_id = i;
+	points[j]->perimeter_id = i+1;
 	points[j]->nearest_perimeter_sq_distance = 0;
 	points[j]->nearest_perimeter_id = i;
+	++nuclear_point_count;
       }
     }
   }
+  cout << "\nNuclear Point Count : " << nuclear_point_count << endl;
 }
 
 void NNMapper2::setNuclearDistance(Point* p)

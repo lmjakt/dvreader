@@ -120,6 +120,7 @@ class ImageBuilder : public QObject
   std::map<QString, PerimeterData> perimeterData;
   std::map<QString, PerimeterWindow*> perimeterWindows; 
   std::map<QString, NNMapper2*> neighborMappers;     // The key should also refer to keys in mapper_sets, This is assumed, but cannot be guaranteed
+  std::map<QString, unsigned short*> cellIdMasks;
 
   TabWidget* distTabs;
 
@@ -193,6 +194,7 @@ class ImageBuilder : public QObject
   //  void stackSlice(f_parameter& par);
   void stack_map_blobs(f_parameter& par);  // a testing function. to see if the mt_blob_mapper works.. 
   void map_blobs(f_parameter& par);        // makes stacks to map. Splits the problem into smaller parts.
+  void trainBlobSetModels(f_parameter& par);
   void map_perimeters(f_parameter& par);    // tries to find nuclei, or rather perimeters around things.
   void project_perimeters(f_parameter& par);
   void map_blobs_to_perimeters(f_parameter& par);
@@ -206,10 +208,13 @@ class ImageBuilder : public QObject
   void project_blob_collections(f_parameter& par);    // projects contents of collection of things.. 
   void project_blob_sets(f_parameter& par);
   void project_blob_ids(f_parameter& par);   // colour blobs by id (group or perimeter id). Assumes there is a mapping between collection_sets
+  void make_cell_mask(f_parameter& par);
   void list_objects(f_parameter& par);       // list object, use parameters to change listing. 
   // This can be used by any of the above, but it's not one of the general_functions itself
 
   void overlayPoints(std::vector<int> points, unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+  void overlayCellMask(unsigned short* mask, int xoff, int yoff, unsigned int width, unsigned int height,
+		       std::vector<QColor>& colors, bool clear);
   std::vector<QColor> generateColors(unsigned char alpha);
   
   // note that the below functin may destroy image if it returns a different image.. 
