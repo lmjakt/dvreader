@@ -40,7 +40,7 @@ void NNMapper2::mapPoints(vector<threeDPoint>& Points, vector<unsigned int> poin
 // use cellTracer with temporary masks to determine the cell shape..
 // Note that perimeter ids have bene set as perimeters index + 1 /////
 void NNMapper2::cellMask2D(unsigned short* mask, int xoff, int yoff, unsigned int width, unsigned int height, 
-			   unsigned int max_distance, bool clearMask)
+			   unsigned int max_distance, unsigned short border_increment, bool clearMask)
 {
   if(clearMask)
     memset((void*)mask, 0, sizeof(unsigned short) * width * height);
@@ -67,6 +67,8 @@ void NNMapper2::cellMask2D(unsigned short* mask, int xoff, int yoff, unsigned in
 	  break;
 	if(cell_mask[ y * mask_width + x ] != tracer.outside)
 	  mask[ (y + mask_y - yoff) * width + (x + mask_x - xoff) ] = (unsigned short)(*it).first;
+	if(cell_mask[ y * mask_width + x ] & tracer.border)
+	  mask[ (y + mask_y - yoff) * width + (x + mask_x - xoff) ] += border_increment;
       }
     }
     delete []cell_mask;

@@ -98,6 +98,7 @@ class DeltaViewer : public QWidget
   void setHome();
   void setRanges(QString text);  // take a word or a line or something and set the parameters.. 
   QString readRanges();
+  bool setVisible(int& x, int& y, int& width, int& height);
   std::vector<color_map> readColors(std::string fname);
   std::vector<channel_info> collect_channel_info();
   
@@ -276,6 +277,7 @@ class DeltaViewer : public QWidget
   bool animate;
   //QSpinBox* magbox;  // setting the magnification.. 
   QCheckBox* updateDist;
+  QCheckBox* updateVisible;
   raw_data* raw;       // use this for setting the distributions.. 
   QCheckBox* useComponents;
   float lastMaximumValue;  // for distribution..

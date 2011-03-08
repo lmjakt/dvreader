@@ -17,7 +17,7 @@ class NNMapper2
   //  void mapPoints(std::vector<threeDPoint>& Points, std::vector<Perimeter>& Nuclei);
   void mapPoints(std::vector<threeDPoint>& Points, std::vector<unsigned int> pointsIndex, std::vector<Perimeter>& Nuclei);
   void cellMask2D(unsigned short* mask, int xoff, int yoff, unsigned int width, unsigned int height, 
-		  unsigned int max_distance, bool clearMask=true);
+		  unsigned int max_distance, unsigned short border_increment, bool clearMask=true);
   std::vector<int> pointNuclearIds();
   std::vector<int> pointGroupIds();
   std::vector<unsigned int> pointIndices();

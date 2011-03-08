@@ -146,8 +146,12 @@ void CellTracer::floodExterior(int x, int y)
 {
   if(x < 0 || y < 0 || x >= maskWidth || y >= maskHeight)
     return;
-  if(mask[y * maskWidth + x])
+  if(mask[y * maskWidth + x] & outside)
     return;
+  if(mask[y * maskWidth + x]){
+    mask[y * maskWidth + x] |= border;
+    return;
+  }
   mask[y * maskWidth + x] |= outside;
   
   floodExterior(x + 1, y);

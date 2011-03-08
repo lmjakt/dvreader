@@ -20,6 +20,7 @@ class CellTracer
   static const unsigned char node = 2;
   static const unsigned char edge = 4;
   static const unsigned char outside = 8;
+  static const unsigned char border = 16;
 
  private:
   void initMask(Perimeter& nucleus, std::vector<Point*>& points);

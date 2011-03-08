@@ -322,6 +322,9 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
   updateDist = new QCheckBox("Update Dist", this, "updateDist");
   connect(updateDist, SIGNAL(toggled(bool)), this, SLOT(updateDistToggled(bool)) );
 
+  updateVisible = new QCheckBox("Use Visible", this);
+  updateVisible->setChecked(false);
+  
   // Use components hijacked for background subtraction.. 
   useComponents = new QCheckBox("Background subtract", this);
   connect(useComponents, SIGNAL(toggled(bool)), this, SLOT(useComponentsToggled(bool)) );
@@ -561,6 +564,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
 
   offSetBox->addWidget(channelOffsets);
   box->addWidget(updateDist);
+  box->addWidget(updateVisible);
   box->addWidget(useComponents);
 
   box->addWidget(imageBuilderButton);
@@ -739,24 +743,35 @@ void DeltaViewer::setImage(int slice){
       slice = fileSet->sectionNo() - 1;
 
     currentSliceNo = slice;
-
     sectionSpin->blockSignals(true);
     sectionSpin->setValue(slice);
     sectionSpin->blockSignals(false);
 
     // This depends on the order of the colorChoosers and hence is not particularly a good thing
     vector<channel_info> chinfo = collect_channel_info();
-    ////     vector<channel_info> chinfo;
-    // for(uint i=0; i < colorChoosers.size(); ++i){
-    //   if(i >= scales.size() || i >= biases.size()){
-    // 	cerr << "DeltaViewer::setImage colorChoosers.size is larger than scales.size or biases.size()" << endl;
-    // 	exit(1);
-    //   }
-    //   float r, g, b;
-    //   colorChoosers[i]->color(&r, &g, &b);
-    //   chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
-    // 				     colorChoosers[i]->includeInMerger(), colorChoosers[i]->subtractColor()) );
-    // }
+
+    /////////////////// experimental code.. ////
+    //////// Replacing the panel by panel with a simple call to make a single big image
+    //////// that we can send to thingy.. 
+
+    if(updateVisible->isChecked()){   // Then do things completely different and then return.. 
+      int x, y, w, h;
+
+      if(!setVisible(x, y, w, h)){
+	cerr << "DeltaViewer::setImage unable to get visible components giving up" << endl;
+	return;
+      }
+      float* data = new float[w * h * 3];
+      memset((void*)data, 0, sizeof(float) * 3 * w * h);
+      if(!fileSet->readToRGB(data, x, y, w, h, currentSliceNo, chinfo, 0)){
+	return;
+	delete []data;
+      }
+      glViewer->setBigImage(data, x, y, w, h);
+      delete []data;
+      glViewer->updateGL();
+      return; 
+    }
 
     // but more importantly do something to actually update the image.. 
     float* data = new float[textureSize * textureSize * 3];
@@ -766,7 +781,6 @@ void DeltaViewer::setImage(int slice){
     }
     raw = 0;
 
-
     // This necessary since overlapping panels can give too many numbers..
     int col_no, row_no, panelWidth, panelHeight;
     fileSet->stackDimensions(col_no, row_no, panelWidth, panelHeight);
@@ -775,10 +789,11 @@ void DeltaViewer::setImage(int slice){
     //    if(updateDist->isOn())
     //	raw = new raw_data(fileSet->channelNo(), currentView.pw * currentView.ph);
     
-
     int rowCounter = 0;
     int colCounter = 0;
     int textureCounter = 0;
+    ////////// BUG POSSIBILITY ... I'm pretty sure that textureSize below should be replaced with 
+    ////////// panelWidth and panelHeight, but have to check carefully about that.. 
     for(int yb = currentView.py; yb < currentView.py + currentView.ph; yb += textureSize){
 	colCounter = 0;
 	int th = yb + textureSize < currentView.py + currentView.ph ? textureSize : (currentView.py + currentView.ph) - yb;
@@ -1924,6 +1939,20 @@ QString DeltaViewer::readRanges(){
   return(ranges);
 }
 
+bool DeltaViewer::setVisible(int& x, int& y, int& width, int& height)
+{
+  glViewer->currentView(x, y, width, height);
+  // do some sanity checking..
+  if(x >= fileSet->pwidth() || y >= fileSet->pheight())
+    return(false);    
+  x = x < 0 ? 0 : x;
+  y = y < 0 ? 0 : y;
+  width = (x + width) > fileSet->pwidth() ? (fileSet->pwidth() - x) : width;
+  height = (y + height) > fileSet->pheight() ? (fileSet->pheight() - y) : height;
+  if(!width || ! height)
+    return(false);
+  return(true);
+}
 
 vector<channel_info> DeltaViewer::collect_channel_info(){
   vector<channel_info> chinfo;

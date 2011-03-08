@@ -336,20 +336,14 @@ void ImageBuilder::build_fprojection(f_parameter& par)
 
   // if use_visible is true update only for the visible part of the image.
   par.param("use_visible", use_visible);
-  if(use_visible)
-    image->currentView(x, y, width, height);
-  // do some sanity checking..
-  if(x >= data->pwidth() || y >= data->pwidth())
-    return;
-  x = x < 0 ? 0 : x;
-  y = y < 0 ? 0 : y;
-  width = (x + width) > data->pwidth() ? (data->pwidth() - x) : width;
-  height = (y + height) > data->pheight() ? (data->pheight() - y) : height;
-
+  if(use_visible){
+    if(!setVisible(x, y, width, height))
+      return;
+  }
   QString stackName;
   bool saveStack = par.param("f_stack", stackName);
   if(saveStack)
-    cerr << "build_fprojection no stack saving mechanism set yet. Use fg_project with r=0 instead" << endl;
+    warn("build_fprojection no stack saving mechanism set yet. Use fg_project with r=0 instead\n");
   bool clear = true;
   par.param("clear", clear);
   bool clearAll = false;
@@ -398,12 +392,13 @@ void ImageBuilder::build_fgprojection(f_parameter& par)
   bool clear = true;  // do we clear the rgbImage ? 
   par.param("clear", clear); 
 
-  uint x=0; 
-  uint y=0;
+  int x=0; 
+  int y=0;
   uint z=0;
-  uint w = data->pwidth();
-  uint h = data->pheight();
+  int w = data->pwidth();
+  int h = data->pheight();
   uint d = data->sectionNo();
+  
   ///// but using these defaults is a bit dangerous as this function will require 
   ///// a 3 * w * h * d * sizeof(float) memory. (The 3d gaussian takes two, and
   ///// one for the original stack..
@@ -412,6 +407,11 @@ void ImageBuilder::build_fgprojection(f_parameter& par)
   par.param("x", x); par.param("y", y); par.param("z", z);
   par.param("w", w); par.param("h", h); par.param("d", d);
   
+  if(w < 0 || h < 0 || x < 0 || y < 0){
+    warn("Don't specify negative coordinates\n");
+    return;
+  }
+
   // sanity check.
   x = (int)x >= data->pwidth() ? 0 : x;
   y = (int)y >= data->pheight() ? 0 : y;
@@ -423,6 +423,16 @@ void ImageBuilder::build_fgprojection(f_parameter& par)
     cerr << "ImageBuilder::build_fgprojection bad dimensions specified" << endl;
     return;
   }
+  // the user can also specify the use_visible flag
+  bool use_visible = false;
+  par.param("use_visible", use_visible);
+  if(use_visible){
+    if(!setVisible(x, y, w, h)){
+      warn("setVisible returned false inappropriate regions specified\n");
+      return;
+    }
+  }
+
   // which should be safe though we might run out of memory.. 
   float* stack = new float[w * h * d];
   memset((void*)stack, 0, sizeof(float) * w * h * d);
@@ -1616,7 +1626,7 @@ void ImageBuilder::addSlice(f_parameter& par){
     return;
   unsigned int z;
   if(!par.param("z", z)){
-    cerr << "ImageBuilcer::addSlice please specify the z position" << endl;
+    warn("ImageBuilcer::addSlice please specify the z position\n");
     return;
   }
   int x = 0;
@@ -2369,11 +2379,22 @@ void ImageBuilder::map_blobs_to_perimeters(f_parameter& par)
     return;
   }
   vector<Perimeter> nuclei = perimeterWindows[mapName]->selectedPerimeters();
-  vector<blob_set> blobs = mapper_sets[blobName]->blobSets();
+
+  vector<QString> paramNames;
+  vector<unsigned int> superIds;
+  par.param("filter", ',', paramNames);
+  par.param("set_ids", ',', superIds);
+  bool use_corrected_ids = false;
+  par.param("corrected_ids", use_corrected_ids);
+
+  vector<blob_set> blobs = mapper_sets[blobName]->blobSets(superIds, paramNames, use_corrected_ids);
   vector<threeDPoint> points;
   vector<unsigned int> point_indices; // since we don't include everything..
   points.reserve(blobs.size());
   point_indices.reserve(blobs.size());
+
+  QString NNmapperName = mapName;
+  par.param("nn_map_name", NNmapperName);
   
   // select points lying with the margins specified..
   int stack_width, stack_height, stack_depth;
@@ -2400,12 +2421,12 @@ void ImageBuilder::map_blobs_to_perimeters(f_parameter& par)
     points.push_back(threeDPoint(x, y, z, i));
     point_indices.push_back(i);
   }
-  if(!neighborMappers.count(mapName))
-    neighborMappers[mapName] = new NNMapper2(mapperMargin);
-  neighborMappers[mapName]->setMaxDistance(mapperMargin);
+  if(!neighborMappers.count(NNmapperName))
+    neighborMappers[NNmapperName] = new NNMapper2(mapperMargin);
+  neighborMappers[NNmapperName]->setMaxDistance(mapperMargin);
   
-  neighborMappers[mapName]->mapPoints(points, point_indices, nuclei);
-  vector<int> groupIds = neighborMappers[mapName]->pointNuclearIds();  // pointGroupIds or pointNuclearIds
+  neighborMappers[NNmapperName]->mapPoints(points, point_indices, nuclei);
+  vector<int> groupIds = neighborMappers[NNmapperName]->pointNuclearIds();  // pointGroupIds or pointNuclearIds
   // and then use these to draw the points in some way.. 
   if(groupIds.size() != points.size()){
     cerr << "GROUPIDS SIZE IS NOT THE SAME AS POINTS SIZE ? " << endl;
@@ -2909,6 +2930,7 @@ void ImageBuilder::make_cell_mask(f_parameter& par)
   QString error;
   bool clear = true;
   unsigned int max_distance;
+  unsigned short border_increment = 10000;
   QTextStream qts(&error);
   if(!par.param("map", mapName))
     qts << "Please specify NNMapper name (map=..)\n";
@@ -2932,8 +2954,8 @@ void ImageBuilder::make_cell_mask(f_parameter& par)
   cellIdMasks[ mapName ] = new unsigned short[ data->pwidth() * data->pheight() ];
   neighborMappers[ mapName ]->cellMask2D(cellIdMasks[ mapName ], 0, 0, 
 					 (unsigned int)data->pwidth(), (unsigned int)data->pheight(),
-					 max_distance);
-  overlayCellMask( cellIdMasks[ mapName ], 0, 0, data->pwidth(), data->pheight(), colors, clear );
+					 max_distance, border_increment);
+  overlayCellMask( cellIdMasks[ mapName ], border_increment, 0, 0, data->pwidth(), data->pheight(), colors, clear );
 }
 
 // add optional parameters later..
@@ -2975,8 +2997,8 @@ void ImageBuilder::overlayPoints(vector<int> points, unsigned char r, unsigned c
   }
 }
 
-void ImageBuilder::overlayCellMask( unsigned short* mask, int xoff, int yoff,
-				    unsigned int width, unsigned int height,
+void ImageBuilder::overlayCellMask( unsigned short* mask, unsigned short border_increment, 
+				    int xoff, int yoff, unsigned int width, unsigned int height,
 				    vector<QColor>& colors, bool clear )
 {
   if(clear)
@@ -2986,7 +3008,10 @@ void ImageBuilder::overlayCellMask( unsigned short* mask, int xoff, int yoff,
       if(!mask[ (y-yoff)*width + (x-xoff) ])
 	continue;
       int n = 4 * (y * data->pwidth() + x);
-      QColor& color = colors[ (mask[ (y-yoff)*width + (x-xoff) ] - 1) % colors.size() ];
+      QColor color(255, 255, 255, 125);
+      if(mask[ (y-yoff)*width + (x-xoff) ] < border_increment){
+	color = colors[ (mask[ (y-yoff)*width + (x-xoff) ] - 1) % colors.size() ];
+      }
       overlayData[ n ] = color.red();
       overlayData[ n+1 ] = color.green();
       overlayData[ n+2 ] = color.blue();
@@ -3007,6 +3032,19 @@ vector<QColor> ImageBuilder::generateColors(unsigned char alpha)
   colors.push_back(QColor(255, 255, 0, alpha));
   colors.push_back(QColor(255, 255, 255, alpha));
   return(colors);
+}
+
+bool ImageBuilder::setVisible(int& x, int& y, int& width, int& height)
+{
+  image->currentView(x, y, width, height);
+  // do some sanity checking..
+  if(x >= data->pwidth() || y >= data->pheight())
+    return(false);    
+  x = x < 0 ? 0 : x;
+  y = y < 0 ? 0 : y;
+  width = (x + width) > data->pwidth() ? (data->pwidth() - x) : width;
+  height = (y + height) > data->pheight() ? (data->pheight() - y) : height;
+  return(true);
 }
 
 // this function may destroy image. image should be set to the return value.

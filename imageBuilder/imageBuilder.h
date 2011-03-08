@@ -210,13 +210,15 @@ class ImageBuilder : public QObject
   void project_blob_ids(f_parameter& par);   // colour blobs by id (group or perimeter id). Assumes there is a mapping between collection_sets
   void make_cell_mask(f_parameter& par);
   void list_objects(f_parameter& par);       // list object, use parameters to change listing. 
-  // This can be used by any of the above, but it's not one of the general_functions itself
 
+  // These can be used by any of the above
   void overlayPoints(std::vector<int> points, unsigned char r, unsigned char g, unsigned char b, unsigned char a);
-  void overlayCellMask(unsigned short* mask, int xoff, int yoff, unsigned int width, unsigned int height,
+  void overlayCellMask(unsigned short* mask, unsigned short border_increment, 
+		       int xoff, int yoff, unsigned int width, unsigned int height,
 		       std::vector<QColor>& colors, bool clear);
   std::vector<QColor> generateColors(unsigned char alpha);
-  
+  bool setVisible(int& x, int& y, int& width, int& height);
+
   // note that the below functin may destroy image if it returns a different image.. 
   float* modifyImage(int x, int y, int w, int h, float* image, f_parameter& par);
   ImStack* imageStack(f_parameter& par);  // convenience function.. 

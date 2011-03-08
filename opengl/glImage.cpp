@@ -47,20 +47,9 @@ using namespace std;
   Create a GLImage widget
 */
 
-//const int backgroundWidth = 1024; 
-//const int backgroundHeight = 1024;   // the size of the background texture map
-
-// and a couple of things that we'll use for now..
-static GLuint texName;  // for the texture
-static GLuint extraTex; // an extra texture.. 
-static GLuint thirdOne;
-static GLuint fourthOne;
-
 GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texSize, GLfloat aspRatio, QWidget* parent, const char* name )
   : QGLWidget( parent, name )
 {
-  // just calling the other constructor as done below causes segmentation faults (texturs gets overwritten with something)
-  //  GLImage(width, height, texSize, texSize, aspRatio, parent, name);
   setMouseTracking(true);
   xo = yo = buttonPressed = 0;
   xscale = yscale = 1;
@@ -80,11 +69,8 @@ GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texSize, 
   // In fact it seems that backgroundWidth and imageWidth are never different from textureWidth
   // and I should remove them.
  
-  //backgroundWidth = imageWidth = texSize; //backgroundHeight = textureSize;
-  //backgroundHeight = imageHeight = texSize;
   setFocusPolicy(Qt::ClickFocus);
   setAttribute(Qt::WA_NoSystemBackground);
-  //  generate_overlay_textures();  // crash ? 
 }
 
 GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texWidth, 
@@ -106,10 +92,7 @@ GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texWidth,
     xCross = yCross = 0.0;
     drawCross = false;
     showOverlay = false;
-    // width and height are used to work out the backgroundHeight and backgroundWidth...
 
-    //    textureWidth = imageWidth = textureWidth; //backgroundHeight = textureSize;
-    //backgroundHeight = imageHeight = textureHeight;
     setFocusPolicy(Qt::ClickFocus);
     setAttribute(Qt::WA_NoSystemBackground);
 
@@ -348,11 +331,10 @@ void GLImage::transformPos(int x, int y, int& px, int& py, bool setCross){
     GLfloat yScaledFrustumDistance = (yFrustumPos - yOrigin) / xscale;
     py = textureHeight * (yScaledFrustumDistance / 2.0);
     
-
     // if we want to draw a cross on the thingy.. 
     if(setCross){ 
 	xCross = scaledFrustumDistance - 1.0;
-	yCross = yScaledFrustumDistance - aspectRatio;   // these coordinates will have to be scaled and offset like the box coordinates.. 
+	yCross = yScaledFrustumDistance - aspectRatio;   
     }	
 
 }
@@ -367,33 +349,8 @@ void GLImage::mousePressEvent(QMouseEvent* e){
     // These should be in terms of pixel positions, so the y position might be difficult to deal with.
     // at a later stage we might want to draw something to indicate this positon..
     if(e->state() == (Qt::ControlButton)){
-	// work out our current coordinates using the offset and the scale values... not sure exactly how, but..
-
-	// This is a really long way around, and it is ugly. I suppose that it can be summarised nicely into a single
-	// nice equation, but I had a little trouble working out how to do this, so am trying to keep it simple.
-
-	// I think this might end up being different if the size of the drawn pixmap is different from the background, 
-	// and if the aspectRatio isn't one. (but you never know, it might work..)
-
 	int px, py;
 	transformPos(e->x(), e->y(), px, py, true);
-
-// 	GLfloat frustumPos = -1.0 + ((GLfloat)(2 * e->x())/(GLfloat)backgroundWidth);
-// 	GLfloat xOrigin = (-1.0 + xo) * xscale;
-// 	GLfloat frustumDistance = frustumPos - xOrigin;
-// 	GLfloat scaledFrustumDistance = frustumDistance / xscale;
-// 	int px = backgroundWidth * (scaledFrustumDistance / 2.0);
-
-// 	// y position might be a little bit more complicated, but as long as the aspect ratio is 1, and the whole image is used... no problem.. 
-// 	GLfloat yFrustumPos = -aspectRatio + ((GLfloat)(2 * (height() - e->y())) / (GLfloat)backgroundHeight);   //
-// 	GLfloat yOrigin = (-aspectRatio + yo) * xscale;
-// 	GLfloat yScaledFrustumDistance = (yFrustumPos - yOrigin) / xscale;
-// 	int py = backgroundHeight * (yScaledFrustumDistance / 2.0);
-
-// 	xCross = scaledFrustumDistance - 1.0;
-// 	yCross = yScaledFrustumDistance - aspectRatio;   // these coordinates will have to be scaled and offset like the box coordinates.. 
-
-
 	emit newPos(px, py);
 	buttonPressed = Qt::NoButton;  // if the mouse is moved do nothing
 	if(drawCross){
@@ -417,15 +374,14 @@ void GLImage::mouseMoveEvent(QMouseEvent* e){
     switch(buttonPressed){
 	case Qt::LeftButton :
 	    xo += 2.0 * ((GLfloat)(e->x() - lastX)) / (xscale * (GLfloat)textureWidth) ;
-	    yo += aspectRatio * 2.0 * (GLfloat)(lastY - e->y()) / (xscale * (GLfloat)textureWidth * aspectRatio);   // vertical direction is opposite on these things
-	    //yo += aspectRatio * 2.0 * (GLfloat)(lastY - e->y()) / (xscale * (GLfloat)backgroundHeight);   // vertical direction is opposite on these things
+	    yo += aspectRatio * 2.0 * (GLfloat)(lastY - e->y()) / (xscale * (GLfloat)textureWidth * aspectRatio);   
+	    // vertical direction is opposite on these things
 	    // the offsets need to be divided by the multiplier.. hmm
-	    emit offSetsSet((int)(xo * (float)textureWidth), (int)(yo * (float)textureHeight));   // but these should really be divided by the magnification.. hmm 
+	    emit offSetsSet((int)(xo * (float)textureWidth), (int)(yo * (float)textureHeight));   
 	    break;
 	case Qt::RightButton :
 	    // change the magnification multiplier..
 	    xscale += (lastY - e->y()) / (GLfloat)(200);
-	    //    xscale += (lastY - e->y()) / (GLfloat)(backgroundHeight/2);
 	    emit magnificationSet(xscale);
 	    break;
 	case Qt::MidButton :
@@ -437,9 +393,7 @@ void GLImage::mouseMoveEvent(QMouseEvent* e){
 	    break;
 	default :
 	    cerr << "Unknown mouse button : " << e->button() << endl;
-    }
-
-    
+    }    
     lastY = e->y();
     lastX = e->x();
     
@@ -464,14 +418,13 @@ void GLImage::mouseReleaseEvent(QMouseEvent* e){
 
 
 void GLImage::wheelEvent(QWheelEvent* e){
-    emit incrementImage(e->delta() / 120);  // +/- 1  .. should be anyway
+  //emit incrementImage(e->delta() / 120);  // +/- 1  .. should be anyway
     if(e->delta() > 0){
 	emit nextImage();
 	return;
     }
     emit previousImage();
     // wheels emit -120 / + 120.. so basically.. divide by delta..
-    
 }
 
 void GLImage::keyPressEvent(QKeyEvent* e){
@@ -499,15 +452,12 @@ void GLImage::keyPressEvent(QKeyEvent* e){
   default :
     e->ignore();
   }
-  //  e->ignore();  // default 
 }
 
 void GLImage::paintGL(){
 
     // See if we can use a normal painter here..
     glPushAttrib(GL_ALL_ATTRIB_BITS);
-
-//    QPainter p(this);
 
     glPopAttrib();
     glPushMatrix();
@@ -538,8 +488,8 @@ void GLImage::paintGL(){
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
-    for(uint i=0; i < theight; i++){
-	for(uint j=0; j < twidth; j++){
+    for(int i=0; i < theight; i++){
+	for(int j=0; j < twidth; j++){
 	    GLint texture = textures[i * twidth + j];
 	    
 	    
@@ -574,18 +524,6 @@ void GLImage::paintGL(){
 
 	}
     }
-    // /// try setting up the last texture..
-    // glBindTexture(GL_TEXTURE_2D, test_overlay_texture);
-    // glBegin(GL_QUADS);
-    
-    // glTexCoord2f(0, 0); glVertex3f((-x + xo) * xscale, (y1 + yo) * xscale, +1);
-    // glTexCoord2f(0, 1.0); glVertex3f((-x + xo) * xscale, (y2 + yo) * xscale, +1);
-    // glTexCoord2f(1.0, 1.0); glVertex3f((x + xo) * xscale, (y2 + yo) * xscale, +1);
-    // glTexCoord2f(1.0, 0); glVertex3f((x + xo) * xscale, (y1 + yo) * xscale, +1);
-    
-    // glEnd();
-    // //// EXPERIMENTAL CRAP.. 
-
     glFlush();
     glDisable(GL_TEXTURE_2D);
     
@@ -635,12 +573,11 @@ void GLImage::initializeGL()
   glClearColor(0.0, 0.0, 0.0, 0.0);
   glShadeModel(GL_FLAT);
   glEnable(GL_DEPTH_TEST);
-  //makeCheckImage();   // define an array that we can use as the initial texture. We probably don't need to remember this, but.. 
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);  // note if we use RGBA or we use floats we shouldn't need to call this.. (but for now the example.._)
   textures = new GLuint[theight * twidth];
   glGenTextures(twidth * theight, textures);    // makes the required number of textures.. 
-  for(unsigned int i=0; i < theight; i++){
-    for(unsigned int j=0; j < twidth; j++){
+  for(int i=0; i < theight; i++){
+    for(int j=0; j < twidth; j++){
       glBindTexture(GL_TEXTURE_2D, textures[i * twidth + j]);
       //glGenTextures(1, &texName);
       //	    glBindTexture(GL_TEXTURE_2D, texName);
@@ -692,20 +629,15 @@ void GLImage::initializeGL()
     delete overlay_textures;
   overlay_textures = new GLuint[theight * twidth];
   glGenTextures(twidth * theight, overlay_textures);
-  for(unsigned int i=0; i < theight; i++){
-    for(unsigned int j=0; j < twidth; j++){
+  for(int i=0; i < theight; i++){
+    for(int j=0; j < twidth; j++){
       glBindTexture(GL_TEXTURE_2D, overlay_textures[i * twidth + j]);
-      //glGenTextures(1, &texName);
-      //	    glBindTexture(GL_TEXTURE_2D, texName);
-      
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textureWidth, textureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, test_overlay_image);
-      //      GLint resWidth;
-      //glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &resWidth);
     }
   }    
 }
@@ -757,4 +689,3 @@ float* GLImage::make_background(unsigned int width, unsigned int height){
     }
     return(bg);
 }
-	    
