@@ -34,70 +34,81 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 using namespace std;
 
 int main(int argc, char** argv){
-//   if(argc != 2){
-//     cout << "usage : reader inputfile" << endl;
-//     exit(1);
-//   }
-  
-    // obtain any options that we might have.. 
-    int c;
-    map<string, string> opt_commands;
-    vector<char*> non_options;
-    int xyMargin = 32;
-    while( (c = getopt(argc, argv, "-s:b:d:-c:-r:m:")) != -1){
-      switch(c){
-      case 's':
-	opt_commands["find_spots"] = optarg;
-	break;
-      case 'd':
-	opt_commands["die"] = "yes";   // useful for making projections
-	break;
-      case 'b':
-	opt_commands["find_blobs"] = optarg;
-	break;
-      case 'c':
-	opt_commands["colorFile"] = optarg;
-	break;
-      case 'r':
-	opt_commands["rangeFile"] = optarg;
-	break;
-      case 'm':
-	xyMargin = atoi(optarg);
-	break;
-      case 1 :
-	non_options.push_back(optarg);
-      break;
-      case '?' :
-	cerr << "Unknown option : " << optopt << endl;
-	break;
-      default :
-	abort();
-      }
-    }
-    
-//     for(map<string, string>::iterator it=opt_commands.begin(); it != opt_commands.end(); ++it)
-// 	cout << (*it).first << " : " << (*it).second << endl;
-//     exit(1);
+  // some of the recursive functions require a bigger stack.
+  // rlimit stack_limit;
+  // getrlimit(RLIMIT_STACK, &stack_limit);
+  // cout << "Current stack " << stack_limit.rlim_cur << "  : " << stack_limit.rlim_max << endl;
+  // stack_limit.rlim_cur *= 8;
 
-    
-    // make a qapplication..
-    QApplication::setStyle("cleanlooks");
-    QApplication app(argc, argv);
-//    app.setStyle("plastique");
-//    app.setStyle("cde");
-    const char* ifName = 0;
-    if(non_options.size()){
-	ifName = non_options[0];
+  // if(setrlimit(RLIMIT_STACK, &stack_limit)){
+  //   cerr << "Unable to increase stack limit to : " << stack_limit.rlim_cur << endl;
+  //   exit(1);
+  // }
+
+  // the above seems to cause a segmentation fault. consider using ulimit -s
+  // don't know why, but crash happens with no stack comment.. ??
+
+  // obtain any options that we might have.. 
+  int c;
+  map<string, string> opt_commands;
+  vector<char*> non_options;
+  int xyMargin = 32;
+  while( (c = getopt(argc, argv, "-s:b:d:-c:-r:m:")) != -1){
+    switch(c){
+    case 's':
+      opt_commands["find_spots"] = optarg;
+      break;
+    case 'd':
+      opt_commands["die"] = "yes";   // useful for making projections
+      break;
+    case 'b':
+      opt_commands["find_blobs"] = optarg;
+      break;
+    case 'c':
+      opt_commands["colorFile"] = optarg;
+      break;
+    case 'r':
+      opt_commands["rangeFile"] = optarg;
+      break;
+    case 'm':
+      xyMargin = atoi(optarg);
+      break;
+    case 1 :
+      non_options.push_back(optarg);
+      break;
+    case '?' :
+      cerr << "Unknown option : " << optopt << endl;
+      break;
+    default :
+      abort();
     }
-    DeltaViewer viewer(opt_commands, xyMargin, ifName);
-    viewer.setContentsMargins(0, 0, 0, 0);
-    app.setMainWidget(&viewer);
-    viewer.show();
-    return app.exec();
-    
+  }
+  
+  //     for(map<string, string>::iterator it=opt_commands.begin(); it != opt_commands.end(); ++it)
+  // 	cout << (*it).first << " : " << (*it).second << endl;
+  //     exit(1);
+  
+  
+  // make a qapplication..
+  QApplication::setStyle("cleanlooks");
+  QApplication app(argc, argv);
+  //    app.setStyle("plastique");
+  //    app.setStyle("cde");
+  const char* ifName = 0;
+  if(non_options.size()){
+    ifName = non_options[0];
+  }
+  DeltaViewer viewer(opt_commands, xyMargin, ifName);
+  viewer.setContentsMargins(0, 0, 0, 0);
+  app.setMainWidget(&viewer);
+  viewer.show();
+  return app.exec();
+  
 }
 

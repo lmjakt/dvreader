@@ -50,8 +50,10 @@ using namespace std;
 GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texSize, GLfloat aspRatio, QWidget* parent, const char* name )
   : QGLWidget( parent, name )
 {
+  viewingState = VIEW;
   setMouseTracking(true);
-  xo = yo = buttonPressed = 0;
+  xo = yo = 0;
+  buttonPressed = Qt::NoButton;
   xscale = yscale = 1;
   aspectRatio = aspRatio;
   
@@ -78,7 +80,8 @@ GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texWidth,
     : QGLWidget( parent, name )
 {
     setMouseTracking(true);
-    xo = yo = buttonPressed = 0;
+    xo = yo = 0;
+    buttonPressed = Qt::NoButton;
     xscale = yscale = 1;
     aspectRatio = aspRatio;
 
@@ -301,6 +304,22 @@ void GLImage::setMagnification(float m){
   updateGL();
 }
 
+void GLImage::setPosition(int x, int y)
+{
+  // this assumes that the viewport is set to textureWidth and textureHeight
+  // no real point to assuem this, but.. 
+  xo = 1-(2.0 * (GLfloat)x) / (GLfloat)textureWidth;
+  yo = 1-(2.0 * (GLfloat)y) / (GLfloat)textureHeight;
+  // note that I might need to take into account the aspectRatio as well, but
+  // not sure at the moment.. 
+  updateGL();
+}
+
+void GLImage::setViewState(ViewState vstate)
+{
+  viewingState = vstate;
+}
+
 void GLImage::currentView(int& x, int& y, int& w, int& h)
 {
   transformPos(0, height(), x, y, false);
@@ -348,72 +367,92 @@ void GLImage::mousePressEvent(QMouseEvent* e){
     // if we have a control left click, then report our current position so that we can set slice positions.
     // These should be in terms of pixel positions, so the y position might be difficult to deal with.
     // at a later stage we might want to draw something to indicate this positon..
-    if(e->state() == (Qt::ControlButton)){
-	int px, py;
-	transformPos(e->x(), e->y(), px, py, true);
-	emit newPos(px, py);
-	buttonPressed = Qt::NoButton;  // if the mouse is moved do nothing
-	if(drawCross){
-	    updateGL();
-	}
-	return;
+  int px, py;
+  transformPos(e->x(), e->y(), px, py, true);
+  buttonPressed = e->button();
+  if(viewingState != VIEW){
+    emit mousePressed(QPoint(px, py), buttonPressed);
+    return;
+  }
+  
+  if(e->state() == (Qt::ControlButton)){
+    emit newPos(px, py);
+    buttonPressed = Qt::NoButton;  // if the mouse is moved do nothing
+    if(drawCross){
+      updateGL();
     }
-    if(e->button() == Qt::MidButton){
-	// we need to set some variables here...
-	lineStart = e->pos();
-    }
-    
-    lastX = e->x();
-    lastY = e->y();
-    buttonPressed = e->button();
+    return;
+  }
+  if(e->button() == Qt::MidButton){
+    // we need to set some variables here...
+    lineStart = e->pos();
+  }
+  
+  lastX = e->x();
+  lastY = e->y();
+  buttonPressed = e->button();
 }
 
 void GLImage::mouseMoveEvent(QMouseEvent* e){
-    int px, py;
-    transformPos(e->x(), e->y(), px, py, false);
-    switch(buttonPressed){
-	case Qt::LeftButton :
-	    xo += 2.0 * ((GLfloat)(e->x() - lastX)) / (xscale * (GLfloat)textureWidth) ;
-	    yo += aspectRatio * 2.0 * (GLfloat)(lastY - e->y()) / (xscale * (GLfloat)textureWidth * aspectRatio);   
-	    // vertical direction is opposite on these things
-	    // the offsets need to be divided by the multiplier.. hmm
-	    emit offSetsSet((int)(xo * (float)textureWidth), (int)(yo * (float)textureHeight));   
-	    break;
-	case Qt::RightButton :
-	    // change the magnification multiplier..
-	    xscale += (lastY - e->y()) / (GLfloat)(200);
-	    emit magnificationSet(xscale);
-	    break;
-	case Qt::MidButton :
-	    // well, we can try to think of something.. but
-	    lineEnd = e->pos();
-	    break;
-	case Qt::NoButton :
-	    emit mousePos(px, py);
-	    break;
-	default :
-	    cerr << "Unknown mouse button : " << e->button() << endl;
-    }    
-    lastY = e->y();
-    lastX = e->x();
-    
-    updateGL();
-    // and if we have something like this, make a QPainter and draw a line.. 
-    if(buttonPressed == Qt::MidButton){
-	QPainter p(this);
-	p.setPen(QPen(QColor(255, 255, 255), 1));
-	p.drawLine(lineStart, lineEnd);
-    }
+  int px, py;
+  transformPos(e->x(), e->y(), px, py, false);
+
+  if(viewingState != VIEW){
+    emit mousePressed(QPoint(px, py), buttonPressed);
+    return;
+  }
+
+  switch(buttonPressed){
+  case Qt::LeftButton :
+    xo += 2.0 * ((GLfloat)(e->x() - lastX)) / (xscale * (GLfloat)textureWidth) ;
+    yo += aspectRatio * 2.0 * (GLfloat)(lastY - e->y()) / (xscale * (GLfloat)textureWidth * aspectRatio);   
+    // vertical direction is opposite on these things
+    // the offsets need to be divided by the multiplier.. hmm
+    emit offSetsSet((int)(xo * (float)textureWidth), (int)(yo * (float)textureHeight));   
+    break;
+  case Qt::RightButton :
+    // change the magnification multiplier..
+    xscale += (lastY - e->y()) / (GLfloat)(200);
+    emit magnificationSet(xscale);
+    break;
+  case Qt::MidButton :
+    // well, we can try to think of something.. but
+    lineEnd = e->pos();
+    break;
+  case Qt::NoButton :
+    emit mousePos(px, py);
+    break;
+  default :
+    cerr << "Unknown mouse button : " << e->button() << endl;
+  }    
+  lastY = e->y();
+  lastX = e->x();
+  
+  updateGL();
+  // and if we have something like this, make a QPainter and draw a line.. 
+  if(buttonPressed == Qt::MidButton){
+    QPainter p(this);
+    p.setPen(QPen(QColor(255, 255, 255), 1));
+    p.drawLine(lineStart, lineEnd);
+  }
 }
 
 void GLImage::mouseReleaseEvent(QMouseEvent* e){
-    if(buttonPressed == Qt::MidButton){
-	int x1, x2, y1, y2;
-	transformPos(lineStart.x(), lineStart.y(), x1, y1, false);
-	transformPos(lineEnd.x(), lineEnd.y(), x2, y2, false);
-	emit newLine(x1, y1, x2, y2);   // and whatever..
-    }
-    buttonPressed = Qt::NoButton; 
+  int px, py;
+  transformPos(e->x(), e->y(), px, py);
+
+  if(viewingState != VIEW){
+    emit mousePressed(QPoint(px, py), buttonPressed);
+    return;
+  }
+
+  if(buttonPressed == Qt::MidButton){
+    int x1, x2, y1, y2;
+    transformPos(lineStart.x(), lineStart.y(), x1, y1, false);
+    transformPos(lineEnd.x(), lineEnd.y(), x2, y2, false);
+    emit newLine(x1, y1, x2, y2);   // and whatever..
+  }
+  buttonPressed = Qt::NoButton; 
 }
 
 

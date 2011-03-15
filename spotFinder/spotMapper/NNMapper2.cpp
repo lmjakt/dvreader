@@ -1,5 +1,7 @@
 #include "NNMapper2.h"
 #include "CellTracer.h"
+#include "../../imageBuilder/OutlineTracer.h"
+#include "../../imageBuilder/CellOutlines.h"
 #include <iostream>
 #include <stdlib.h>
 #include <algorithm>
@@ -39,18 +41,25 @@ void NNMapper2::mapPoints(vector<threeDPoint>& Points, vector<unsigned int> poin
 
 // use cellTracer with temporary masks to determine the cell shape..
 // Note that perimeter ids have bene set as perimeters index + 1 /////
-void NNMapper2::cellMask2D(unsigned short* mask, int xoff, int yoff, unsigned int width, unsigned int height, 
+CellOutlines* NNMapper2::cellMask2D(unsigned short* mask, int xoff, int yoff, unsigned int width, unsigned int height, 
 			   unsigned int max_distance, unsigned short border_increment, bool clearMask)
 {
   if(clearMask)
     memset((void*)mask, 0, sizeof(unsigned short) * width * height);
   
+  if(!perimeters.size())
+    return(0);
+  int global_width = perimeters[0].g_width();
+  int global_height = perimeters[0].g_height();
+
   map<int, vector<Point*> > cellPoints;
   for(unsigned int i=0; i < points.size(); ++i){
-    if(points[i]->perimeter_id > 0 && points[i]->id != -1)  // id != 1 excludes points within nuclei
+    if(points[i]->perimeter_id > 0 && points[i]->id != -1)  // id != -1 excludes points within nuclei
       cellPoints[ points[i]->perimeter_id ].push_back(points[i]);
   }
   CellTracer tracer(pointSpace);
+  CellOutlines* cells = new CellOutlines();
+  cells->cellMask = mask;
   for(map<int, vector<Point*> >::iterator it=cellPoints.begin(); it != cellPoints.end(); ++it){
     cout << "Making map for perimeter with id : " << (*it).first << endl;
     if(((*it).first - 1) >= (int)perimeters.size())
@@ -58,6 +67,12 @@ void NNMapper2::cellMask2D(unsigned short* mask, int xoff, int yoff, unsigned in
     int mask_x, mask_y, mask_width, mask_height;
     unsigned char* cell_mask = tracer.makeCellMask(perimeters[ (*it).first - 1], (*it).second, max_distance, 
 					      mask_x, mask_y, mask_width, mask_height);
+    OutlineTracer outlineTracer(cell_mask, mask_x, mask_y, mask_width, mask_height, global_width, false);
+    vector<int> outline = outlineTracer.traceOutline( CellTracer::border );
+    cells->nuclei.push_back( perimeters[ (*it).first - 1] );
+    cells->cells.push_back( Perimeter( outline, global_width, global_height ) );
+    cout << "Making a new cell perimeter length is " << cells->cells.size() << " : "  << outline.size() << endl;
+    cout << "With parameters : " << cells->cells.back().xmin() << " -> " << cells->cells.back().xmax() << endl;
     // and copy non_outside values..
     for(int y=0; y < mask_height; ++y){
       if((y + mask_y) >= (yoff + (int)height))
@@ -71,8 +86,9 @@ void NNMapper2::cellMask2D(unsigned short* mask, int xoff, int yoff, unsigned in
 	  mask[ (y + mask_y - yoff) * width + (x + mask_x - xoff) ] += border_increment;
       }
     }
-    delete []cell_mask;
+    delete []cell_mask; 
   }
+  return(cells);
 }
 
 // // any given position is given the identity of the closes point as long as that is not -1 or 0. 

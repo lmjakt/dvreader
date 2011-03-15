@@ -764,8 +764,8 @@ void DeltaViewer::setImage(int slice){
       float* data = new float[w * h * 3];
       memset((void*)data, 0, sizeof(float) * 3 * w * h);
       if(!fileSet->readToRGB(data, x, y, w, h, currentSliceNo, chinfo, 0)){
-	return;
 	delete []data;
+	return;
       }
       glViewer->setBigImage(data, x, y, w, h);
       delete []data;

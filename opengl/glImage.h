@@ -25,6 +25,7 @@
 #ifndef GLIMAGE_H
 #define GLIMAGE_H
 
+#include <Qt>
 #include <QGLWidget>
 #include <qpoint.h>
 //Added by qt3to4:
@@ -54,6 +55,7 @@ class GLImage : public QGLWidget
     GLImage(unsigned int width, unsigned int height, unsigned int texWidth,  unsigned int texHeight,
 	    GLfloat aspRatio=1.0, QWidget* parent=0, const char* name=0 );
     ~GLImage();
+    enum ViewState { VIEW, DRAW };
 
 public slots:
 
@@ -64,6 +66,8 @@ public slots:
 		    int width, int height);
  void clearTextures();
  void setMagnification(float m);
+ void setPosition(int x, int y);
+ void setViewState(ViewState vstate);
  void resetMagnification(){
      xscale = 1.0;
      updateGL();
@@ -93,7 +97,7 @@ protected:
     //virtual GLuint 	makeObject();
 
 private:
-
+    ViewState viewingState;
     void gl_mod_buffer(float* destination, float* source, GLint w, GLint h, GLfloat param);  // try to use gldrawpixels and glreadpixels to modify a data set
     float* make_background(unsigned int width, unsigned int height);   // make a  square of some sort .. 
     bool mapImageToTexture(float* image_data, int source_x, int source_y,
@@ -104,40 +108,24 @@ private:
 					 int tex_x, int tex_y);
     //void generate_overlay_textures();
     
-    //    bool animation;
-    //    GLuint object;
     GLuint* textures;
     GLuint* overlay_textures;  // RGBA GL_UNSIGNED_BYTE overlay textures (that can be switched on or off by some means)
     bool showOverlay;
     GLint twidth, theight;   // the number of textures, not the
-    //    GLint textureSize;     // the size of the texture.. 
     GLint textureWidth;
     GLint textureHeight;
     std::vector<float*> images;   // the images that we want to map to the different areas.. 
     float* backgroundImage;       // a single image that we can use to set things up.. 
     
-//    GLfloat xRot, yRot, zRot;
     GLfloat xo, yo;    // x and y origin.. before magnification ! 
     GLfloat xscale, yscale;
-//    GLint rowSkip, pixelSkip;  // to allow movement of the image (simulated)
-    int lastX, lastY, buttonPressed;
-//    unsigned char* imageData;  // assume 8 bit greyscale.. basically.. 
-//    float* rgb_image;          // image in floats.. somewhat different.. 
-//    float* extra_image;
-//    bool useRGB;               // whether or not we use RGB..would probably be better to replace with a state variable. enum.. 
-
-    // It seems that the below are always equal to textureWidth and textureHeight, 
-    // so I should probably get rid of them.
-    //GLint imageWidth, imageHeight;
-    //GLint backgroundWidth, backgroundHeight;
+    int lastX, lastY;
+    Qt::MouseButton buttonPressed;
 
     GLfloat xCross, yCross;   // draw a cross at these position if something is true..
     bool drawCross;           // 
-    //   GLfloat* backgroundTexture;
     GLfloat aspectRatio;   // this is the ratio of the aspect of the image that we want to put there. Expressed as y/x
-    //GLfloat scaleFactor, biasFactor;  // for the scaling of colours.. 
-    //QTimer* timer;
-    //QImage tex1;
+
     QPoint lineStart;
     QPoint lineEnd;    // if we draw a line on top of stuff.. 
     
@@ -152,6 +140,11 @@ private:
     void newPos(int, int);       // instruct someone how to slice the cube.. 
     void newLine(int, int, int, int);  // x1, y1,, x2, y2
     void mousePos(int, int);  // the translated mouse Position.. 
+    // The following signals are only sent if the ViewState is not VIEW,
+    // and use the transformed positions (i.e. image based rather than the widget based).
+    void mousePressed(QPoint p, Qt::MouseButton button);
+    void mouseMoved(QPoint p, Qt::MouseButton button);
+    void mouseReleased(QPoint p, Qt::MouseButton);   
 };
 
 

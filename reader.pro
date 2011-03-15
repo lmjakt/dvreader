@@ -119,6 +119,9 @@ HEADERS		= \
 		imageBuilder/blob_set.h \
 		imageBuilder/Blob_mt_mapper_collection.h \
 		imageBuilder/BlobModelSet.h \
+                imageBuilder/MaskMaker.h \
+                imageBuilder/OutlineTracer.h \
+                imageBuilder/CellOutlines.h \
 		util/matrix.h	
 SOURCES		= \
 		dvReader.cpp \
@@ -227,6 +230,8 @@ SOURCES		= \
 		imageBuilder/blob_set.cpp \
 		imageBuilder/Blob_mt_mapper_collection.cpp \
 		imageBuilder/BlobModelSet.cpp \
+                imageBuilder/MaskMaker.cpp \
+                imageBuilder/OutlineTracer.cpp \
 		util/matrix.cpp \
 		globalVariables.cpp \
 		main.cpp

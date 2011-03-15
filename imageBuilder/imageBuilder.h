@@ -31,11 +31,13 @@ class ScatterPlotter;
 class PerimeterWindow;
 //class NearestNeighborMapper;
 class NNMapper2;
+class MaskMaker;
 
 struct channel_info;
 struct color_map;
 struct backgroundPars;
 struct blob;
+struct CellOutlines;
 
 class ImageBuilder : public QObject 
 {
@@ -120,7 +122,8 @@ class ImageBuilder : public QObject
   std::map<QString, PerimeterData> perimeterData;
   std::map<QString, PerimeterWindow*> perimeterWindows; 
   std::map<QString, NNMapper2*> neighborMappers;     // The key should also refer to keys in mapper_sets, This is assumed, but cannot be guaranteed
-  std::map<QString, unsigned short*> cellIdMasks;
+  std::map<QString, CellOutlines*> cellIdMasks;
+  MaskMaker* maskMaker;
 
   TabWidget* distTabs;
 
@@ -209,7 +212,10 @@ class ImageBuilder : public QObject
   void project_blob_sets(f_parameter& par);
   void project_blob_ids(f_parameter& par);   // colour blobs by id (group or perimeter id). Assumes there is a mapping between collection_sets
   void make_cell_mask(f_parameter& par);
+  void modifyCellPerimeter(f_parameter& par);
   void list_objects(f_parameter& par);       // list object, use parameters to change listing. 
+
+  void setImageCenter(f_parameter& par);
 
   // These can be used by any of the above
   void overlayPoints(std::vector<int> points, unsigned char r, unsigned char g, unsigned char b, unsigned char a);
@@ -235,6 +241,11 @@ class ImageBuilder : public QObject
   bool isPowerOfTwo(unsigned int i){
     return( (i != 0) && !(i & (i - 1)) );
   }
+
+  private slots:
+  void beginSegment(QPoint p, Qt::MouseButton button);
+  void extendSegment(QPoint p, Qt::MouseButton button);
+  void endSegment(QPoint p, Qt::MouseButton button);
 };
 
 #endif

@@ -28,6 +28,7 @@
 
 #include <vector>
 #include <set>
+#include <QPoint>
 #include "../abstract/space.h"
 
 typedef unsigned int uint;
@@ -75,58 +76,58 @@ class Perimeter {
                                      // setDetails(), centerPos(int, int) or contains(int, int) is called.
     
     public :
-	Perimeter(){
-	minX = minY = maxX = maxY = 0;
-	globalWidth = globalHeight = 0;
+    Perimeter(){
+      minX = minY = maxX = maxY = 0;
+      globalWidth = globalHeight = 0;
     }
     bool pos(uint i, int& x, int& y){
-	if(i < perimeter.size()){
-	    x = perimeter[i] % globalWidth;
-	    y = perimeter[i] / globalWidth;
-	    return(true);
-	}
-	x = y = 0;
-	return(false);
+      if(i < perimeter.size()){
+	x = perimeter[i] % globalWidth;
+	y = perimeter[i] / globalWidth;
+	return(true);
+      }
+      x = y = 0;
+      return(false);
     }
     
     unsigned int length(){
-	return(perimeter.size());
+      return(perimeter.size());
     }
-
+    
     Perimeter(std::vector<int> points, unsigned int gw, unsigned int gh, int minx, int miny, int maxx, int maxy){
-	perimeter = points;
-	globalWidth = gw;	
-	globalHeight = gh;
-	minX = minx;
-	minY = miny;
-	maxX = maxx;
-	maxY = maxy;
-	nucleusId = -1;
+      perimeter = points;
+      globalWidth = gw;	
+      globalHeight = gh;
+      minX = minx;
+      minY = miny;
+      maxX = maxx;
+      maxY = maxy;
+      nucleusId = -1;
     }
-
+    
     Perimeter(std::vector<int> points, unsigned int gw, unsigned int gh){
-	perimeter = points;
-	globalWidth = gw;
-	globalHeight = gh;
-	if(points.size()){
-	    minX = maxX = points[0] % gw;
-	    minY = maxY = points[0] / gw;
-	    for(uint i=0; i < points.size(); ++i){
-		int x = points[i] % gw;
-		int y = points[i] / gw;
-		if(x > maxX)
-		    maxX = x;
-		if(x < minX)
-		    minX = x;
-		if(y > maxY)
-		    maxY = y;
-		if(y < minY)
-		    minY = y;
-	    }
-	}else{
-	    minX = minY = maxX = maxY = 0;
+      perimeter = points;
+      globalWidth = gw;
+      globalHeight = gh;
+      if(points.size()){
+	minX = maxX = points[0] % gw;
+	minY = maxY = points[0] / gw;
+	for(uint i=0; i < points.size(); ++i){
+	  int x = points[i] % gw;
+	  int y = points[i] / gw;
+	  if(x > maxX)
+	    maxX = x;
+	  if(x < minX)
+	    minX = x;
+	  if(y > maxY)
+	    maxY = y;
+	  if(y < minY)
+	    minY = y;
 	}
-	nucleusId = -1;
+      }else{
+	minX = minY = maxX = maxY = 0;
+      }
+      nucleusId = -1;
     }
     std::vector<int> perimeterPoints(){
       return(perimeter);
@@ -154,6 +155,8 @@ class Perimeter {
     int ymin(){ return minY; }
     int ymax(){ return maxY; }
     int g_width(){ return globalWidth; }
+    int g_height(){ return globalHeight; }
+    std::vector<QPoint> qpoints();
 };
 
 class PerimeterSet { // contains a set of overlapping perimeters as well as the complete perimeter as determine by thingy..

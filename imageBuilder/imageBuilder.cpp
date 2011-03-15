@@ -1,9 +1,11 @@
 #include "imageBuilder.h"
+#include "MaskMaker.h"
 #include "panels/fileSet.h"
 #include "opengl/glImage.h"
 #include "centerFinder.h"
 #include "imStack.h"
 #include "blob_mt_mapper.h"
+#include "CellOutlines.h"
 #include "../dataStructs.h"
 #include "../image/two_d_background.h"
 #include "../image/spectralResponse.h"
@@ -40,6 +42,7 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   data = fs;
   imageAnalyser = 0;  // make a new one if necessary.. 
   texture_size = 1024;  // this must be an even 2^n
+  maskMaker = 0;
   int texColNo = (data->pwidth() % texture_size) ? 1 + (data->pwidth() / texture_size) : data->pwidth() / texture_size;
   int texRowNo = (data->pheight() % texture_size) ? 1 + (data->pheight() / texture_size) : data->pheight() / texture_size;
 
@@ -106,8 +109,10 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   general_functions["project_blob_sets"] = &ImageBuilder::project_blob_sets;
   general_functions["project_blob_ids"] = &ImageBuilder::project_blob_ids;
   general_functions["make_cell_mask"] = &ImageBuilder::make_cell_mask;
+  general_functions["edit_cell"] = &ImageBuilder::modifyCellPerimeter;
   general_functions["draw_model"] = &ImageBuilder::draw_blob_model;
   general_functions["list"] = &ImageBuilder::list_objects;
+  general_functions["setCenter"] = &ImageBuilder::setImageCenter;
   //general_functions["p_mean"] = &ImageBuilder::p_mean_panel;  // may be useful to do things like blurring.
 
 }
@@ -125,6 +130,7 @@ ImageBuilder::~ImageBuilder()
     delete (*it).second;
   if(imageAnalyser)
     delete imageAnalyser;
+  delete maskMaker;
 }
 
 bool ImageBuilder::buildSlice(std::set<unsigned int> wi, unsigned int slice)
@@ -2950,12 +2956,76 @@ void ImageBuilder::make_cell_mask(f_parameter& par)
   }
   par.param("clear", clear);
   if(cellIdMasks.count(mapName))
-    delete []cellIdMasks[ mapName ];
-  cellIdMasks[ mapName ] = new unsigned short[ data->pwidth() * data->pheight() ];
-  neighborMappers[ mapName ]->cellMask2D(cellIdMasks[ mapName ], 0, 0, 
+    delete cellIdMasks[ mapName ];
+  
+  unsigned short* buffer = new unsigned short[ data->pwidth() * data->pheight() ];
+  cellIdMasks[ mapName ] = neighborMappers[ mapName ]->cellMask2D(buffer, 0, 0, 
 					 (unsigned int)data->pwidth(), (unsigned int)data->pheight(),
 					 max_distance, border_increment);
-  overlayCellMask( cellIdMasks[ mapName ], border_increment, 0, 0, data->pwidth(), data->pheight(), colors, clear );
+  overlayCellMask( cellIdMasks[ mapName ]->cellMask, border_increment, 0, 0, data->pwidth(), data->pheight(), colors, clear );
+}
+
+void ImageBuilder::modifyCellPerimeter(f_parameter& par)
+{
+  unsigned int cell_id;
+  QString mapName;
+  QString errorString;
+  QTextStream qts(&errorString);
+  
+  if(!par.param("cell", cell_id))
+    qts << "Specify cell id (cell=..)\n";
+  if(!par.param("map", mapName))
+    qts << "Specify map name : map=..\n";
+  if(mapName.length() && !cellIdMasks.count(mapName))
+    qts << "Unknown cell map (cellIdMasks) : " << mapName << "\n";
+  if(errorString.length()){
+    warn(errorString);
+    return;
+  }
+  cell_id--;
+  if(cell_id >= cellIdMasks[mapName]->cells.size()){
+    qts << "Cell_id (cell=" << cell_id + 1 << ") is larger than max index: "
+	<< cellIdMasks[mapName]->nuclei.size() << "\n";
+    warn(errorString);
+    return;
+  }
+  // If we are here, make a MaskMaker with the cell outline as the basis.
+  // Set the size and width to 2 x the size of the cell outline values
+  Perimeter& per = cellIdMasks[mapName]->cells[cell_id];
+  int x = per.xmin() - (per.xmax() - per.xmin())/2;
+  int y = per.ymin() - (per.ymax() - per.ymin())/2;
+  x = x < 0 ? 0 : x;
+  y = y < 0 ? 0 : y;
+  int w = 2 * (1 + per.xmax() - per.xmin());
+  int h = 2 * (1 + per.ymax() - per.ymin());
+  w = (x + w) < data->pwidth() ? w : data->pwidth() - x;
+  h = (y + h) < data->pwidth() ? h : data->pwidth() - y;
+  if(!w || !h){
+    warn("width or height is null ?\n");
+    return;
+  }
+  if(maskMaker)
+    delete maskMaker;
+  maskMaker = new MaskMaker(QPoint(x, y), w, h);
+  maskMaker->setPerimeter( per.qpoints() );
+  
+  // clear the overlay and set the new mask
+  QPoint maskPos;
+  unsigned char* maskImage = maskMaker->maskImage(maskPos, w, h);
+  setBigOverlay(maskImage, maskPos.x(), maskPos.y(), w, h);
+  image->setPosition( maskPos.x() + w/2, maskPos.y() + h/2 );
+  image->setMagnification(1.0);
+  image->setViewState(GLImage::DRAW);
+  connect(image, SIGNAL(mousePressed(QPoint, Qt::MouseButton)),
+	  this, SLOT(beginSegment(QPoint, Qt::MouseButton)) );
+  connect(image, SIGNAL(mouseMoved(QPoint, Qt::MouseButton)),
+	  this, SLOT(extendSegment(QPoint, Qt::MouseButton)) );
+  connect(image, SIGNAL(mouseReleased(QPoint, Qt::MouseButton)),
+	  this, SLOT(endSegment(QPoint, Qt::MouseButton)) );
+
+  qts << "maskPos : " << maskPos.x() << "," << maskPos.y()
+	      << "  dims: " << w << "x" << h << "\n";
+  warn(errorString);
 }
 
 // add optional parameters later..
@@ -2981,6 +3051,16 @@ void ImageBuilder::list_objects(f_parameter& par)
       os << (*it).first.toAscii().constData() << "\n";
   }
   emit displayMessage(os.str().c_str());
+}
+
+void ImageBuilder::setImageCenter(f_parameter& par)
+{
+  int x, y;
+  if(!par.param("x", x) || !par.param("y", y)){
+    warn("Specify both x and y positions (x=.. y=..)\n");
+    return;
+  }
+  image->setPosition(x, y);
 }
 
 void ImageBuilder::overlayPoints(vector<int> points, unsigned char r, unsigned char g, unsigned char b, unsigned char a){
@@ -3232,6 +3312,45 @@ QString ImageBuilder::generateGeneralFunctionHelp(QString& fname)
   if(fname == "set_stack_par")
     return("set_stack_par stack= wi= par=(sandb s= b=)\n");
   return("Unknown general command\n");
+}
+
+void ImageBuilder::beginSegment(QPoint p, Qt::MouseButton button)
+{
+  if(button == Qt::NoButton)
+    return;
+  if(!maskMaker)
+    return;
+  maskMaker->startSegment(p);
+}
+
+void ImageBuilder::extendSegment(QPoint p, Qt::MouseButton button)
+{
+  if(!button)
+    return;
+  if(!maskMaker)
+    return;
+  maskMaker->addSegmentPoint(p);
+  QPoint pos;
+  int w, h;
+  w = h = 0;
+  unsigned char* mask = maskMaker->maskImage(pos, w, h);
+  if(w && h)
+    setBigOverlay(mask, pos.x(), pos.y(), w, h);
+}
+
+void ImageBuilder::endSegment(QPoint p, Qt::MouseButton button)
+{
+  if(!button)
+    return;
+  if(!maskMaker)
+    return;
+  maskMaker->endSegment(p);
+  QPoint pos;
+  int w, h;
+  w = h = 0;
+  unsigned char* mask = maskMaker->maskImage(pos, w, h);
+  if(w && h)
+    setBigOverlay(mask, pos.x(), pos.y(), w, h);
 }
 
 // // stupid ugly hack.. 

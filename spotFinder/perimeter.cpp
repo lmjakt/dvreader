@@ -467,6 +467,14 @@ vector<vector<int> > Perimeter::splitPerimeters(vector<vector<int> >& splitLines
     return(newPerimeters);
 }
 
+vector<QPoint> Perimeter::qpoints()
+{
+  vector<QPoint> qp(perimeter.size());
+  for(unsigned int i=0; i < perimeter.size(); ++i)
+    qp.push_back(QPoint( perimeter[i] % globalWidth, perimeter[i] / globalWidth ));
+  return(qp);
+}
+
 vector<int> Perimeter::tracePerimeter(char* m, int w, int h, int ox, int oy, char bc){
     // find an entrance point..
     bool b = false;
