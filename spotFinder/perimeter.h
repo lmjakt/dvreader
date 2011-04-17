@@ -54,8 +54,6 @@ struct PerimeterParameters {
 
 class Perimeter {
 
-    //   friend class Perimeter;   // this is to allow the overlap function to work
-//    friend Perimeter overlaps(Perimeter& p);   // this is to allow the overlap function to work
     friend class PerimeterSet;                 // which is a lazy way to access the functions.. 
     friend class PerimeterWindow;
     friend class SpotMapperWindow;
@@ -129,6 +127,7 @@ class Perimeter {
       }
       nucleusId = -1;
     }
+    Perimeter(std::vector<QPoint> points, unsigned int gw, unsigned int gh);
     std::vector<int> perimeterPoints(){
       return(perimeter);
     }

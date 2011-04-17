@@ -145,6 +145,9 @@ private:
     void mousePressed(QPoint p, Qt::MouseButton button);
     void mouseMoved(QPoint p, Qt::MouseButton button);
     void mouseReleased(QPoint p, Qt::MouseButton);   
+
+    // emit key events..
+    void keyPressed(QKeyEvent* e);
 };
 
 

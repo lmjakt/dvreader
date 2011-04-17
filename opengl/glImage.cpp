@@ -371,6 +371,7 @@ void GLImage::mousePressEvent(QMouseEvent* e){
   transformPos(e->x(), e->y(), px, py, true);
   buttonPressed = e->button();
   if(viewingState != VIEW){
+    cout << "emitting mousePressed" << endl;
     emit mousePressed(QPoint(px, py), buttonPressed);
     return;
   }
@@ -398,7 +399,7 @@ void GLImage::mouseMoveEvent(QMouseEvent* e){
   transformPos(e->x(), e->y(), px, py, false);
 
   if(viewingState != VIEW){
-    emit mousePressed(QPoint(px, py), buttonPressed);
+    emit mouseMoved(QPoint(px, py), buttonPressed);
     return;
   }
 
@@ -442,7 +443,8 @@ void GLImage::mouseReleaseEvent(QMouseEvent* e){
   transformPos(e->x(), e->y(), px, py);
 
   if(viewingState != VIEW){
-    emit mousePressed(QPoint(px, py), buttonPressed);
+    emit mouseReleased(QPoint(px, py), buttonPressed);
+    buttonPressed = Qt::NoButton; 
     return;
   }
 
@@ -491,6 +493,20 @@ void GLImage::keyPressEvent(QKeyEvent* e){
   default :
     e->ignore();
   }
+  if(e->modifiers() == Qt::ControlModifier){
+    switch(key){
+    case Qt::Key_V :
+      viewingState = VIEW;
+      break;
+    case Qt::Key_D :
+      viewingState = DRAW;
+      break;
+    default :
+      e->ignore();
+    }
+  }
+
+  emit keyPressed(e);
 }
 
 void GLImage::paintGL(){

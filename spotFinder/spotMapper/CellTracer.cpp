@@ -59,7 +59,7 @@ void CellTracer::initMask(Perimeter& nucleus, vector<Point*>& points)
   for(unsigned int i=0; i < nucleus.length(); ++i){
     nucleus.pos(i, x, y);
     if(x-mask_x <= 0 || y-mask_y <= 0 || x-mask_x >= maskWidth || y-mask_y >= maskHeight){
-      cout << "initMask, nucleus position out of bounds" << endl;
+      //      cout << "initMask, nucleus position out of bounds" << endl;
       continue;
     }
     mask[ maskWidth * (y - mask_y) + x - mask_x ] |= nuc;
@@ -135,7 +135,7 @@ void CellTracer::drawLine(int gx1, int gy1, int gx2, int gy2)
     int lx = x1 + (i * dx)/stepNo;
     int ly = y1 + (i * dy)/stepNo;
     if(lx <= 0 || lx >= maskWidth || ly <= 0 || ly >= maskHeight){
-      cout << "drawLine : trying to draw out of bounds : " << endl;
+      //      cout << "drawLine : trying to draw out of bounds : " << endl;
       continue;
     }
     mask[ ly * maskWidth + lx ] |= edge;

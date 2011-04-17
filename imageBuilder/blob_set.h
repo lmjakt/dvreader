@@ -28,7 +28,7 @@ class blob_set {
     set_id = 0;
     corrected_id = 0;
   }
-  
+  ~blob_set(){}
   void adjust_pos(int& x, int& y, int& z){
     x += offset_x;
     y += offset_y;
@@ -36,10 +36,12 @@ class blob_set {
   }
 
   void push(blob*, unsigned int m_id, Blob_mt_mapper* mapper);
+  
   std::vector<blob*> b();
   std::vector<unsigned int> ids();
   std::vector<Blob_mt_mapper*> bms();
   
+  void mg_pos(int& x, int& y, int& z);  // mean global position.
   unsigned int size();
   blob* b(unsigned int i);
   blob* blob_with_id(unsigned int id);

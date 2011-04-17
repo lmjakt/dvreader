@@ -6,6 +6,8 @@
 #include "imStack.h"
 #include "blob_mt_mapper.h"
 #include "CellOutlines.h"
+#include "CellCollection.h"
+#include "Drawer.h"
 #include "../dataStructs.h"
 #include "../image/two_d_background.h"
 #include "../image/spectralResponse.h"
@@ -33,6 +35,7 @@
 #include <QTextStream>
 #include <QSemaphore>
 #include <QFile>
+#include <QKeyEvent>
 
 using namespace std;
 
@@ -77,6 +80,7 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
 
   // a set of general functions taking instances of the f_parameter class
   // as an argument.
+  general_functions["set_par"] = &ImageBuilder::set_par;
   general_functions["read_commands"] = &ImageBuilder::read_commands_from_file;
   general_functions["set_panel_bias"] = &ImageBuilder::setPanelBias;
   general_functions["set_frame_bgpar"] = &ImageBuilder::setFrameBackgroundPars;
@@ -110,6 +114,9 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   general_functions["project_blob_ids"] = &ImageBuilder::project_blob_ids;
   general_functions["make_cell_mask"] = &ImageBuilder::make_cell_mask;
   general_functions["edit_cell"] = &ImageBuilder::modifyCellPerimeter;
+  general_functions["make_cells"] = &ImageBuilder::make_cells;
+  general_functions["draw_cells"] = &ImageBuilder::draw_cells;
+  general_functions["edit_cells"] = &ImageBuilder::modifyCells;
   general_functions["draw_model"] = &ImageBuilder::draw_blob_model;
   general_functions["list"] = &ImageBuilder::list_objects;
   general_functions["setCenter"] = &ImageBuilder::setImageCenter;
@@ -282,8 +289,20 @@ bool ImageBuilder::buildProjection(std::vector<unsigned int> wi, unsigned int be
   return(ok);   // not very meaningful
 }
 
+void ImageBuilder::set_par(f_parameter& par)
+{
+  unsigned int wi;
+  if(par.defined("sandb")){
+    float s, b;
+    if(par.param("s", s) &&
+       par.param("b", b) &&
+       par.param("wi", wi) )
+      setScaleAndBias(wi, b, s);
+  }
+}
 
-void ImageBuilder::read_commands_from_file(f_parameter& par){
+void ImageBuilder::read_commands_from_file(f_parameter& par)
+{
   QString fileName;
   QString error;
   QTextStream qts(&error);
@@ -673,6 +692,12 @@ bool ImageBuilder::setBackgroundPars(unsigned int wi, int cw, int ch, int cd, fl
 void ImageBuilder::resetRGB(){
   memset(rgbData, 0, sizeof(float) * data->pwidth() * data->pheight() * 3);
   setRGBImage(rgbData, data->pwidth(), data->pheight());
+}
+
+void ImageBuilder::resetOverlayData()
+{
+  memset((void*)overlayData, 0, sizeof(unsigned char) * 4 * data->pwidth() * data->pheight());
+  image->setBigOverlay(overlayData, 0, 0, data->pwidth(), data->pheight());
 }
 
 void ImageBuilder::reportParameters(){
@@ -2965,13 +2990,93 @@ void ImageBuilder::make_cell_mask(f_parameter& par)
   overlayCellMask( cellIdMasks[ mapName ]->cellMask, border_increment, 0, 0, data->pwidth(), data->pheight(), colors, clear );
 }
 
+void ImageBuilder::make_cells(f_parameter& par)
+{
+  QString errorString;
+  QTextStream qts(&errorString);
+  QString maskName;  // contains the mask and outlines
+  QString mapName;   // points to the Blot_mt_mapper_collection via mapper_sets
+  vector<QString> parNames; // the parameter names to use for selecting good blobs
+  // first if help defined, make a help statement and send warning.
+  if(par.defined("help")){
+    warn("make_cells mask=celloutline_map map=mapper_set par=par1,par2,par3");
+    return;
+  }
+  bool use_corrected = false;
+  if(par.defined("corrected_id"))
+    use_corrected = true;
+  if(!par.param("mask", maskName))
+    qts << "Please specify outline mask mask=..\n";
+  if(!par.param("map", mapName))
+    qts << "Please specify mapper_set (Blob_mt_mapper_collection) map=..\n";
+  if(!par.param("par", ',', parNames))
+    qts << "Please specify criterion parameter names par=par1,par2,par2..\n";
+  if(maskName.length() && !cellIdMasks.count(maskName))
+    qts << "Unknown mask : " << maskName << " please use known mask\n";
+  if(mapName.length() && !mapper_sets.count(mapName))
+    qts << "Unknown map : " << mapName << " please use known map (member of mapper_sets)\n";
+  if(errorString.length()){
+    warn(errorString);
+    return;
+  }
+  
+  vector<Perimeter>& nuclei = cellIdMasks[maskName]->nuclei;
+  vector<Perimeter>& cells = cellIdMasks[maskName]->cells;
+  if(nuclei.size() != cells.size()){
+    warn("make_cells cellIdMasks contains unevenly sized nuclei & cells\n");
+    return;
+  }
+  CellCollection* cellCollection = new CellCollection();
+  for(unsigned int i=0; i < nuclei.size(); ++i)
+    cellCollection->addCell( cells[i], nuclei[i] );
+  vector<blob_set> blobs = mapper_sets[mapName]->blobSets(parNames, use_corrected);
+  cellCollection->addBlobs(blobs);
+  if(cellCollections.count(maskName))
+    delete cellCollections[maskName];
+  cellCollections[maskName] = cellCollection;
+
+}
+
+void ImageBuilder::draw_cells(f_parameter& par)
+{
+  QString errorString;
+  QTextStream qts(&errorString);
+  QString cellName;
+  unsigned char alpha = 200;
+  if(par.defined("help")){
+    warn("draw_cells cell=cell_collection_name");
+    return;
+  }
+  if(!par.param("cell", cellName))
+    qts << "Please specify cell collection name cell=..\n";
+  if(cellName.length() && !cellCollections.count(cellName))
+    qts << "Unknown cellCollection : " << cellName << "\n";
+  if(errorString.length()){
+    warn(errorString);
+    return;
+  }
+  // if we have the cells, then lets make a Drawer and draw onto the overlayData..
+  vector<QColor> colors = generateColors(alpha);
+  Drawer drawer(overlayData, 0, 0, data->pwidth(), data->pheight());
+  drawer.setBackground(QColor(0, 0, 0, 0));
+  for(unsigned int i=0; i < cellCollections[cellName]->cellNumber(); ++i){
+    drawer.drawLines( cellCollections[cellName]->cellPerimeter(i).qpoints(),
+		      colors[ i % colors.size() ], true);
+    drawer.drawLines( cellCollections[cellName]->nucleusPerimeter(i).qpoints(),
+		      colors[ i % colors.size() ], true);
+  }
+  setBigOverlay(overlayData, 0, 0, data->pwidth(), data->pheight());
+  image->setViewState(GLImage::VIEW);
+}
+
 void ImageBuilder::modifyCellPerimeter(f_parameter& par)
 {
   unsigned int cell_id;
   QString mapName;
   QString errorString;
   QTextStream qts(&errorString);
-  
+  bool clear = true;
+  par.param("clear", clear);
   if(!par.param("cell", cell_id))
     qts << "Specify cell id (cell=..)\n";
   if(!par.param("map", mapName))
@@ -2992,40 +3097,69 @@ void ImageBuilder::modifyCellPerimeter(f_parameter& par)
   // If we are here, make a MaskMaker with the cell outline as the basis.
   // Set the size and width to 2 x the size of the cell outline values
   Perimeter& per = cellIdMasks[mapName]->cells[cell_id];
-  int x = per.xmin() - (per.xmax() - per.xmin())/2;
-  int y = per.ymin() - (per.ymax() - per.ymin())/2;
-  x = x < 0 ? 0 : x;
-  y = y < 0 ? 0 : y;
-  int w = 2 * (1 + per.xmax() - per.xmin());
-  int h = 2 * (1 + per.ymax() - per.ymin());
-  w = (x + w) < data->pwidth() ? w : data->pwidth() - x;
-  h = (y + h) < data->pwidth() ? h : data->pwidth() - y;
-  if(!w || !h){
-    warn("width or height is null ?\n");
+  
+  /// here use editPerimeter, set the source to mapName, and the cell 
+  editPerimeter(per, mapName, cell_id, clear);
+
+  // int x = per.xmin() - (per.xmax() - per.xmin())/2;
+  // int y = per.ymin() - (per.ymax() - per.ymin())/2;
+  // x = x < 0 ? 0 : x;
+  // y = y < 0 ? 0 : y;
+  // int w = 2 * (1 + per.xmax() - per.xmin());
+  // int h = 2 * (1 + per.ymax() - per.ymin());
+  // w = (x + w) < data->pwidth() ? w : data->pwidth() - x;
+  // h = (y + h) < data->pwidth() ? h : data->pwidth() - y;
+  // if(!w || !h){
+  //   warn("width or height is null ?\n");
+  //   return;
+  // }
+  // if(maskMaker)
+  //   delete maskMaker;
+  // maskMaker = new MaskMaker(QPoint(x, y), w, h);
+  // maskMaker->setPerimeter( per.qpoints() );
+  
+  // // clear the overlay and set the new mask
+  // QPoint maskPos;
+  // unsigned char* maskImage = maskMaker->maskImage(maskPos, w, h);
+  // setBigOverlay(maskImage, maskPos.x(), maskPos.y(), w, h);
+  // image->setPosition( maskPos.x() + w/2, maskPos.y() + h/2 );
+  // image->setMagnification(1.0);
+  // image->setViewState(GLImage::DRAW);
+
+
+  // qts << "maskPos : " << maskPos.x() << "," << maskPos.y()
+  // 	      << "  dims: " << w << "x" << h << "\n";
+  // warn(errorString);
+}
+
+void ImageBuilder::modifyCells(f_parameter& par)
+{
+  QString mapName;
+  QString errorString;
+  QTextStream qts(&errorString);
+  bool clear = true;
+  par.param("clear", clear);
+  if(!par.param("map", mapName))
+    qts << "Specify map name : map=..\n";
+  if(mapName.length() && ( !cellIdMasks.count(mapName) || !cellCollections.count(mapName)) )
+    qts << "Unknown cell map (cellIdMasks) or cell collection (cellCollections) : " << mapName << "\n";
+  if(errorString.length()){
+    warn(errorString);
     return;
   }
-  if(maskMaker)
-    delete maskMaker;
-  maskMaker = new MaskMaker(QPoint(x, y), w, h);
-  maskMaker->setPerimeter( per.qpoints() );
-  
-  // clear the overlay and set the new mask
-  QPoint maskPos;
-  unsigned char* maskImage = maskMaker->maskImage(maskPos, w, h);
-  setBigOverlay(maskImage, maskPos.x(), maskPos.y(), w, h);
-  image->setPosition( maskPos.x() + w/2, maskPos.y() + h/2 );
-  image->setMagnification(1.0);
-  image->setViewState(GLImage::DRAW);
-  connect(image, SIGNAL(mousePressed(QPoint, Qt::MouseButton)),
-	  this, SLOT(beginSegment(QPoint, Qt::MouseButton)) );
-  connect(image, SIGNAL(mouseMoved(QPoint, Qt::MouseButton)),
-	  this, SLOT(extendSegment(QPoint, Qt::MouseButton)) );
-  connect(image, SIGNAL(mouseReleased(QPoint, Qt::MouseButton)),
-	  this, SLOT(endSegment(QPoint, Qt::MouseButton)) );
+  // the following calls haven't been implemented yet, but the thought is like this.
+  if(!maskMaker)
+    makeMaskMaker();      // this also sets up certain connections.
 
-  qts << "maskPos : " << maskPos.x() << "," << maskPos.y()
-	      << "  dims: " << w << "x" << h << "\n";
-  warn(errorString);
+  maskMaker->setCellSource(mapName, -1);
+  cellCollections[mapName]->setCurrentCell(-1);
+  modifyNextCell(1);   // 1 is the increment   
+  
+  // modifyNextCell checks maskMaker for the cell source --> a cellcollection
+  // and then checks the cell collection for the current cell number
+  // increments that, calls editCell with the appropriate perimeter
+  // and then sets up connections between maskMaker and this to make sure that
+  // modifyNextCell is called appropriately until all cells have been gone through
 }
 
 // add optional parameters later..
@@ -3124,6 +3258,68 @@ bool ImageBuilder::setVisible(int& x, int& y, int& width, int& height)
   y = y < 0 ? 0 : y;
   width = (x + width) > data->pwidth() ? (data->pwidth() - x) : width;
   height = (y + height) > data->pheight() ? (data->pheight() - y) : height;
+  return(true);
+}
+
+void ImageBuilder::makeMaskMaker()
+{
+  if(maskMaker)
+    delete maskMaker;
+  maskMaker = new MaskMaker(QPoint(0, 0), 10, 10);
+    // the minimum set of connections required.
+  connect(image, SIGNAL(mousePressed(QPoint, Qt::MouseButton)),
+	  this, SLOT(beginSegment(QPoint, Qt::MouseButton)) );
+  connect(image, SIGNAL(mouseMoved(QPoint, Qt::MouseButton)),
+	  this, SLOT(extendSegment(QPoint, Qt::MouseButton)) );
+  connect(image, SIGNAL(mouseReleased(QPoint, Qt::MouseButton)),
+	  this, SLOT(endSegment(QPoint, Qt::MouseButton)) );
+
+  connect(image, SIGNAL(keyPressed(QKeyEvent*)),
+	  maskMaker, SLOT(keyPressed(QKeyEvent*)) );
+  connect(maskMaker, SIGNAL(maskChanged()),
+	  this, SLOT(maskMakerChanged()) );
+
+  connect(maskMaker, SIGNAL(increment(int)), this, SLOT(modifyNextCell(int)));
+  connect(maskMaker, SIGNAL(perimeterModified()), this, SLOT(modifyPerimeter()));
+}
+
+bool ImageBuilder::editPerimeter(Perimeter per, QString perSource, int perId, bool clear)
+{
+  int x = per.xmin() - (per.xmax() - per.xmin())/2;
+  int y = per.ymin() - (per.ymax() - per.ymin())/2;
+  x = x < 0 ? 0 : x;
+  y = y < 0 ? 0 : y;
+  int w = 2 * (1 + per.xmax() - per.xmin());
+  int h = 2 * (1 + per.ymax() - per.ymin());
+  w = (x + w) < data->pwidth() ? w : data->pwidth() - x;
+  h = (y + h) < data->pwidth() ? h : data->pwidth() - y;
+  if(!w || !h){
+    warn("width or height is null ?\n");
+    return(false);
+  }
+  if(!maskMaker)
+    makeMaskMaker();
+
+  maskMaker->newMask(QPoint(x, y), w, h);
+  maskMaker->setPerimeter( per.qpoints(), perId, perSource );
+  
+  QString message;
+  QTextStream qts(&message);
+  if(cellCollections.count(perSource)){
+    qts << "Editing " << perId << " of " << cellCollections[perSource]->cellNumber();
+  }else{
+    qts << "Editing " << perId << " of unknown cell number from : " << perSource;
+  }
+  warn(message);
+
+  // clear the overlay and set the new mask
+  if(clear) resetOverlayData();
+  QPoint maskPos;
+  unsigned char* maskImage = maskMaker->maskImage(maskPos, w, h);
+  setBigOverlay(maskImage, maskPos.x(), maskPos.y(), w, h);
+  image->setPosition( maskPos.x() + w/2, maskPos.y() + h/2 );
+  image->setMagnification(1.0);
+  image->setViewState(GLImage::DRAW);
   return(true);
 }
 
@@ -3316,6 +3512,7 @@ QString ImageBuilder::generateGeneralFunctionHelp(QString& fname)
 
 void ImageBuilder::beginSegment(QPoint p, Qt::MouseButton button)
 {
+  cout << "beginSegment :: " << button << " == " << Qt::NoButton << endl;
   if(button == Qt::NoButton)
     return;
   if(!maskMaker)
@@ -3351,6 +3548,65 @@ void ImageBuilder::endSegment(QPoint p, Qt::MouseButton button)
   unsigned char* mask = maskMaker->maskImage(pos, w, h);
   if(w && h)
     setBigOverlay(mask, pos.x(), pos.y(), w, h);
+}
+
+void ImageBuilder::maskMakerChanged()
+{
+  if(!maskMaker)
+    return;
+  QPoint pos;
+  int w, h;
+  w = h = 0;
+  unsigned char* mask = maskMaker->maskImage(pos, w, h);
+  if(w && h)
+    setBigOverlay(mask, pos.x(), pos.y(), w, h);
+}
+
+// this doesn not accept the current modification
+// only goes to the next one.
+void ImageBuilder::modifyNextCell(int increment)
+{
+  if(!maskMaker){
+    warn("modifyNextCell no maskMaker present\n");
+    return;
+  }
+  QString cellSource = maskMaker->per_source();
+  if(!cellCollections.count(cellSource)){
+    warn("modifyNextCell: unknown cellCollection");
+    return;
+  }
+  int nextCell = cellCollections[cellSource]->currentCell() + increment;
+  if(nextCell >= 0 && nextCell < (int)cellCollections[cellSource]->cellNumber()){
+    cellCollections[cellSource]->setCurrentCell(nextCell);
+    editPerimeter(cellCollections[cellSource]->cellPerimeter((unsigned int)nextCell),
+		  cellSource, nextCell, true);
+  }
+  
+}
+
+void ImageBuilder::modifyPerimeter()
+{
+  if(!maskMaker)
+    return;
+  // find the cell source and the id and call modify perimeter
+  // on the cell collection.
+  // check that this is the current cell perimeter in the cell collection
+  QString cellSource;
+  int cell_id;
+  vector<QPoint> points = maskMaker->getPerimeter(cell_id, cellSource);
+  Perimeter per(points, data->pwidth(), data->pheight());
+  if(!cellCollections.count(cellSource)){
+    warn("modifyPerimeter unknown cellCollection");
+    return;
+  }
+  if(cell_id != cellCollections[cellSource]->currentCell()){
+    warn("modifyPerimeter cell ids are mismatched, giving up");
+    return;
+  }
+  if(!cellCollections[cellSource]->modifyCellPerimeter(cell_id, per)){
+    warn("Failed to modify perimeter");
+  }
+  // no need to do much else I believe.. 
 }
 
 // // stupid ugly hack.. 

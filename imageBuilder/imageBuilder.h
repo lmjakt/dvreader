@@ -32,6 +32,7 @@ class PerimeterWindow;
 //class NearestNeighborMapper;
 class NNMapper2;
 class MaskMaker;
+class CellCollection;
 
 struct channel_info;
 struct color_map;
@@ -63,6 +64,7 @@ class ImageBuilder : public QObject
   bool setMaxLevel(unsigned int wi, float ml);
   bool setBackgroundPars(unsigned int wi, int cw, int ch, int cd, float qnt, bool sub);
   void resetRGB();
+  void resetOverlayData();
   void reportParameters();
   void exportTiff(QString fname);
   // both of the below take an RGB image. However, the setBigImage, uses the
@@ -123,6 +125,7 @@ class ImageBuilder : public QObject
   std::map<QString, PerimeterWindow*> perimeterWindows; 
   std::map<QString, NNMapper2*> neighborMappers;     // The key should also refer to keys in mapper_sets, This is assumed, but cannot be guaranteed
   std::map<QString, CellOutlines*> cellIdMasks;
+  std::map<QString, CellCollection*> cellCollections;
   MaskMaker* maskMaker;
 
   TabWidget* distTabs;
@@ -177,6 +180,7 @@ class ImageBuilder : public QObject
   // Functions that just take a f_parameter as a starting point
   typedef void (ImageBuilder::*g_function)(f_parameter& par);
   std::map<QString, g_function> general_functions;
+  void set_par(f_parameter& par);
   void read_commands_from_file(f_parameter& par);
   void build_fprojection(f_parameter& par); // usets readToFloat instead of readToShort
   void build_fgprojection(f_parameter& par);  // builds a projection from a blurred stack.
@@ -212,7 +216,11 @@ class ImageBuilder : public QObject
   void project_blob_sets(f_parameter& par);
   void project_blob_ids(f_parameter& par);   // colour blobs by id (group or perimeter id). Assumes there is a mapping between collection_sets
   void make_cell_mask(f_parameter& par);
+  void make_cells(f_parameter& par);
+  void draw_cells(f_parameter& par);
   void modifyCellPerimeter(f_parameter& par);
+  void modifyCells(f_parameter& par);
+  void makeMaskMaker();
   void list_objects(f_parameter& par);       // list object, use parameters to change listing. 
 
   void setImageCenter(f_parameter& par);
@@ -224,6 +232,8 @@ class ImageBuilder : public QObject
 		       std::vector<QColor>& colors, bool clear);
   std::vector<QColor> generateColors(unsigned char alpha);
   bool setVisible(int& x, int& y, int& width, int& height);
+  bool editPerimeter(Perimeter per, QString perSource, int perId, bool clear);
+  
 
   // note that the below functin may destroy image if it returns a different image.. 
   float* modifyImage(int x, int y, int w, int h, float* image, f_parameter& par);
@@ -246,6 +256,9 @@ class ImageBuilder : public QObject
   void beginSegment(QPoint p, Qt::MouseButton button);
   void extendSegment(QPoint p, Qt::MouseButton button);
   void endSegment(QPoint p, Qt::MouseButton button);
+  void maskMakerChanged();
+  void modifyNextCell(int increment); // go backwards or forwards.. 
+  void modifyPerimeter();    // 
 };
 
 #endif

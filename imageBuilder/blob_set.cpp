@@ -28,6 +28,23 @@ vector<Blob_mt_mapper*> blob_set::bms()
   return(mappers);
 }
 
+void blob_set::mg_pos(int& x, int& y, int& z)
+{
+  x = y = z = 0;
+  if(!mappers.size())
+    return;
+  unsigned int w, h, d;
+  mappers[0]->dims(w, h, d);
+  for(unsigned int i=0; i < blobs.size(); ++i){
+    x += (blobs[i]->peakPos % w);
+    y += ( (blobs[i]->peakPos % (w * h)) / w );
+    z += (blobs[i]->peakPos / (w * h));
+  }
+  x = (x / blobs.size()) + offset_x;
+  y = (y / blobs.size()) + offset_y;
+  z = (z / blobs.size()) + offset_z;
+}
+
 unsigned int blob_set::size(){
   return(blobs.size());
 }

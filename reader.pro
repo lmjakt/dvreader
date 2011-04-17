@@ -122,6 +122,9 @@ HEADERS		= \
                 imageBuilder/MaskMaker.h \
                 imageBuilder/OutlineTracer.h \
                 imageBuilder/CellOutlines.h \
+                imageBuilder/Cell2.h \
+                imageBuilder/CellCollection.h \
+                imageBuilder/Drawer.h \
 		util/matrix.h	
 SOURCES		= \
 		dvReader.cpp \
@@ -232,6 +235,9 @@ SOURCES		= \
 		imageBuilder/BlobModelSet.cpp \
                 imageBuilder/MaskMaker.cpp \
                 imageBuilder/OutlineTracer.cpp \
+                imageBuilder/Cell2.cpp \
+                imageBuilder/CellCollection.cpp \
+                imageBuilder/Drawer.cpp \
 		util/matrix.cpp \
 		globalVariables.cpp \
 		main.cpp
