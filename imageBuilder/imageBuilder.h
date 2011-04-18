@@ -218,8 +218,11 @@ class ImageBuilder : public QObject
   void make_cell_mask(f_parameter& par);
   void make_cells(f_parameter& par);
   void draw_cells(f_parameter& par);
+  void draw_cell(f_parameter& par);
   void modifyCellPerimeter(f_parameter& par);
   void modifyCells(f_parameter& par);
+  void reassign_blobs_cells(f_parameter& par);
+  void export_cell_summary(f_parameter& par);
   void makeMaskMaker();
   void list_objects(f_parameter& par);       // list object, use parameters to change listing. 
 

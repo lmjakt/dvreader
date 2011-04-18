@@ -116,7 +116,10 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   general_functions["edit_cell"] = &ImageBuilder::modifyCellPerimeter;
   general_functions["make_cells"] = &ImageBuilder::make_cells;
   general_functions["draw_cells"] = &ImageBuilder::draw_cells;
+  general_functions["draw_cell"] = &ImageBuilder::draw_cell;
   general_functions["edit_cells"] = &ImageBuilder::modifyCells;
+  general_functions["reassign_blobs"] = &ImageBuilder::reassign_blobs_cells;
+  general_functions["export_cells"] = &ImageBuilder::export_cell_summary;
   general_functions["draw_model"] = &ImageBuilder::draw_blob_model;
   general_functions["list"] = &ImageBuilder::list_objects;
   general_functions["setCenter"] = &ImageBuilder::setImageCenter;
@@ -3047,8 +3050,8 @@ void ImageBuilder::draw_cells(f_parameter& par)
     warn("draw_cells cell=cell_collection_name");
     return;
   }
-  if(!par.param("cell", cellName))
-    qts << "Please specify cell collection name cell=..\n";
+  if(!par.param("cells", cellName))
+    qts << "Please specify cell collection name cells=..\n";
   if(cellName.length() && !cellCollections.count(cellName))
     qts << "Unknown cellCollection : " << cellName << "\n";
   if(errorString.length()){
@@ -3065,6 +3068,47 @@ void ImageBuilder::draw_cells(f_parameter& par)
     drawer.drawLines( cellCollections[cellName]->nucleusPerimeter(i).qpoints(),
 		      colors[ i % colors.size() ], true);
   }
+  setBigOverlay(overlayData, 0, 0, data->pwidth(), data->pheight());
+  image->setViewState(GLImage::VIEW);
+}
+
+void ImageBuilder::draw_cell(f_parameter& par)
+{
+  QString errorString;
+  QTextStream qts(&errorString);
+  QString cellName;
+  unsigned int cell_id;
+  set<unsigned int> blob_ids;
+  unsigned char alpha = 200;
+  bool use_corrected = false;
+  if(par.defined("help")){
+    warn("draw_cells cells=cell_collection_name cell=cell_no blob_ids=1,2,3..");
+    return;
+  }
+  if(!par.param("cells", cellName))
+    qts << "Please specify cell collection name cells=..\n";
+  if(cellName.length() && !cellCollections.count(cellName))
+    qts << "Unknown cellCollection : " << cellName << "\n";
+  if(!par.param("cell", cell_id))
+    qts << "Please specify cell id cell=..\n";
+  if(!par.param("blob", ',', blob_ids))
+    qts << "Please specify blob ids to draw blob=1,2,3..\n";
+  if(errorString.length()){
+    warn(errorString);
+    return;
+  }
+  par.param("alpha", alpha);
+  par.param("use_corrected", use_corrected);
+  Cell2 cell;
+  if(!cellCollections[cellName]->cell(cell_id, cell)){
+    qts << "Unable to obtain cell with id : " << cell_id;
+    warn(errorString);
+    return;
+  }
+  Drawer drawer(overlayData, 0, 0, data->pwidth(), data->pheight());
+  drawer.setBackground(QColor(0, 0, 0, 0));
+  drawer.setPenColor(QColor(255, 255, 255, alpha));
+  drawer.drawCell(cell, blob_ids, use_corrected);
   setBigOverlay(overlayData, 0, 0, data->pwidth(), data->pheight());
   image->setViewState(GLImage::VIEW);
 }
@@ -3160,6 +3204,49 @@ void ImageBuilder::modifyCells(f_parameter& par)
   // increments that, calls editCell with the appropriate perimeter
   // and then sets up connections between maskMaker and this to make sure that
   // modifyNextCell is called appropriately until all cells have been gone through
+}
+
+void ImageBuilder::reassign_blobs_cells(f_parameter& par)
+{
+  QString cellName;
+  QString errorString;
+  QTextStream qts(&errorString);
+  if(par.defined("help")){
+    warn("reassign_blobs cells=cellCollectionName");
+    return;
+  }
+  if(!par.param("cells", cellName))
+    qts << "reassign_blobs please specify cell collection name (cells=..)\n";
+  if(cellName.length() && !cellCollections.count(cellName))
+    qts << "Unknown cell collection name : " << cellName << "\n";
+  if(errorString.length()){
+    warn(errorString);
+    return;
+  }
+  cellCollections[cellName]->reassignBlobs();
+}
+
+void ImageBuilder::export_cell_summary(f_parameter& par)
+{
+  QString cellName;
+  QString errorString;
+  QString fileName;
+  QTextStream qts(&errorString);
+  if(par.defined("help")){
+    warn("export_cells cells=cellCollectionName file=out_file_name");
+    return;
+  }
+  if(!par.param("cells", cellName))
+    qts << "export_cell_summary please specify cell collection name (cells=..)\n";
+  if(cellName.length() && !cellCollections.count(cellName))
+    qts << "Unknown cell collection name : " << cellName << "\n";
+  if(!par.param("file", fileName))
+    qts << "Please specify output file name : file=..\n";
+  if(errorString.length()){
+    warn(errorString);
+    return;
+  }
+  cellCollections[cellName]->writeTextSummary(fileName);
 }
 
 // add optional parameters later..
@@ -3318,7 +3405,7 @@ bool ImageBuilder::editPerimeter(Perimeter per, QString perSource, int perId, bo
   unsigned char* maskImage = maskMaker->maskImage(maskPos, w, h);
   setBigOverlay(maskImage, maskPos.x(), maskPos.y(), w, h);
   image->setPosition( maskPos.x() + w/2, maskPos.y() + h/2 );
-  image->setMagnification(1.0);
+  //image->setMagnification(1.0);
   image->setViewState(GLImage::DRAW);
   return(true);
 }

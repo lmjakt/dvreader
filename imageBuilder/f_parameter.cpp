@@ -41,7 +41,7 @@ f_parameter::f_parameter(QString line)
   fname = pars[0];
   QRegExp rx("(\\w+)=(\\S+)");
   //rx.setMinimal(true);
-  for(uint i=1; i < pars.size(); ++i){
+  for(int i=1; i < pars.size(); ++i){
     if(rx.indexIn(pars[i]) != -1){
       parameters.insert(make_pair(rx.cap(1), rx.cap(2)));
     }else{
@@ -170,8 +170,20 @@ bool f_parameter::param(QString par, QChar sep, set<int>& ints)
     return(false);
   ints.clear();
   ints.insert(v.begin(), v.end());
-  return(false);
+  return(true);
 }
+
+
+bool f_parameter::param(QString par, QChar sep, set<unsigned int>& ints)
+{
+  vector<unsigned int> v;
+  if(!param(par, sep, v) || !v.size())
+    return(false);
+  ints.clear();
+  ints.insert(v.begin(), v.end());
+  return(true);
+}
+
 
 bool f_parameter::param(QString par, QChar sep, vector<unsigned int>& ints)
 {

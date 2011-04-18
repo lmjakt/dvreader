@@ -6,6 +6,7 @@
 #include "blob_set.h"
 #include <vector>
 #include <set>
+#include <QString>
 
 class CellCollection {
  public:
@@ -25,6 +26,7 @@ class CellCollection {
   Perimeter cellPerimeter(unsigned int i);
   Perimeter nucleusPerimeter(unsigned int i);
   void reassignBlobs();
+  bool writeTextSummary(QString fname);
 
  private:
   void addBlob(blob_set* bsptr);

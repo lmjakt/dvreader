@@ -344,7 +344,7 @@ vector<QPoint> Perimeter::qpoints()
 {
   vector<QPoint> qp;
   qp.reserve(perimeter.size());
-  cout << "Size of qp : " << qp.size() << endl;
+  //  cout << "Size of qp : " << qp.size() << endl;
   for(unsigned int i=0; i < perimeter.size(); ++i){
     QPoint p(perimeter[i] % globalWidth, perimeter[i] / globalWidth );
     qp.push_back(p);

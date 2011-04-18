@@ -68,7 +68,7 @@ class MaskMaker : public QObject
   QPoint origin;
   unsigned int width;
   unsigned int height;
-
+  
   unsigned char red, green, blue, alpha;
 
   std::vector<QPoint> drawLine(QPoint& p1, QPoint& p2, unsigned char* m, bool filled);

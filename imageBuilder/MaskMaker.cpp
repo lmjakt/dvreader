@@ -423,7 +423,7 @@ void MaskMaker::mergeSegments()
       point_set.insert(off);
       newPerimeter.push_back( perimeter[i] );
       paintPoint(perimeter[i], 0, 0, 255, 255);
-      cout << "per point added : " << i << endl;
+      //      cout << "per point added : " << i << endl;
     }
   }
   // at which point we want to set the perimeter with a new set of points..

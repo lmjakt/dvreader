@@ -490,14 +490,17 @@ void GLImage::keyPressEvent(QKeyEvent* e){
   case Qt::Key_End :
     emit lastImage();
     break;
+  case Qt::Key_V :
+      viewingState = VIEW;
+      break;
   default :
     e->ignore();
   }
   if(e->modifiers() == Qt::ControlModifier){
     switch(key){
-    case Qt::Key_V :
-      viewingState = VIEW;
-      break;
+    // case Qt::Key_V :
+    //   viewingState = VIEW;
+    //   break;
     case Qt::Key_D :
       viewingState = DRAW;
       break;

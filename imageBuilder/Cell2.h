@@ -2,8 +2,10 @@
 #define CELL2_H
 
 #include <set>
+#include <vector>
 #include "../spotFinder/perimeter.h"
 #include "blob_set.h"
+#include <fstream>
 
 class Cell2 {
  public:
@@ -17,6 +19,8 @@ class Cell2 {
   void setCellPerimeter(Perimeter& cp);
   Perimeter cellPerimeter();
   Perimeter nucleusPerimeter();
+  void writeTextSummary(std::ofstream& out);
+  std::vector<blob_set*> blobs(std::set<unsigned int> blob_ids, bool use_corrected);
 
  private:
   Perimeter cell;

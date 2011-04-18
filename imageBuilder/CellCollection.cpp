@@ -1,4 +1,6 @@
 #include "CellCollection.h"
+#include <fstream>
+#include <iostream>
 
 using namespace std;
 
@@ -107,6 +109,23 @@ void CellCollection::reassignBlobs()
   conflicting_blobs.clear();
   for(set<blob_set*>::iterator it=allBlobs.begin(); it != allBlobs.end(); ++it)
     addBlob(*it);
+}
+
+bool CellCollection::writeTextSummary(QString fname)
+{
+  ofstream out(fname.toAscii().constData());
+  if(!out){
+    cerr << "CellCollection unable to write open file "
+	 << fname.toAscii().constData() << "  for writing" << endl;
+    return(false);
+  }
+  out << "Total " << cells.size() << "Cells\n";
+  for(unsigned int i=0; i < cells.size(); ++i){
+    out << i + 1 << "\t";
+    cells[i].writeTextSummary(out);
+  }
+  out.close();
+  return(true);
 }
 
 void CellCollection::addBlob(blob_set* bsptr)
