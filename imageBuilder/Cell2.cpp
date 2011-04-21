@@ -1,4 +1,5 @@
 #include "Cell2.h"
+#include <iostream>
 
 using namespace std;
 
@@ -31,6 +32,11 @@ bool Cell2::addBlob(blob_set* bs)
   return(true);
 }
 
+void Cell2::clearBlobs()
+{
+  blob_sets.clear();
+}
+
 set<blob_set*> Cell2::blobs(){
   return(blob_sets);
 }
@@ -50,7 +56,8 @@ Perimeter Cell2::nucleusPerimeter()
   return(nucleus);
 }
 
-void Cell2::writeTextSummary(ofstream& out){
+void Cell2::writeTextSummary(ofstream& out)
+{
   // Summarise some various bits and pieces
   int x, y;
   cell.pos(0, x, y);
@@ -70,6 +77,29 @@ void Cell2::writeTextSummary(ofstream& out){
   }
   for(map<unsigned int, int>::iterator it=blob_counts.begin(); it != blob_counts.end(); ++it)
     out << (*it).first << "\t" << (*it).second << "\n";
+}
+
+bool Cell2::writePerimeters(ofstream& out)
+{
+  if(!out){
+    cerr << "Cell2::writePerimeters out in bad state" << endl;
+    return(false);
+  }
+  cell.write_to_file(out);
+  nucleus.write_to_file(out);
+  return(true);
+}
+
+bool Cell2::readPerimeters(ifstream& in)
+{
+  cout << "Read Perimeters" << endl;
+  if(!in.good())
+    return(false);
+  if(!cell.read_from_file(in))
+    return(false);
+  if(!nucleus.read_from_file(in))
+    return(false);
+  return(true);
 }
 
 vector<blob_set*> Cell2::blobs(set<unsigned int> blob_ids, bool use_corrected)

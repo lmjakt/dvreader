@@ -8,6 +8,7 @@ struct blob;
 class Blob_mt_mapper;
 
 class blob_set {
+
   std::vector<blob*> blobs;
   std::vector<unsigned int> mapper_ids;
   std::vector<Blob_mt_mapper*> mappers;
@@ -16,10 +17,16 @@ class blob_set {
   int offset_x, offset_y, offset_z;
 
  public :
+  const static unsigned int GOOD = 0;
+  const static unsigned int MULTI = 1;
+  const static unsigned int INCOMPLETE = 2;
+  const static unsigned int EXTENSIBLE = 3;
+  unsigned int error;
   blob_set(){
     set_id = 0;
     corrected_id = 0;
     offset_x = offset_y = offset_z = 0;
+    error = GOOD;
   }
   blob_set(int xo, int yo, int zo){
     offset_x = xo;
@@ -27,6 +34,7 @@ class blob_set {
     offset_z = zo;
     set_id = 0;
     corrected_id = 0;
+    error = GOOD;
   }
   ~blob_set(){}
   void adjust_pos(int& x, int& y, int& z){
@@ -36,7 +44,9 @@ class blob_set {
   }
 
   void push(blob*, unsigned int m_id, Blob_mt_mapper* mapper);
-  
+  void addError(unsigned int ef){
+    error |= ef;
+  }
   std::vector<blob*> b();
   std::vector<unsigned int> ids();
   std::vector<Blob_mt_mapper*> bms();

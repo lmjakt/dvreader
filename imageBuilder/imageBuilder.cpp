@@ -119,7 +119,10 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   general_functions["draw_cell"] = &ImageBuilder::draw_cell;
   general_functions["edit_cells"] = &ImageBuilder::modifyCells;
   general_functions["reassign_blobs"] = &ImageBuilder::reassign_blobs_cells;
+  general_functions["set_cell_blobs"] = &ImageBuilder::set_cell_blobs;
   general_functions["export_cells"] = &ImageBuilder::export_cell_summary;
+  general_functions["write_cells"] = &ImageBuilder::write_cells_borders;
+  general_functions["read_cells"] = &ImageBuilder::read_cells_from_file;
   general_functions["draw_model"] = &ImageBuilder::draw_blob_model;
   general_functions["list"] = &ImageBuilder::list_objects;
   general_functions["setCenter"] = &ImageBuilder::setImageCenter;
@@ -2729,10 +2732,10 @@ void ImageBuilder::mergeBlobs(f_parameter& par)
     mapper_collections.erase(used_mapperNames[i]);
   }
   Blob_mt_mapper_collection* mapper_set = new Blob_mt_mapper_collection();
-  mapper_set->setMappers(blob_set_map, mapper_map);class ImageAnalyser;
+  mapper_set->setMappers(blob_set_map, mapper_map);
 
   if(mapper_sets.count(used_mapperNames[0]))
-    delete mapper_sets[ used_mapperNames[0] ];  // not yet implemented.. 
+    delete mapper_sets[ used_mapperNames[0] ];  // Probably leads to crashes as lots of pointers not cleaned up. 
   mapper_sets.insert(make_pair( used_mapperNames[0], mapper_set));
   QString criteriaFileName;
   if(par.param("criteria", criteriaFileName))
@@ -3040,6 +3043,38 @@ void ImageBuilder::make_cells(f_parameter& par)
 
 }
 
+void ImageBuilder::set_cell_blobs(f_parameter& par)
+{
+  QString errorString;
+  QTextStream qts(&errorString);
+  QString cells;  // cellCollection name
+  QString mapName;   // points to the Blot_mt_mapper_collection via mapper_sets
+  vector<QString> parNames; // the parameter names to use for selecting good blobs
+  // first if help defined, make a help statement and send warning.
+  if(par.defined("help")){
+    warn("set_blobs cells=cell collection map=mapper_set par=par1,par2,par3");
+    return;
+  }
+  bool use_corrected = false;
+  if(par.defined("corrected_id"))
+    use_corrected = true;
+  if(!par.param("cells", cells))
+    qts << "Please specify cell collection name cells=...\n";
+  if(!par.param("map", mapName))
+    qts << "Please specify mapper_set (Blob_mt_mapper_collection) map=..\n";
+  if(!par.param("par", ',', parNames))
+    qts << "Please specify criterion parameter names par=par1,par2,par2..\n";
+  if(cells.length() && !cellCollections.count(cells))
+    qts << "Unknown cell collection : " << cells << " please use known collection\n";
+  if(mapName.length() && !mapper_sets.count(mapName))
+    qts << "Unknown map : " << mapName << " please use known map (member of mapper_sets)\n";
+  if(errorString.length()){
+    warn(errorString);
+    return;
+  }
+  cellCollections[cells]->setBlobs( mapper_sets[mapName]->blobSets(parNames, use_corrected) );
+}
+
 void ImageBuilder::draw_cells(f_parameter& par)
 {
   QString errorString;
@@ -3247,6 +3282,64 @@ void ImageBuilder::export_cell_summary(f_parameter& par)
     return;
   }
   cellCollections[cellName]->writeTextSummary(fileName);
+}
+
+void ImageBuilder::write_cells_borders(f_parameter& par)
+{
+  QString cellName;
+  QString errorString;
+  QString fileName;
+  QTextStream qts(&errorString);
+  if(par.defined("help")){
+    warn("write_cells cells=cellCollectionName file=out_file_name");
+    return;
+  }
+  if(!par.param("cells", cellName))
+    qts << "export_cell_summary please specify cell collection name (cells=..)\n";
+  if(cellName.length() && !cellCollections.count(cellName))
+    qts << "Unknown cell collection name : " << cellName << "\n";
+  if(!par.param("file", fileName))
+    qts << "Please specify output file name : file=..\n";
+  if(errorString.length()){
+    warn(errorString);
+    return;
+  }
+  if(!cellCollections[cellName]->writeCells(fileName)){
+    qts << "Unable to write cell boundaries to " << fileName;
+    warn(errorString);
+  }
+}
+
+void ImageBuilder::read_cells_from_file(f_parameter& par)
+{
+  QString cellName;
+  QString errorString;
+  QString fileName;
+  QTextStream qts(&errorString);
+  if(par.defined("help")){
+    warn("read_cells cells=cellCollectionName file=out_file_name");
+    return;
+  }
+  if(!par.param("cells", cellName))
+    qts << "read_cells please specify cell collection name (cells=..)\n";
+  if(!par.param("file", fileName))
+    qts << "Please specify input file name : file=..\n";
+  if(errorString.length()){
+    warn(errorString);
+    return;
+  }
+  cout << "about to call new CellCollection()" << endl;
+  CellCollection* collection = new CellCollection();
+  cout << "and made CellCollection" << endl;
+  if(!collection->readCells(fileName)){
+    cout << "Unable to readCells" << endl;
+    qts << "Unable to read cell collection from : " << fileName;
+    warn(errorString);
+    delete collection;
+  }
+  if(cellCollections.count(cellName))
+    delete cellCollections[cellName];
+  cellCollections[cellName] = collection;
 }
 
 // add optional parameters later..

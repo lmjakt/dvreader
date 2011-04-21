@@ -26,6 +26,15 @@ void CellCollection::addCell(Perimeter& cellP, Perimeter& nucP)
   cells.push_back(cell);
 }
 
+void CellCollection::setBlobs(vector<blob_set> bs)
+{
+  clearCellBlobs();
+  blobs.clear();
+  unallocated_blobs.clear();
+  conflicting_blobs.clear();
+  addBlobs(bs);
+}
+
 void CellCollection::addBlobs(vector<blob_set>& bs)
 {
   for(unsigned int i=0; i < bs.size(); ++i)
@@ -100,6 +109,7 @@ Perimeter CellCollection::nucleusPerimeter(unsigned int i)
 // this is very slow, but easy to code.
 void CellCollection::reassignBlobs()
 {
+  clearCellBlobs();
   set<blob_set*> allBlobs;
   allBlobs.insert(blobs.begin(), blobs.end());
   allBlobs.insert(unallocated_blobs.begin(), unallocated_blobs.end());
@@ -128,6 +138,63 @@ bool CellCollection::writeTextSummary(QString fname)
   return(true);
 }
 
+bool CellCollection::writeCells(QString fname)
+{
+  ofstream out(fname.toAscii().constData());
+  if(!out){
+    cerr << "CellCollection::writeCells unable to open file "
+	 << fname.toAscii().constData() << "  for writing" << endl;
+    return(false);
+  }
+  int id = cell_file_id;
+  out.write((const char*)&id, sizeof(int));
+  unsigned int n = cells.size();
+  out.write((const char*)&n, sizeof(unsigned int));
+  for(unsigned int i=0; i < cells.size(); ++i){
+    if(!cells[i].writePerimeters(out))
+      return(false);
+  }
+  return(true);
+}
+
+bool CellCollection::readCells(QString fname)
+{
+  cout << "CellCollection readCells : " << endl;
+  ifstream in(fname.toAscii().constData());
+  if(!in.good()){
+    cerr << "CellCollection::readCells unable to open file "
+	 << fname.toAscii().constData() << " for reading" << endl;
+    return(false);
+  }
+  cout << "before reading anything .. " << endl;
+  cout << "in.good() is " << in.good() << endl;
+  int id = 0;
+  in.read((char*)&id, sizeof(int));
+  cout << "read id " << id << endl;
+  if(id != cell_file_id){
+    cerr << "CellCollection::readCells file opened, but incorrect cell_file_id: expected "
+	 << cell_file_id << "  got: " << id << endl;
+    return(false);
+  }
+  unsigned int cell_no;
+  in.read((char*)&cell_no, sizeof(unsigned int));
+  cout << "read cell_no: " << cell_no << endl;
+  if(!in.good()){
+    cerr << "CellCollection unable to obtain number of cells from file: " << endl;
+    return(false);
+  }
+  cout << "resizing cells to : " << cell_no << endl;
+  cells.resize(cell_no);
+  for(unsigned int i=0; i < cells.size(); ++i){
+    cout << "Calling cells[i] to read " << i << endl;
+    if(!cells[i].readPerimeters(in)){
+      cerr << "Unable to read perimeter for cell " << i << " of " << cells.size() << endl;
+      return(false);
+    }
+  }
+  return(true);
+}
+
 void CellCollection::addBlob(blob_set* bsptr)
 {
   int cell_i = -1;
@@ -147,3 +214,10 @@ void CellCollection::addBlob(blob_set* bsptr)
   cells[cell_i].addBlob(bsptr);
   blobs.insert(bsptr);
 }
+
+void CellCollection::clearCellBlobs()
+{
+  for(uint i=0; i < cells.size(); ++i)
+    cells[i].clearBlobs();
+}
+

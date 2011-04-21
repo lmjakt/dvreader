@@ -8,6 +8,7 @@
 #include "../image/blobModel.h"
 #include "../image/two_d_background.h"
 #include "../panels/fileSet.h"
+#include "BlobMerger.h"
 
 using namespace std;
 
@@ -217,6 +218,10 @@ vector<float> Blob_mt_mapper::blob_model_correlations(BlobModel* bmodel, vector<
   float* blob_values = new float[ 2 * m_width * m_height * m_height ];  // 2 * to overcome rounding errors.. 
   cout << "Location : " << pos.x << "," << pos.y << "," << pos.z << endl;
   for(vector<blob*>::iterator it=local_blobs.begin(); it != local_blobs.end(); ++it){
+    if(local_blobs.size() != correlations.size()){
+      cerr << "1 exiting local " << local_blobs.size() << "\t" << correlations.size() << endl;
+      exit(1);
+    }
     float bx, by, bz;
     blob* b = (*it);
     determineBlobCenter(b, bx, by, bz);  // the center of the blob will be set to these values..
@@ -225,6 +230,10 @@ vector<float> Blob_mt_mapper::blob_model_correlations(BlobModel* bmodel, vector<
     vector<float> xy_offset;
     vector<float> z_offset;
     int x, y, z;
+    if(local_blobs.size() != correlations.size()){
+      cerr << "2 exiting local " << local_blobs.size() << "\t" << correlations.size() << endl;
+      exit(1);
+    }
     for(uint j=0; j < b->points.size(); ++j){
       toVol(b->points[j], x, y, z);
       // check to make sure that the point is within the model. If so, add it to the 
@@ -239,6 +248,10 @@ vector<float> Blob_mt_mapper::blob_model_correlations(BlobModel* bmodel, vector<
 	//	if(blob_value_no >= (m_width * m_height * m_height))
 	//  cerr << "blob_value_no is getting too large, bugger : " << blob_value_no << " >= " << m_width * m_height * m_height << endl;
       }
+    }
+    if(local_blobs.size() != correlations.size()){
+      cerr << "3 exiting local " << local_blobs.size() << "\t" << correlations.size() << endl;
+      exit(1);
     }
     z_normalise(blob_values, blob_value_no);
     cout << "blob_value_no : " << blob_value_no << endl;
@@ -260,10 +273,11 @@ vector<float> Blob_mt_mapper::blob_model_correlations(BlobModel* bmodel, vector<
   }
   // delete lots of things.. 
   delete []model;
-  delete blob_values;
+  delete []blob_values;
   if(!keepStack)
     freeMemory();
     //    delete stack;
+  cout << "correlations size : " << correlations.size() << endl;
   return correlations;
 }
 
@@ -291,6 +305,13 @@ vector<blob_set> Blob_mt_mapper::blob_sets(std::vector<Blob_mt_mapper*> mappers)
     key_sum += mappers[i]->map_id;
   }
   
+  BlobMerger blobMerger;
+  return( blobMerger.mergeBlobs(mappers, 1) );
+
+  //////// All the below code is implicitly removed, by the above return statement.. ///// 
+  ////////////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////
+
   unsigned int stack_size = pos.w * pos.h * pos.d;
   unsigned int* id_map = new unsigned int[stack_size];
   unsigned int* peak_id_map = new unsigned int[stack_size];

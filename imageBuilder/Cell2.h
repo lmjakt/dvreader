@@ -15,11 +15,14 @@ class Cell2 {
 
   bool contains(blob_set* bs);
   bool addBlob(blob_set* bs);
+  void clearBlobs();
   std::set<blob_set*> blobs();  // does not have ownership!
   void setCellPerimeter(Perimeter& cp);
   Perimeter cellPerimeter();
   Perimeter nucleusPerimeter();
   void writeTextSummary(std::ofstream& out);
+  bool writePerimeters(std::ofstream& out);
+  bool readPerimeters(std::ifstream& in);
   std::vector<blob_set*> blobs(std::set<unsigned int> blob_ids, bool use_corrected);
 
  private:

@@ -352,6 +352,46 @@ vector<QPoint> Perimeter::qpoints()
   return(qp);
 }
 
+bool Perimeter::write_to_file(ofstream& out)
+{
+  if(!out)
+    return(false);
+  out.write((const char*)&globalWidth, sizeof(int));
+  out.write((const char*)&globalHeight, sizeof(int));
+  out.write((const char*)&minX, sizeof(int));
+  out.write((const char*)&maxX, sizeof(int));
+  out.write((const char*)&minY, sizeof(int));
+  out.write((const char*)&maxY, sizeof(int));
+  unsigned int pointNo = perimeter.size();
+  out.write((const char*)&pointNo, sizeof(unsigned int));
+  for(unsigned int i=0; i < perimeter.size(); ++i)
+    out.write((const char*)&perimeter[i], sizeof(int));
+  return(false);
+}
+
+bool Perimeter::read_from_file(ifstream& in)
+{
+  if(!in.good())
+    return(false);
+  in.read((char*)&globalWidth, sizeof(int));
+  in.read((char*)&globalHeight, sizeof(int));
+  in.read((char*)&minX, sizeof(int));
+  in.read((char*)&maxX, sizeof(int));
+  in.read((char*)&minY, sizeof(int));
+  in.read((char*)&maxY, sizeof(int));
+  unsigned int pointNo;
+  in.read((char*)&pointNo, sizeof(int));
+  perimeter.resize(pointNo);
+  int p;
+  for(unsigned int i=0; i < perimeter.size(); ++i){
+    in.read((char*)&p, sizeof(int));
+    perimeter[i] = p;
+  }
+  if(!in.good())
+    return(false);
+  return(true);
+}
+
 vector<int> Perimeter::tracePerimeter(char* m, int w, int h, int ox, int oy, char bc){
     // find an entrance point..
     bool b = false;

@@ -29,6 +29,7 @@
 #include <vector>
 #include <set>
 #include <QPoint>
+#include <fstream>
 #include "../abstract/space.h"
 
 typedef unsigned int uint;
@@ -155,6 +156,8 @@ class Perimeter {
     int ymax(){ return maxY; }
     int g_width(){ return globalWidth; }
     int g_height(){ return globalHeight; }
+    bool write_to_file(std::ofstream& out);
+    bool read_from_file(std::ifstream& in);
     std::vector<QPoint> qpoints();
 };
 

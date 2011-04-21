@@ -125,6 +125,7 @@ HEADERS		= \
                 imageBuilder/Cell2.h \
                 imageBuilder/CellCollection.h \
                 imageBuilder/Drawer.h \
+                imageBuilder/BlobMerger.h \
 		util/matrix.h	
 SOURCES		= \
 		dvReader.cpp \
@@ -238,6 +239,7 @@ SOURCES		= \
                 imageBuilder/Cell2.cpp \
                 imageBuilder/CellCollection.cpp \
                 imageBuilder/Drawer.cpp \
+                imageBuilder/BlobMerger.cpp \
 		util/matrix.cpp \
 		globalVariables.cpp \
 		main.cpp

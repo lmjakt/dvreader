@@ -15,6 +15,7 @@ class Blob;
 class QSemaphore;
 class BlobModel;
 class FileSet;
+class BlobMerger;
 // Does essentially the same thing as ../image/blobMapper but uses and ImStack
 // for data access.
 // Rewritten completely for simplicity and to try and enable multithreading
@@ -27,7 +28,8 @@ class Blob_mt_mapper : public QThread
 {
   Q_OBJECT  // enable signals and slots
     
-    public:
+  friend class BlobMerger;
+ public:
   Blob_mt_mapper(stack_info s_info, FileSet* fset, unsigned int mapper_id, bool free_memory=false);
   Blob_mt_mapper(ImStack* imStack, unsigned int mapper_id, bool free_memory=false);
   ~Blob_mt_mapper();

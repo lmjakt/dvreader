@@ -217,12 +217,15 @@ class ImageBuilder : public QObject
   void project_blob_ids(f_parameter& par);   // colour blobs by id (group or perimeter id). Assumes there is a mapping between collection_sets
   void make_cell_mask(f_parameter& par);
   void make_cells(f_parameter& par);
+  void set_cell_blobs(f_parameter& par);
   void draw_cells(f_parameter& par);
   void draw_cell(f_parameter& par);
   void modifyCellPerimeter(f_parameter& par);
   void modifyCells(f_parameter& par);
   void reassign_blobs_cells(f_parameter& par);
   void export_cell_summary(f_parameter& par);
+  void write_cells_borders(f_parameter& par);
+  void read_cells_from_file(f_parameter& par);
   void makeMaskMaker();
   void list_objects(f_parameter& par);       // list object, use parameters to change listing. 
 
