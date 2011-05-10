@@ -18,10 +18,12 @@ class LinePlotter : public QWidget
     void setData(std::vector< std::vector<float> >& v, std::vector<QColor>& c, bool resetMask=true);
     void setData(float* data, unsigned int d_width, unsigned int d_height, bool use_rows, bool resetMask=true);
     void setData(float* data, unsigned int d_width, unsigned int d_height, bool use_rows, std::vector<QColor>& colors, bool resetMask=true);
+    void setPointMask(bool* pt_mask, unsigned int d_width, unsigned int d_height, bool use_rows);
     void setLeftMask(int xp);
     void setRightMask(int xp);
     void setMasks(int left, int right);
     void enableLimits(bool b);
+    void useConstantRange(bool b, float minY, float maxY);
 
  signals:
     void doubleClicked();
@@ -42,9 +44,11 @@ class LinePlotter : public QWidget
     void translateMousePos(QMouseEvent* e, int& x, float& y);
 
     std::vector< std::vector<float> > values;
+    std::vector< std::vector<bool> > point_mask; // if specified use some way of showing mask
     std::vector<QColor> colors;
     std::vector<QColor> defaultColors;
     float min, max;
+    bool use_constant_range;
     float xScale;
     float yScale;
     unsigned int maxLength;

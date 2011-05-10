@@ -7,8 +7,10 @@
 #include "blob_mt_mapper.h"
 #include "CellOutlines.h"
 #include "CellCollection.h"
+#include "CellParCollector.h"
 #include "Drawer.h"
 #include "../dataStructs.h"
+#include "../datastructs/channelOffset.h"
 #include "../image/two_d_background.h"
 #include "../image/spectralResponse.h"
 #include "../tiff/tiffReader.h"
@@ -20,6 +22,7 @@
 #include "../image/imageAnalyser.h"
 #include "../panels/stack_stats.h"
 #include "../linGraph/linePlotter.h"
+#include "BlobSetPlotter.h"
 #include "../linGraph/distPlotter.h"    
 
 #include "../scatterPlot/scatterPlotter.h"
@@ -57,8 +60,9 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   overlayData = new unsigned char[4 * data->pwidth() * data->pheight() ];
   memset((void*)overlayData, 0, sizeof(unsigned char) * 4 * data->pwidth() * data->pheight());
   sBuffer = new unsigned short[ data->pwidth() * data->pheight() ];
-  channels = ch;class ImageAnalyser;
+  channels = ch;//class ImageAnalyser;
 
+  blobSetPlotter = 0;
 
   distTabs = new TabWidget();
   distTabs->setCaption("ImageBuilder Distributions");
@@ -107,6 +111,8 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   general_functions["compare_model"] = &ImageBuilder::compare_model;
   general_functions["blob_pars"] = &ImageBuilder::plot_blob_pars;
   general_functions["blob_set_dist"] = &ImageBuilder::plot_blob_set_dist;
+  general_functions["plot_blob_sets"] = &ImageBuilder::plot_blob_sets;
+  general_functions["plot_cell_blob_pars"] = &ImageBuilder::plot_cell_blob_pars;
   general_functions["merge_blobs"] = &ImageBuilder::mergeBlobs;
   general_functions["read_criteria"] = &ImageBuilder::readBlobCriteria;
   general_functions["project_blobs"] = &ImageBuilder::project_blob_collections;
@@ -2288,7 +2294,8 @@ void ImageBuilder::trainBlobSetModels(f_parameter& par)
     return;
   }
   par.param("corrected_ids", use_corrected_ids);
-
+  
+  mapper_sets[blobName]->resetModelFits();
   mapper_sets[blobName]->trainModels(parNames, xym, zm, use_corrected_ids);
 }
 
@@ -2671,6 +2678,97 @@ void ImageBuilder::plot_blob_set_dist(f_parameter& par)
   plotter->show();
 }
 
+void ImageBuilder::plot_blob_sets(f_parameter& par)
+{
+  QString errorString;
+  QTextStream qts(&errorString);
+  if(par.defined("help")){
+    warn("plot_blob_sets cells=cell_collection_name cell=cell_no blob_ids=1,2,3");
+    return;
+  }
+  QString cellName;
+  unsigned int cell_id;
+  set<unsigned int> blob_ids;
+  bool use_corrected = false;
+  if(!par.param("cells", cellName))
+    qts << "Please specify cell collection name cells=..\n";
+  if(cellName.length() && !cellCollections.count(cellName))
+    qts << "Unknown cellCollection : " << cellName << "\n";
+  if(!par.param("cell", cell_id))
+    qts << "Please specify cell id cell=..\n";
+  if(!par.param("blob", ',', blob_ids))
+    qts << "Please specify blob ids to draw blob=1,2,3..\n";
+  if(errorString.length()){
+    warn(errorString);
+    return;
+  }
+  Cell2 cell;
+  if(!cellCollections[cellName]->cell(cell_id, cell)){
+    qts << "Unable to obtain cell with id : " << cell_id;
+    warn(errorString);
+    return;
+  }
+  vector<blob_set*> blob_sets = cell.blobs(blob_ids, use_corrected);
+  ////  if we don't preset the imageStacks, then they'll get created and 
+  ////  deleted everytime we create a blob_set_space.
+  set<Blob_mt_mapper*> bmappers = set_mappers(blob_sets);
+
+  for(set<Blob_mt_mapper*>::iterator it = bmappers.begin(); it != bmappers.end(); ++it)
+    (*it)->setImageStack(true);
+  vector<blob_set_space*> blob_spaces;
+  for(unsigned int i=0; i < blob_sets.size(); ++i)
+    blob_spaces.push_back( new blob_set_space(*(blob_sets[i])) );
+  for(set<Blob_mt_mapper*>::iterator it = bmappers.begin(); it != bmappers.end(); ++it)
+    (*it)->freeImageStack();
+
+  if(!blob_spaces.size())
+    return;
+  if(!blobSetPlotter)
+    blobSetPlotter = new BlobSetPlotter();
+  blobSetPlotter->setBlobSet(cellName, cell_id, blob_spaces);
+  blobSetPlotter->show();
+
+}
+
+void ImageBuilder::plot_cell_blob_pars(f_parameter& par)
+{
+  QString collection_name, xpar, ypar;
+  vector<unsigned int> cell_ids;
+  unsigned int set_id, map_id;
+  QString errorString;
+  QTextStream qts(&errorString);
+  if(par.defined("help")){
+    warn("plot_cell_blob_pars cells=coll_name x=par1 y=par2 ids=cell_ids set=blob_set_id map=mapper_id");
+    return;
+  }
+  if(!par.param("cells", collection_name))
+    qts << "specify cell collection name : cells=..\n";
+  if(collection_name.length() && !cellCollections.count(collection_name))
+    qts << "unknown cell collection : " << collection_name << "\n";
+  if(!par.param("x", xpar))
+    qts << "specify xparameter name x=..\n";
+  if(!par.param("y", ypar))
+    qts << "specify yparameter name y=..\n";
+  if(!par.param("ids", ',', cell_ids))
+    qts << "specify cell ids to plot params from: ids=a,b,c\n";
+  if(!par.param("set", set_id))
+    qts << "specify the blob set id to inspect: set=..\n";
+  if(!par.param("map", map_id))
+    qts << "specify the mapper id to inspect: map=..\n";
+
+  if(errorString.length()){
+    warn(errorString);
+    return;
+  }
+  CellParCollector collector( cellCollections[collection_name] );
+  cell_pars pars = collector.params(cell_ids, set_id, map_id, xpar, ypar);
+  
+  if(!scatterPlotters.count("BlobPars"))
+    scatterPlotters["BlobPars"] = new ScatterPlotter();
+  scatterPlotters["BlobPars"]->setData(pars.x, pars.y);
+  scatterPlotters["BlobPars"]->show();
+}
+
 void ImageBuilder::mergeBlobs(f_parameter& par)
 {
   vector<QString> mapperNames;
@@ -2678,11 +2776,30 @@ void ImageBuilder::mergeBlobs(f_parameter& par)
     warn("mergeBlobs No mapperNames specified (blobs=n1,n2,n3)");
     return;
   }
+  // this is a bit clumsy, and has been included primarily because 
+  // of some segmentation error in my code elsewhere. This is to allow
+  // the user to specify offsets to use when merging different blobs
+  map<QString, ChannelOffset> offsetMap;
+  for(unsigned int i=0; i < mapperNames.size(); ++i)
+    offsetMap[mapperNames[i]] = ChannelOffset();  // defalt to 0,0,0
+  vector<int> offsets;
+  if(par.param("offsets", ',', offsets)){
+    if(offsets.size() == mapperNames.size() * 3){
+      for(unsigned int i=0; i < offsets.size(); i += 3)
+	offsetMap.insert(make_pair(mapperNames[i/3], 
+				    ChannelOffset(i, offsets[i], offsets[i+1], offsets[i+2])));
+    }else{
+      warn("channel offsets must be specified for each channel offsets=x1,y1,z1,x2,y2,etc\n");
+    }
+  }
+      
   vector<vector<Blob_mt_mapper*> > mappers;
   vector<QString> used_mapperNames;
+  vector<ChannelOffset> ch_offsets;
   for(unsigned int i=0; i < mapperNames.size(); ++i){
     if(mapper_collections.count(mapperNames[i])){
       mappers.push_back(mapper_collections[mapperNames[i]]);
+      ch_offsets.push_back(offsetMap[mapperNames[i]]);
       used_mapperNames.push_back(mapperNames[i]);  // remove these from mapper_collections if successful.. 
     }else{
       warn("mergeBlobs unknown mapper collection name");
@@ -2708,7 +2825,12 @@ void ImageBuilder::mergeBlobs(f_parameter& par)
       }
       bmt.push_back(mappers[j][i]);
     }
-    vector<blob_set> bs = bmt[0]->blob_sets(bmt);  // this does the actual merging.. 
+    /// Here the blob_mt_mapper blob_sets() funtion is called. We should actually
+    /// change that and use a BlobMerger object directly (this is called in the
+    /// blob_mt_mapper function. However, at the moment, the Blob_mt_mapper
+    /// wrapper function does some checking that's not performed by the
+    /// BlobMerger function.
+    vector<blob_set> bs = bmt[0]->blob_sets(bmt, ch_offsets);  // this does the actual merging.. 
     blob_sets.insert(blob_sets.end(), bs.begin(), bs.end());
     cout << i <<  "  Added " << bs.size() << " blob_sets, giving a total of : " << blob_sets.size() << endl;
   }
@@ -3688,6 +3810,16 @@ QString ImageBuilder::generateGeneralFunctionHelp(QString& fname)
   if(fname == "set_stack_par")
     return("set_stack_par stack= wi= par=(sandb s= b=)\n");
   return("Unknown general command\n");
+}
+
+set<Blob_mt_mapper*> ImageBuilder::set_mappers(vector<blob_set*> bs)
+{
+  set<Blob_mt_mapper*> bm;
+  for(unsigned int i=0; i < bs.size(); ++i){
+    for(unsigned int j=0; j < bs[i]->size(); ++j)
+      bm.insert(bs[i]->bm(j));
+  }
+  return(bm);
 }
 
 void ImageBuilder::beginSegment(QPoint p, Qt::MouseButton button)

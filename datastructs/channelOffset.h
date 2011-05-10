@@ -10,6 +10,12 @@ class ChannelOffset {
   int wl;   // the wavelength..
   
  public :
+  ChannelOffset(int w, int xoff, int yoff, int zoff){
+    wl = w;
+    xo = xoff;
+    yo = yoff;
+    zo = zoff;
+  }
   ChannelOffset(int w){
     wl = w;
     xo = yo = zo = 0;

@@ -26,6 +26,7 @@ class Blob_mt_mapper;
 class QSemaphore;
 class BlobModel;
 class LinePlotter;
+class BlobSetPlotter;
 class DistPlotter;
 class ScatterPlotter;
 class PerimeterWindow;
@@ -118,6 +119,7 @@ class ImageBuilder : public QObject
   ///////// WARNING.. entering a vector<Blob_mt_mapper*> into mapper_sets should remove it from mapper_collections.. 
   std::map<QString, BlobModel*> blobModels;
   std::map<QString, LinePlotter*> linePlotters;
+  BlobSetPlotter* blobSetPlotter;
   std::map<QString, DistPlotter*> distPlotters;
   std::map<QString, ScatterPlotter*> scatterPlotters;
   std::map<QString, QSemaphore*> mapper_collection_semaphores; // at some point make a reasonable data structure containing all of this.
@@ -209,6 +211,8 @@ class ImageBuilder : public QObject
   void compare_model(f_parameter& par);
   void plot_blob_pars(f_parameter& par);
   void plot_blob_set_dist(f_parameter& par);
+  void plot_blob_sets(f_parameter& par);
+  void plot_cell_blob_pars(f_parameter& par);
   void mergeBlobs(f_parameter& par);
   void readBlobCriteria(f_parameter& par);
   //  void make_blob_model(f_parameter& par); // this is problematic; see .cpp for details
@@ -252,6 +256,8 @@ class ImageBuilder : public QObject
   QString generateGeneralHelp();
   QString generatePipeSliceHelp(QString& fname);
   QString generateGeneralFunctionHelp(QString& fname);
+
+  std::set<Blob_mt_mapper*> set_mappers(std::vector<blob_set*> bs);
 
   //  float getBlobParameter(blob* b, QString parname);
   bool isPowerOfTwo(unsigned int i){

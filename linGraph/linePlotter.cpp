@@ -34,6 +34,7 @@ LinePlotter::LinePlotter(QWidget* parent)
     tick_length = 5;
     xScale = 1.0;
     yScale = 1.0;
+    use_constant_range = false;
     limitsEnabled = false;
     setFocusPolicy(Qt::StrongFocus);
     setDefaultColors();
@@ -45,6 +46,7 @@ LinePlotter::~LinePlotter(){
 
 void LinePlotter::setData(vector< vector<float> >& v, vector<QColor>& c, bool resetMask){
     values = v;
+    point_mask.resize(0);
     if(c.size()){
       colors = c;
     }
@@ -55,13 +57,16 @@ void LinePlotter::setData(vector< vector<float> >& v, vector<QColor>& c, bool re
 	update();
 	return;
     }
-    min = max = values[0][0];
+    if(!use_constant_range)
+      min = max = values[0][0];
     maxLength = values[0].size();
     for(uint i=0; i < values.size(); ++i){
 	maxLength = maxLength < values[i].size() ? values[i].size() : maxLength;
-	for(uint j=0; j < values[i].size(); ++j){
+	if(!use_constant_range){
+	  for(uint j=0; j < values[i].size(); ++j){
 	    max = max < values[i][j] ? values[i][j] : max;
 	    min = min > values[i][j] ? values[i][j] : min;
+	  }
 	}
     }
     if(resetMask){
@@ -93,15 +98,40 @@ void LinePlotter::setData(float* data, unsigned int d_width, unsigned int d_heig
   tempv.resize(v_size);
   for(unsigned int i=0; i < v_size; ++i){
     tempv[i].resize(length);
-    cout << i;
+    //cout << i;
     for(unsigned int j=0; j < length; ++j){
       unsigned int offset = use_rows ? (i * d_width + j) : (j * d_width + i);
       tempv[i][j] = data[ offset ];
-      cout << "\t" << tempv[i][j];
+      //cout << "\t" << tempv[i][j];
     }
-    cout << endl;
+    //cout << endl;
   }
   setData(tempv, colors, resetMask);
+}
+
+void LinePlotter::setPointMask(bool* pt_mask, unsigned int d_width, unsigned int d_height, bool use_rows)
+{
+  // if anything is wrong, make point_mask empty
+  point_mask.resize(0);
+  if(!d_width || !d_height)
+    return;
+  unsigned int v_size = use_rows ? d_height : d_width;
+  unsigned int length = use_rows ? d_width : d_height;
+  if(v_size != values.size())
+    return;
+  vector<vector<bool> > temp;
+  temp.resize(v_size);
+  for(unsigned int i=0; i < v_size; ++i){
+    if(values[i].size() != length)
+      return;
+    temp[i].resize(length);
+    for(unsigned int j=0; j < length; ++j){
+      unsigned int offset = use_rows ? (i * d_width + j) : (j * d_width + i);
+      temp[i][j] = pt_mask[ offset ];
+    }
+  }
+  point_mask = temp;
+  update();
 }
 
 void LinePlotter::setLeftMask(int xp){
@@ -137,6 +167,15 @@ void LinePlotter::enableLimits(bool b){
     rightMaskPos = maxLength;
   }
   update();
+}
+
+void LinePlotter::useConstantRange(bool b, float minY, float maxY)
+{
+  use_constant_range = b;
+  if(!b)
+    return;
+  min = minY;
+  max = maxY;
 }
 
 void LinePlotter::setDefaultColors(){
@@ -180,8 +219,10 @@ void LinePlotter::paintEvent(QPaintEvent* e){
 	cerr << "LinePlotter::paintEvent range is 0" << endl;
 	return;
     }
+    int penWidth = 2;
     for(uint i=0; i < values.size(); ++i){
-      p.setPen(QPen(colors[i % colors.size()], 0));
+      QColor p_col = colors[i % colors.size()];
+      p.setPen(QPen(p_col, penWidth));
       qreal x, y;
 	qreal px = 0;
 	qreal py =  yScale * (values[i][0] - min) * h / range ; 
@@ -189,6 +230,11 @@ void LinePlotter::paintEvent(QPaintEvent* e){
 	  x = (w * (float)j) / maxLength;
 	  y = yScale * (values[i][j] - min) * h / range ; 
 	  QLine fline(px, py, x, y);
+	  if(point_mask.size()){
+	    int alpha = point_mask[i][j-1] && point_mask[i][j] ? 255 : 50;
+	    p_col.setAlpha(alpha);
+	    p.setPen(QPen(p_col, penWidth));
+	  }
 	  p.drawLine(fline);
 	  px = x;
 	  py = y;
@@ -202,7 +248,7 @@ void LinePlotter::paintEvent(QPaintEvent* e){
 	cout << "leftMaskPos : " << w << " * " << leftMaskPos << " / " << maxLength << " = " << xp << endl;
 	p.drawRect(0, 0, xp, (int)h);
       }
-      if(rightMaskPos < maxLength){
+      if(rightMaskPos < (int)maxLength){
 	int xp = (int)(w * rightMaskPos)/maxLength;
 	p.drawRect(xp, 0, (int)w - xp, (int)h);
       }

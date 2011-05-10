@@ -29,6 +29,7 @@ void ClassCriteria::insertCriteria(unsigned int m_id, Criteria criteria){
 
 unsigned int ClassCriteria::assess(QString& par, blob_set& bset){
   unsigned int correction_id = 0;
+  QRegExp rx("(\\w+):(\\w+)");
   for(unsigned int i=0; i < bset.size(); ++i){
     if(! blob_criteria.count( bset.bid(i))){
       cerr << "ClassCriteria::assess, no criteria set for blob mapper id : " << bset.bid(i) 
@@ -38,6 +39,16 @@ unsigned int ClassCriteria::assess(QString& par, blob_set& bset){
       cerr << endl;
       continue;
       //      return(0);
+    }
+    //// Ugly, I can't think of a nice way of doing this: we need to determine whether or not
+    //// the parameter specifies a normal range criterion or an area one (Area ones are defined
+    //// as parx:pary so use a regular expression. Seems very wasteful
+    if(par.contains(rx)){
+      float x = getBlobParameter( bset.b(i), rx.cap(1) );
+      float y = getBlobParameter( bset.b(i), rx.cap(2) );
+      if( !blob_criteria[ bset.bid(i) ].within(par, QPointF(x, y)) )
+	correction_id += bset.bid(i);
+      continue;
     }
     float paramValue = getBlobParameter( bset.b(i), par );
     if(!blob_criteria[ bset.bid(i) ].within(par, paramValue))
@@ -142,9 +153,24 @@ Criteria Blob_mt_mapper_collection::readCriteria(QString& line, QStringList& par
     return(criteria);
   }
   // then just make ranges using the params, and the expectation things..
-  QRegExp rx("(\\d+.?\\d*)-(\\d+.?\\d*)");
+  QRegExp rx("(\\d+.?\\d*)-(\\d+.?\\d*)");    // for a normal range
+  QRegExp ar_rx("(\\d+.?\\d*):(\\d+.?\\d*)-(\\d+.?\\d*):(\\d+.?\\d*)");  // an area range specifed (y = a + bx) ==> a:b
+  QRegExp ar_par("(\\w+):(\\w+)");  // the header should be defined as the x_par:y_par, where the y_par = a + x_par * b
   map<QString, Range> ranges;
+  map<QString, AreaRange> areaRanges;   // Need to parse the pars to work out which are area ranges..
+  // Do this using a QRegExp and so on.. 
+
   for(int i=2; i < words.size(); ++i){
+    if(words[i].contains(ar_rx) && params[i-2].contains(ar_par)){
+      QString xpar = ar_par.cap(1);
+      QString ypar = ar_par.cap(2);
+      float k1 = ar_rx.cap(1).toFloat();
+      float r1 = ar_rx.cap(2).toFloat();
+      float k2 = ar_rx.cap(3).toFloat();
+      float r2 = ar_rx.cap(4).toFloat();
+      areaRanges.insert(make_pair(params[i-2], AreaRange(xpar, ypar, k1, r1, k2, r2)));
+      continue;
+    }
     if(!words[i].contains(rx)){
       cerr << "Blob_mt_mapper_collection::readCriteria, unable to get range from: " << words[i].ascii() << endl;
       return(criteria);
@@ -153,7 +179,7 @@ Criteria Blob_mt_mapper_collection::readCriteria(QString& line, QStringList& par
     float max = rx.cap(2).toFloat();
     ranges.insert(make_pair(params[i-2], Range(min, max)));
   }
-  return(Criteria(mapper_id, ranges));
+  return(Criteria(mapper_id, ranges, areaRanges));
 }
 
 void Blob_mt_mapper_collection::setAlternateIds()
@@ -219,13 +245,16 @@ vector<blob_set> Blob_mt_mapper_collection::blobSets(vector<unsigned int> superI
     return( blobSets(parNames, use_corrected) );  // which will actually call this function again.. but what the hell
   // and here if both have a reasonable size.. 
   vector<blob_set> b;
-  map<unsigned int, vector<blob_set> >& blobs_r = blobs;
-  if(use_corrected)
-    blobs_r = alternate_blobs;
+  map<unsigned int, vector<blob_set> >* blobs_r = &blobs;
+  if(use_corrected){
+    if(!alternate_blobs.size())
+      setAlternateIds();
+    blobs_r = &alternate_blobs;
+  }
   for(unsigned int i=0; i < superIds.size(); ++i){
-    if(blobs_r.count(superIds[i]) && class_criteria.count(superIds[i])){
+    if(blobs_r->count(superIds[i]) && class_criteria.count(superIds[i])){
       ClassCriteria& criteria = class_criteria[superIds[i]];
-      vector<blob_set>& bsets = blobs_r[superIds[i]];
+      vector<blob_set>& bsets = (*blobs_r)[superIds[i]];
       for(unsigned int j=0; j < bsets.size(); ++j){
 	bool include = true;
 	for(unsigned int k=0; k < parNames.size(); ++k){
@@ -238,6 +267,19 @@ vector<blob_set> Blob_mt_mapper_collection::blobSets(vector<unsigned int> superI
     }
   }
   return(b);
+}
+
+// Find all Blob_mt_mappers and call resetModelFits() on those.
+void Blob_mt_mapper_collection::resetModelFits()
+{
+  set<Blob_mt_mapper*> all_mappers;
+  for(map<unsigned int, vector<Blob_mt_mapper*> >::iterator it=mappers.begin();
+      it != mappers.end(); ++it){
+    for(unsigned int i=0; i < (*it).second.size(); ++i)
+      all_mappers.insert( (*it).second[i] );
+  }
+  for(set<Blob_mt_mapper*>::iterator it=all_mappers.begin(); it != all_mappers.end(); ++it)
+    (*it)->reset_model_correlations();
 }
 
 // make models from the 

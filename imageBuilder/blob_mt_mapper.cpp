@@ -95,7 +95,7 @@ void Blob_mt_mapper::mapBlobs(unsigned int wi, float minimumEdge, float minimumP
 {
   qsem = sem;
   qsem->acquire();  // sem is released at the end of run. acquired here to limit memory usage.
-  setImageStack();
+  setImageStack(false);  // the background is subtracted in the run() method.
   if(!stack){
     emit error("Blob_mt_mapper::mapBlobs failed to obtain a stack giving up");
     qsem->release();
@@ -107,8 +107,8 @@ void Blob_mt_mapper::mapBlobs(unsigned int wi, float minimumEdge, float minimumP
     return;
   }
   stack_channel = wi;
-  if(bg_xm && bg_ym)
-    subtract_background();
+  //  if(bg_xm && bg_ym)
+  //  subtract_background();
   minEdge = minimumEdge;
   minPeak = minimumPeak;
   // blobMap and mask are set up in the setBlobMap.. 
@@ -124,7 +124,7 @@ void Blob_mt_mapper::mapBlobs(unsigned int wi, float minimumEdge, float minimumP
 void Blob_mt_mapper::addToBlobModel(BlobModel* bmodel, vector<blob*>& b)
 {
   if(!stack)
-    setImageStack();
+    setImageStack(true);
   for(unsigned int i=0; i < b.size(); ++i){
     if(b[i]->min_x >= 0 && b[i]->max_x < stack_width &&
        b[i]->min_y >= 0 && b[i]->max_y < stack_height &&
@@ -159,6 +159,55 @@ void Blob_mt_mapper::dims(unsigned int& w, unsigned int& h, unsigned int& d)
   d = pos.d;
 }
 
+// if b coordinates fall within this mapper allocate the appropriate space
+// and then the values.
+blob_space* Blob_mt_mapper::blobSpace(blob* b)
+{
+
+  if(b->max_x >= (int)pos.w || b->min_x < 0) return(0);
+  if(b->max_y >= (int)pos.w || b->min_y < 0) return(0);
+  if(b->max_z >= (int)pos.d || b->min_z < 0) return(0);
+
+  stack_info b_pos;
+  b_pos.w = 1 + b->max_x - b->min_x;
+  b_pos.h = 1 + b->max_y - b->min_y;
+  b_pos.d = 1 + b->max_z - b->min_z;
+  if(b_pos.w <= 0 || b_pos.h <= 0 || b_pos.d <= 0) return(0);
+  
+  b_pos.x = pos.x + b->min_x;
+  b_pos.y = pos.y + b->min_y;
+  b_pos.z = pos.z + b->min_z;
+
+  
+  bool hasStack = (bool)stack;
+  if(!stack)
+    setImageStack(true);
+  if(!stack)
+    return(false);
+
+  float* values = new float[ b_pos.w * b_pos.h * b_pos.d ];
+  bool* bm = new bool[ b_pos.w * b_pos.h * b_pos.d ];
+  memset((void*)bm, 0, b_pos.w * b_pos.h * b_pos.d);  // default to false.
+
+  for(uint z=0; z < b_pos.d; ++z){
+    for(uint y=0; y < b_pos.h; ++y){
+      for(uint x=0; x < b_pos.w; ++x)
+	values[ z * b_pos.w * b_pos.h + y * b_pos.w + x] = 
+	  stack->lv(stack_channel, x + b->min_x, y + b->min_y, z + b->min_z);
+    }
+  }
+  for(unsigned int i=0; i < b->points.size(); ++i){
+    int bx, by, bz;
+    toVol(b->points[i], bx, by, bz);
+    unsigned int o_set =  (bz - b->min_z) * b_pos.w * b_pos.h + (by - b->min_y) * b_pos.w + (bx - b->min_x);
+    bm[ o_set ] = true;
+  }
+  if(!hasStack)
+    freeImageStack();
+  
+  return( new blob_space(values, bm, b_pos) );
+}
+
 vector<blob*> Blob_mt_mapper::rblobs(){
   vector<blob*> bl;
   bl.reserve(blobs.size());
@@ -177,6 +226,12 @@ vector<float> Blob_mt_mapper::blob_model_correlations()
   for(map<unsigned int, blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
     local_blobs.push_back((*it).second);
   return( blob_model_correlations(blobModel, local_blobs) );
+}
+
+void Blob_mt_mapper::reset_model_correlations()
+{
+  for(multimap<unsigned int, blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it)
+    (*it).second->aux1 = 0;
 }
 
 // all 0 if no model specified.. 
@@ -202,7 +257,7 @@ vector<float> Blob_mt_mapper::blob_model_correlations(BlobModel* bmodel, vector<
   bool keepStack = stack;
   if(!stack){
     cout << "Calling setImageStack" << endl;
-    setImageStack();
+    setImageStack(true);
     cout << "setImageStack returned" << endl;
   }
   if(!stack){
@@ -281,13 +336,17 @@ vector<float> Blob_mt_mapper::blob_model_correlations(BlobModel* bmodel, vector<
   return correlations;
 }
 
-vector<blob_set> Blob_mt_mapper::blob_sets(std::vector<Blob_mt_mapper*> mappers)
+vector<blob_set> Blob_mt_mapper::blob_sets(std::vector<Blob_mt_mapper*> mappers, std::vector<ChannelOffset> offsets)
 {
   vector<blob_set> bsets;
   // first check to make sure that the mappers have unique mapper ids, and that all are
   // 2 ^ n (how to check that?)
   map<unsigned int, Blob_mt_mapper*> mapKey;
   unsigned int key_sum = 0;
+  if(mappers.size() != offsets.size()){
+    cerr << "Blob_mt_mapper::blob_sets mappers and offsets have different sizes aborting" << endl;
+    return(bsets);
+  }
   for(unsigned int i=0; i < mappers.size(); ++i){
     if(mappers[i]->pos != pos){
       cerr << "Blob_mt_mapper::blob_sets mappers cover different regions" << endl;
@@ -306,7 +365,7 @@ vector<blob_set> Blob_mt_mapper::blob_sets(std::vector<Blob_mt_mapper*> mappers)
   }
   
   BlobMerger blobMerger;
-  return( blobMerger.mergeBlobs(mappers, 1) );
+  return( blobMerger.mergeBlobs(mappers, offsets, 2) );
 
   //////// All the below code is implicitly removed, by the above return statement.. ///// 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -367,22 +426,18 @@ vector<blob_set> Blob_mt_mapper::blob_sets(std::vector<Blob_mt_mapper*> mappers)
 /// setImageStack must not be called from within run as the fileSet structure that it depends on
 /// is not thread safe
 // note that it does not reset blobMap or mask. Not sure if this is good or bad.
-void Blob_mt_mapper::setImageStack()
+void Blob_mt_mapper::setImageStack(bool sub_background)
 {
   if(stack)
     return;
+
   stack = fileSet->imageStack(pos, true);
   if(!stack){
     cerr << "Blob_mt_mapper unable to obtain an imageStack. Bugger. " << endl;
     return;
   }
-  // unsigned int stack_size = stack->w() * stack->h() * stack->d();
-  // if(!blobMap)
-  //   blobMap = new blob*[stack_size];
-  // if(!mask)
-  //   mask = new bool[stack_size];
-  // memset((void*)blobMap, 0, sizeof(blob*) * stack_size);
-  // memset((void*)mask, 0, sizeof(bool) * stack_size);
+  if(bg_xm && bg_ym && sub_background)
+    subtract_background();
 }
 
 void Blob_mt_mapper::freeImageStack()
@@ -423,6 +478,8 @@ void Blob_mt_mapper::run()
   //  if(qsem)
   // qsem->acquire();
   cout << "Beg of Blob_mt_mapper run() " << pos.x << "," << pos.y << endl;
+  if(bg_xm && bg_ym)
+    subtract_background();
   float v;
   blob* tempBlob = new blob();
   for(uint z=0; z < pos.d; ++z){
@@ -445,6 +502,7 @@ void Blob_mt_mapper::run()
 
 void Blob_mt_mapper::subtract_background()
 {
+  cout << "Blob_mt_mapper::subtract_background() " << pos.x << "," << pos.y << endl;
   if(!bg_xm || !bg_ym || !stack)
     return;
   Two_D_Background tdb;
@@ -463,6 +521,7 @@ void Blob_mt_mapper::subtract_background()
       }
     }
   }
+  cout << "Blob_mt_mapper::subtract_background() done: " << pos.x << "," << pos.y << endl;
 }
 
 blob* Blob_mt_mapper::initBlob(blob* b, uint x, uint y, uint z, float v)
@@ -683,8 +742,8 @@ void Blob_mt_mapper::incrementBlobModel(blob* b, BlobModel* model)
   toVol(b->peakPos, x, y, z);
   float fx, fy, fz;
   determineBlobCenter(b, fx, fy, fz);
-  cout << "Blob_mt_mapper blob peak : " << x << "," << y << "," << z << "  mean peak pos: "
-       << fx << "," << fy << "," << fz << endl;
+  //  cout << "Blob_mt_mapper blob peak : " << x << "," << y << "," << z << "  mean peak pos: "
+  //     << fx << "," << fy << "," << fz << endl;
   model->lockMutex();
   model->setPeak(fx, fy, fz, stack->lv(stack_channel, b->peakPos));
   for(uint i=0; i < b->points.size(); ++i){

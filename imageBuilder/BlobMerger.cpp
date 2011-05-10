@@ -16,12 +16,13 @@ BlobMerger::~BlobMerger()
     delete []maps[i];
 }
 
-vector<blob_set> BlobMerger::mergeBlobs(vector<Blob_mt_mapper*> bl_mappers, unsigned int r)
+vector<blob_set> BlobMerger::mergeBlobs(vector<Blob_mt_mapper*> bl_mappers, vector<ChannelOffset> ch_offsets, unsigned int r)
 {
   vector<blob_set> blob_sets;
-  if(!bl_mappers.size()){
+  channelOffsets = ch_offsets;
+  if(!bl_mappers.size() || bl_mappers.size() != channelOffsets.size()){
     cerr << "BlobMerger::mergeBlobs received empty bl_mappers" << endl;
-    return(blob_sets);;
+    return(blob_sets);
   }
   mappers = bl_mappers;
   pos = mappers[0]->pos;
@@ -50,6 +51,20 @@ void BlobMerger::initOffsets()
       }
     }
   }
+}
+
+
+vector<int> BlobMerger::adjustOffsets(unsigned int map_id)
+{
+  if(map_id >= mappers.size())
+    return(offsets);
+  vector<int> adjusted(offsets.size());
+  for(unsigned int i=0; i < offsets.size(); ++i){
+    adjusted[i] = offsets[i] + 
+      (channelOffsets[map_id].z() * pos.w * pos.h) + 
+      (channelOffsets[map_id].y() * pos.w) + channelOffsets[map_id].x();
+  }
+  return(adjusted);
 }
 
 void BlobMerger::initMaps()
@@ -84,8 +99,9 @@ vector<blob*> BlobMerger::getNeighborBlobs(unsigned int map_id, int p)
   if(map_id >= maps.size())
     return(nb);
   int size = pos.w * pos.h * pos.d;
-  for(unsigned int i=0; i < offsets.size(); ++i){
-    int o = offsets[i] + p;
+  vector<int> adjustedOffsets = adjustOffsets(map_id);
+  for(unsigned int i=0; i < adjustedOffsets.size(); ++i){
+    int o = adjustedOffsets[i] + p;
     if(o < 0 || o >= size)
       continue;
     if(maps[map_id][o])

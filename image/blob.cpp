@@ -1,5 +1,7 @@
 #include "blob.h"
 #include <iostream>
+#include <QRegExp>
+#include <QString>
 
 using namespace std;
 
@@ -27,8 +29,9 @@ void blob::size(uint& s){
     
 }
 
-// stupid ugly hack.. 
-float getBlobParameter(blob* b, QString parname)
+
+// stupid ugly hack.. no way to know if not successful.. ??
+float getSingleBlobParameter(blob* b, QString parname)
 {
   if(parname == "volume")
     return((float)b->points.size());
@@ -43,6 +46,30 @@ float getBlobParameter(blob* b, QString parname)
   if(parname == "mean")
     return( b->sum / (float)b->points.size());
   return(0);
+}
+
+float getBlobParameter(blob* b, QString parname)
+{
+  QRegExp rx("(\\w+)([\\*\\+\\-\\/])(\\w+)");
+  if(rx.indexIn(parname) == -1)
+    return(getSingleBlobParameter(b, parname));
+  float p1 = getSingleBlobParameter(b, rx.cap(1));
+  float p2 = getSingleBlobParameter(b, rx.cap(3));
+  char op = rx.cap(2).toAscii()[0];
+  switch(op){
+  case '+':
+    return(p1 + p2);
+  case '-':
+    return(p1 - p2);
+  case '*':
+    return(p1 * p2);
+  case '/':
+    if(p2)
+      return(p1 / p2);
+    return(0);
+  default:
+    return(0);
+  }
 }
 
 // void blob::childNo(unsigned int& c){

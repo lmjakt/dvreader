@@ -94,3 +94,53 @@ void blob_set::setCorrectedId(unsigned int new_id){
 unsigned int blob_set::correctedId(){
   return(corrected_id);
 }
+
+///////// constructors for additional struct blob_set_space
+///////// only a small container
+
+blob_set_space::blob_set_space()
+{
+}
+
+blob_set_space::blob_set_space( blob_set bs )
+{
+  b_set = bs;
+  for(unsigned int i=0; i < bs.blobs.size(); ++i){
+    spaces.push_back( bs.mappers[i]->blobSpace( bs.blobs[i] ));
+    blobs.push_back( new blob(*bs.blobs[i]) );  
+    //blobs.push_back( bs.blobs[i] );
+
+  }
+}
+
+blob_set_space::~blob_set_space()
+{
+  for(unsigned int i=0; i < blobs.size(); ++i){
+    delete blobs[i];
+    delete spaces[i];
+  }
+}
+
+unsigned int blob_set_space::size()
+{
+  return(spaces.size());
+}
+
+blob_space* blob_set_space::space(unsigned int i)
+{
+  if(i < spaces.size())
+    return(spaces[i]);
+  return(0);
+}
+
+blob* blob_set_space::b(unsigned int i)
+{
+  if(i < blobs.size())
+    return(blobs[i]);
+  return(0);
+}
+
+blob_set blob_set_space::bs()
+{
+  return(b_set);
+}

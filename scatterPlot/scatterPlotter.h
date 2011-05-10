@@ -6,7 +6,7 @@
 #include <QKeyEvent>
 #include <QPainterPath>
 #include <QPointF>
-#include <vector>
+#include <vector> 
 
 class ScatterPlotter : public QWidget
 {
@@ -52,6 +52,12 @@ class ScatterPlotter : public QWidget
   std::vector<QColor> defaultColors;
   std::vector<bool> selectedChannels;
   bool plotLog;
+  
+  // reporting positions..and equation drawing.. 
+  QPoint currentPoint;
+  bool reportCurrentPoint;
+  QPointF origin;
+
   // all mins and maxes are in linear scale. Convert if necessary. Don't do log if negative values present
   // or possibly convert to something like v[i][j] + min + 0.01*max before logging 
   float x_min, x_max, y_min, y_max;        // actual mins and maxes

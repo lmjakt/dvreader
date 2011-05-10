@@ -3,9 +3,69 @@
 
 #include <map>
 #include <QString>
+#include <QPointF>
 #include "blob_set.h"
 #include "BlobModelSet.h"
 #include <vector>
+
+// y = k + xr (dy short for dy/dx)
+class Line {
+  float k;
+  float r;
+ public:
+  Line(){
+    k = 0;
+    r = 1.0;
+  }
+  Line(float y_intercept, float dy){
+    k = y_intercept;
+    r = dy;
+  }
+  
+  bool friend operator <(const Line& a, const QPointF& b){
+    return( (a.k + b.x() * a.r) < b.y() );
+  }
+  bool friend operator >(const Line& a, const QPointF& b){
+    return( (a.k + b.x() * a.r) > b.y() );
+  }
+  bool friend operator <(const Line& a, const Line& b){
+    if(a.r == b.r)
+      return(a.k < b.k);
+    return(a.r < b.r);
+  }
+  bool friend operator ==(const Line& a, const Line& b){
+    return( a.k == b.k && a.r == b.r );
+  }
+};
+
+
+// the aread between two lines
+class AreaRange {    
+  Line minLine;
+  Line maxLine;
+  QString x_par, y_par;
+ public:
+  AreaRange(){};
+  AreaRange(QString xpar, QString ypar, float k1, float r1, float k2, float r2){
+    minLine = Line(k1, r1);
+    maxLine = Line(k2, r2);
+    x_par = xpar;
+    y_par = ypar;
+  }
+  bool within(QPointF p){
+    return(minLine < p && maxLine > p);
+  }
+  QString xpar(){
+    return(x_par);
+  }
+  QString ypar(){
+    return(y_par);
+  }
+  void setLines(float k1, float r1, float k2, float r2){
+    minLine = Line(k1, r1);
+    maxLine = Line(k2, r2);
+  }
+};
 
 class Range {
   float min;
@@ -28,19 +88,26 @@ public:
 // Contains the ranges for a specific class and blob
 class Criteria {
   std::map<QString, Range> ranges;
+  std::map<QString, AreaRange> areaRanges;
   unsigned int mapper_id;   // should be a simple power of two.
  public:
   Criteria(){
     mapper_id = 0;
   }
-  Criteria(unsigned int m_id, std::map<QString, Range> rng){
+  Criteria(unsigned int m_id, std::map<QString, Range> rng, std::map<QString, AreaRange> a_ranges){
     ranges = rng;
+    areaRanges = a_ranges;
     mapper_id = m_id;
   }
   bool within(QString& par, float f){
     if(!ranges.count(par))
       return(false);
     return( ranges[par].within(f));
+  }
+  bool within(QString& par, QPointF p){
+    if(!areaRanges.count(par))
+      return(false);
+    return( areaRanges[par].within(p) );
   }
   unsigned int m_id(){
     return(mapper_id);
@@ -97,6 +164,7 @@ class Blob_mt_mapper_collection {
   std::vector<blob_set> blobSets(std::vector<unsigned int> superIds, QString parName, bool use_corrected);
   std::vector<blob_set> blobSets(std::vector<unsigned int> superIds, std::vector<QString> parNames, bool use_corrected);
   // and a function that fills in the blanks in a reasonable manner.. 
+  void resetModelFits();  // call before calling trainModels
   void trainModels(std::vector<QString> parNames, int xyr, int zr, bool use_corrected_ids);
   void setAlternateIds();  // this uses the results of the last instance of assess. Use with care.
 };  

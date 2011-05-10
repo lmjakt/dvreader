@@ -4,6 +4,7 @@
 #include <QThread>
 #include <vector>
 #include <string>
+#include "../datastructs/channelOffset.h"
 #include "../image/blob.h"
 #include "blob_set.h"
 #include "stack_info.h"
@@ -40,13 +41,15 @@ class Blob_mt_mapper : public QThread
   std::string description();
   void position(int& x, int& y, int& z);
   void dims(unsigned int& w, unsigned int& h, unsigned int& d);
-  std::vector<blob*> rblobs();  // shouldn't really be rblobs, .. 
+  blob_space* blobSpace(blob* b);
+  std::vector<blob*> rblobs();  // shouldn't really be rblobs, ..
+  void reset_model_correlations();
   std::vector<float> blob_model_correlations();
   std::vector<float> blob_model_correlations(BlobModel* bmodel, std::vector<blob*>& local_blobs);
-  std::vector<blob_set> blob_sets(std::vector<Blob_mt_mapper*> mappers);
+  std::vector<blob_set> blob_sets(std::vector<Blob_mt_mapper*> mappers, std::vector<ChannelOffset> offsets);
   stack_info position(){ return pos; }
   unsigned int mapId(){ return map_id; }
-  void setImageStack();
+  void setImageStack(bool sub_background);
   void freeImageStack();
   // we need some way of returning the blobs in a reasonable structure
   // For now use the old ../image/blob.h definition. But note that it is probably too memory intensive.

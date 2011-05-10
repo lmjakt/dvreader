@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <QString>
+#include "../imageBuilder/stack_info.h"
 
 class BlobMapper;
 
@@ -56,6 +57,26 @@ struct id_blob {
     BlobMapper* mapper;
 };
 
+// contains the 
+struct blob_space {
+  float* values;
+  bool* membership;
+  stack_info pos;
+
+  blob_space(){
+    values = 0;
+    membership = 0;
+  }
+  blob_space(float* v, bool* bm, stack_info s_pos){
+    values = v;
+    membership = bm;
+    pos = s_pos;
+  }
+  ~blob_space(){
+    delete []values;
+    delete []membership;
+  }
+};
 
 // stupid ugly hack.. 
 float getBlobParameter(blob* b, QString parname);

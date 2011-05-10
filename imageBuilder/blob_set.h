@@ -5,9 +5,12 @@
 #include "stack_info.h"
 
 struct blob;
+struct blob_space;
+
 class Blob_mt_mapper;
 
 class blob_set {
+  friend struct blob_set_space;
 
   std::vector<blob*> blobs;
   std::vector<unsigned int> mapper_ids;
@@ -61,6 +64,23 @@ class blob_set {
   unsigned int id();
   unsigned int correctedId();
   void setCorrectedId(unsigned int new_id);
+};
+
+class blob_set_space {
+ public:
+  blob_set_space();
+  blob_set_space( blob_set bs );
+  ~blob_set_space();
+
+  unsigned int size();
+  blob_space* space(unsigned int i);
+  blob* b(unsigned int i);
+  blob_set bs();   // but beware the blob* pointers won't match up.
+
+ private:
+  std::vector<blob_space*> spaces;
+  std::vector<blob*> blobs;
+  blob_set b_set;
 };
 
 #endif

@@ -48,7 +48,7 @@ void BlobModelSet::assessBlobs(vector<blob_set>& bsets)
 
 void BlobModelSet::trainModel(BlobModel* model, std::vector<blob*>& blobs, Blob_mt_mapper* mapper)
 {
-  mapper->setImageStack();
+  mapper->setImageStack(true); // subtract background is true
   mapper->addToBlobModel(model, blobs);
   mapper->freeImageStack();
 }

@@ -1,5 +1,6 @@
 #include "scatterPlotter.h"
 #include <QPainter>
+#include <QTextStream>
 #include <iostream>
 #include <math.h>
 
@@ -16,7 +17,8 @@ ScatterPlotter::ScatterPlotter(QWidget* parent)
   xScale = 1.0;
   yScale = 1.0;
   m_size = 6;
-  selectingPath = false;
+  origin = QPointF(hMargin, height() - vMargin);
+  reportCurrentPoint = selectingPath = false;
   setFocusPolicy(Qt::StrongFocus);
   setDefaultColors();
 }
@@ -42,6 +44,7 @@ bool ScatterPlotter::setData(vector<vector<float> > xv, vector<vector<float> > y
 	 << xv.size() << "\t" << yv.size() << " : " << c.size() << endl;
     return(false);
   }
+  origin = QPointF(hMargin, height() - vMargin);
   lin_x = xv;
   lin_y = yv;
   plotColors = c;
@@ -100,13 +103,13 @@ vector<vector<bool> > ScatterPlotter::selectPoints(bool filter){
 }
 
 void ScatterPlotter::setDefaultColors(){
-  plotColors.push_back(QColor(255, 0, 0));
-  plotColors.push_back(QColor(0, 255, 0));
-  plotColors.push_back(QColor(0, 0, 255));
-  plotColors.push_back(QColor(255, 0, 255));
-  plotColors.push_back(QColor(0, 255, 255));
-  plotColors.push_back(QColor(125, 125, 0));
-  plotColors.push_back(QColor(120, 120, 120));
+  plotColors.push_back(QColor(200, 0, 0));
+  plotColors.push_back(QColor(0, 200, 0));
+  plotColors.push_back(QColor(0, 0, 200));
+  plotColors.push_back(QColor(150, 0, 150));
+  plotColors.push_back(QColor(0, 150, 150));
+  plotColors.push_back(QColor(200, 125, 0));
+  plotColors.push_back(QColor(120, 120, 200));
   defaultColors = plotColors;
 }
 
@@ -189,6 +192,7 @@ void ScatterPlotter::paintEvent(QPaintEvent* e){
   float yrange = ymax - ymin;
 
   QPainter p(this);
+  p.save();
   p.translate(0, height());
   p.scale(1.0, -1.0);
   p.translate(hMargin, vMargin);
@@ -233,6 +237,42 @@ void ScatterPlotter::paintEvent(QPaintEvent* e){
       //p.drawRect(xp-m_size/2, yp-m_size/2, m_size, m_size);
     }
   }
+
+  // For any thing involving labels and such we need to restore the painter to it's 
+  // original state..
+  p.restore();
+
+  if(reportCurrentPoint && 
+     currentPoint.x() > hMargin && currentPoint.y() < (height() - vMargin)){
+    QPointF pv = transformPos(QPointF(currentPoint));
+    QPointF op = transformPos(origin); 
+    float xv = xmin + (pv.x() / w) * xrange ;
+    float yv = ymin + (pv.y() / h) * yrange ; 
+    float xo = xmin + (op.x() / w) * xrange ;
+    float yo = ymin + (op.y() / h) * yrange ; 
+    float y_rate = (yv - yo) / (xv - xo);
+    float k = yv - (y_rate * xv);
+
+    p.setPen(QPen(QColor(50, 50, 50), 0));
+    p.drawLine(hMargin, currentPoint.y(), currentPoint.x() + hMargin, currentPoint.y());
+    p.drawLine(currentPoint.x(), currentPoint.y() - vMargin, currentPoint.x(), height() - vMargin);
+    p.setPen(QPen(QColor(50, 50, 50), 0, Qt::DashLine));
+    p.drawLine(currentPoint, origin);
+    //    p.drawLine(currentPoint.x(), currentPoint.y(), hMargin, height() - vMargin);
+    int lmargin = 3;
+    QString numLabel;
+    numLabel.setNum(xv);
+    p.drawText(currentPoint.x() + lmargin + 10, currentPoint.y() + lmargin, width(), height(), 
+	       Qt::AlignLeft|Qt::AlignTop, numLabel);
+    numLabel.setNum(yv);
+    p.drawText(0, 0, currentPoint.x() - lmargin, currentPoint.y() - lmargin,
+	       Qt::AlignRight|Qt::AlignBottom, numLabel);
+    numLabel = "";
+    QTextStream qts(&numLabel);
+    qts << "y=" << k << " + " << y_rate << "x";
+    p.drawText(currentPoint.x() + hMargin, 0, width(), currentPoint.y() - vMargin,
+	       Qt::AlignLeft|Qt::AlignBottom, numLabel);
+  }
 }
 
 void ScatterPlotter::keyPressEvent(QKeyEvent* e){
@@ -263,22 +303,39 @@ void ScatterPlotter::mousePressEvent(QMouseEvent* e){
 	selectPath.moveTo(transformPos(e->posF()));
 	selectingPath = true;
     }
+    if(e->button() == Qt::RightButton){
+      // report the position (draw three x, y, and diagonal
+      reportCurrentPoint = true;
+      currentPoint = e->pos();
+      if(e->modifiers() & Qt::ControlModifier){
+	origin =  QPointF(e->pos());
+      }
+      if(e->modifiers() & Qt::ShiftModifier){
+	reportCurrentPoint = false;
+      }
+      update();
+    }
 }
 
 void ScatterPlotter::mouseMoveEvent(QMouseEvent* e){
-    if(selectingPath){
-	selectPath.lineTo(transformPos(e->posF()));
-	update();
-    }
+  currentPoint = e->pos();
+  if(selectingPath){
+    selectPath.lineTo(transformPos(e->posF()));
+    update();
+    return;
+  }
+  if(reportCurrentPoint)
+    update();
 }
 
 void ScatterPlotter::mouseReleaseEvent(QMouseEvent* e){
     e = e;
     if(selectingPath){
-	selectPath.closeSubpath();
-	update();
+      selectPath.closeSubpath();
+      update();
     }
     selectingPath = false;
+    //    origin = QPointF(hMargin, height() - vMargin);
 }
 
 void ScatterPlotter::mouseDoubleClickEvent(QMouseEvent* e){
@@ -306,10 +363,16 @@ void ScatterPlotter::valueToPlotCoordinatesR(float& x, float& y, float w, float 
     float xmax = plotLog ? log(x_max + logModifier) : x_max;
     float ymin = plotLog ? log(y_min + logModifier) : y_min;
     float ymax = plotLog ? log(y_max + logModifier) : y_max;
+    if(!plotLog){
+      xmin = xmin > 0 ? 0 : xmin;
+      ymin = ymin > 0 ? 0 : ymin;
+    }
     
     x = xScale * w * (x - xmin) / (xmax - xmin);
     y = yScale * h * (y - ymin) / (ymax - ymin);
 }
+
+
 // QPointF ScatterPlotter::logTransformPos(QPointF p){
 //     QPointF linP = transformPos(p);
 //     return( QPointF( log(linP.x()), log(linP.y()) ));
