@@ -6,6 +6,8 @@
 #include "../imageBuilder/stack_info.h"
 
 class BlobMapper;
+class Blob_mt_mapper;
+class c_array;
 
 typedef unsigned int off_set;
 typedef unsigned int uint;
@@ -23,6 +25,7 @@ struct blob {
   ~blob(){
   }
   void size(uint& s);
+  void serialise(c_array* buf);
   std::vector<off_set> points;
   std::vector<bool> surface; 
   float min, max, sum;
@@ -35,6 +38,7 @@ struct blob {
   int b_class;
   float class_lr;
   int super_class;
+  Blob_mt_mapper* mapper;
 };
 
 // The below is just a way of keeping a reference to a blob along

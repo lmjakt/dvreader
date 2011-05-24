@@ -2792,6 +2792,8 @@ void ImageBuilder::mergeBlobs(f_parameter& par)
       warn("channel offsets must be specified for each channel offsets=x1,y1,z1,x2,y2,etc\n");
     }
   }
+  unsigned int radius = 1;
+  par.param("r", radius);
       
   vector<vector<Blob_mt_mapper*> > mappers;
   vector<QString> used_mapperNames;
@@ -2830,7 +2832,7 @@ void ImageBuilder::mergeBlobs(f_parameter& par)
     /// blob_mt_mapper function. However, at the moment, the Blob_mt_mapper
     /// wrapper function does some checking that's not performed by the
     /// BlobMerger function.
-    vector<blob_set> bs = bmt[0]->blob_sets(bmt, ch_offsets);  // this does the actual merging.. 
+    vector<blob_set> bs = bmt[0]->blob_sets(bmt, ch_offsets, radius);  // this does the actual merging.. 
     blob_sets.insert(blob_sets.end(), bs.begin(), bs.end());
     cout << i <<  "  Added " << bs.size() << " blob_sets, giving a total of : " << blob_sets.size() << endl;
   }
@@ -3340,9 +3342,10 @@ void ImageBuilder::modifyCells(f_parameter& par)
   QTextStream qts(&errorString);
   bool clear = true;
   par.param("clear", clear);
-  if(!par.param("map", mapName))
+  if(!par.param("cells", mapName))
     qts << "Specify map name : map=..\n";
-  if(mapName.length() && ( !cellIdMasks.count(mapName) || !cellCollections.count(mapName)) )
+  if(mapName.length() && ( !cellCollections.count(mapName)) )
+    //  if(mapName.length() && ( !cellIdMasks.count(mapName) || !cellCollections.count(mapName)) )
     qts << "Unknown cell map (cellIdMasks) or cell collection (cellCollections) : " << mapName << "\n";
   if(errorString.length()){
     warn(errorString);

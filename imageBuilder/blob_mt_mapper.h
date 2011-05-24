@@ -17,6 +17,7 @@ class QSemaphore;
 class BlobModel;
 class FileSet;
 class BlobMerger;
+class c_array;
 // Does essentially the same thing as ../image/blobMapper but uses and ImStack
 // for data access.
 // Rewritten completely for simplicity and to try and enable multithreading
@@ -46,11 +47,14 @@ class Blob_mt_mapper : public QThread
   void reset_model_correlations();
   std::vector<float> blob_model_correlations();
   std::vector<float> blob_model_correlations(BlobModel* bmodel, std::vector<blob*>& local_blobs);
-  std::vector<blob_set> blob_sets(std::vector<Blob_mt_mapper*> mappers, std::vector<ChannelOffset> offsets);
+  std::vector<blob_set> blob_sets(std::vector<Blob_mt_mapper*> mappers, std::vector<ChannelOffset> offsets,
+				  unsigned int radius);
   stack_info position(){ return pos; }
   unsigned int mapId(){ return map_id; }
   void setImageStack(bool sub_background);
   void freeImageStack();
+
+  void serialise(c_array* buf);
   // we need some way of returning the blobs in a reasonable structure
   // For now use the old ../image/blob.h definition. But note that it is probably too memory intensive.
  signals:
@@ -76,12 +80,12 @@ class Blob_mt_mapper : public QThread
   blob* blob_at(off_set pos);  // creates a blobMap if not present.. 
 
   off_set linear(int x, int y, int z){
-    return( z * stack_width * stack_height + y * stack_width + x);
+    return( z * pos.w * pos.h + y * pos.w + x);
   }
   void toVol(off_set p, int& x, int& y, int& z){
-    z = p / (stack_width * stack_height);
-    y = (p % (stack_width * stack_height)) / stack_width;
-    x = p % stack_width;
+    z = p / (pos.w * pos.h);
+    y = (p % (pos.w * pos.h)) / pos.w;
+    x = p % pos.w;
   }
   float e_dist(float x1, float y1, float x2, float y2){
     return(sqrt( (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) ));
@@ -113,7 +117,7 @@ class Blob_mt_mapper : public QThread
   static const unsigned int Bottom = 8;  
   std::multimap<unsigned int, blob*> blobs;     // blob defined as being, inside, on edges or corners.. 
   BlobModel* blobModel;                  // an optional model to which points can be added. 
-  int stack_width, stack_height, stack_depth;
+  //  int stack_width, stack_height, stack_depth; // for inline functions to avoid pos.w ?
   blob** blobMap;   // size equal to the volume of the ImStack. // to save memory we could use an offset to blobs hmm.
   bool* mask;    // size equal to the volume of the ImStack.
   unsigned int map_id;  // should 1 2 4 8 16, etc.

@@ -59,13 +59,11 @@ Perimeter Cell2::nucleusPerimeter()
 void Cell2::writeTextSummary(ofstream& out)
 {
   // Summarise some various bits and pieces
-  int x, y;
-  cell.pos(0, x, y);
   unsigned int c_length = cell.length();
   unsigned int c_area = cell.area();
   unsigned int n_length = nucleus.length();
   unsigned int n_area = nucleus.area();
-  out << x << "," << y << "\t" << c_length << "\t" << c_area
+  out << cell.xmin() << "," << cell.ymin() << "\t" << c_length << "\t" << c_area
       << "\t" << n_length << "\t" << n_area << "\t" << blob_sets.size() << "\n";
   map<unsigned int, int> blob_counts;
   // let's collect corrected_ids, but we better check the code to make

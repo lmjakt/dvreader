@@ -1,4 +1,5 @@
 #include "blob.h"
+#include "../util/c_array.h"
 #include <iostream>
 #include <QRegExp>
 #include <QString>
@@ -24,11 +25,39 @@ using namespace std;
 
 void blob::size(uint& s){
     s += points.size();
-//     for(uint i=0; i < blobs.size(); ++i)
-// 	blobs[i]->size(s);
-    
 }
 
+void blob::serialise(c_array* buf)
+{
+  buf->push(points.size());  // this could be done by (char*)&points[i], length * sizeof..
+  for(unsigned int i=0; i < points.size(); ++i)
+    buf->push(points[i]);
+  buf->push(surface.size());
+  for(unsigned int i=0; i < surface.size(); ++i)
+    buf->push((char)surface[i]);
+
+  buf->push(peakPos);
+
+  buf->push(min);
+  buf->push(max);
+  buf->push(sum);
+  buf->push(min_x);
+  buf->push(max_x);
+  buf->push(min_y);
+  buf->push(max_y);
+  buf->push(min_z);
+  buf->push(max_z);
+
+  buf->push(min);
+  buf->push(max);
+  buf->push(sum);
+  buf->push(aux1);
+  
+  buf->push(b_class);
+  buf->push(class_lr);
+
+  buf->push(super_class);
+}
 
 // stupid ugly hack.. no way to know if not successful.. ??
 float getSingleBlobParameter(blob* b, QString parname)

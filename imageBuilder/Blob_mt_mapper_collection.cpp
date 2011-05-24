@@ -153,8 +153,8 @@ Criteria Blob_mt_mapper_collection::readCriteria(QString& line, QStringList& par
     return(criteria);
   }
   // then just make ranges using the params, and the expectation things..
-  QRegExp rx("(\\d+.?\\d*)-(\\d+.?\\d*)");    // for a normal range
-  QRegExp ar_rx("(\\d+.?\\d*):(\\d+.?\\d*)-(\\d+.?\\d*):(\\d+.?\\d*)");  // an area range specifed (y = a + bx) ==> a:b
+  QRegExp rx("(-?\\d+.?\\d*)><(-?\\d+.?\\d*)");    // for a normal range
+  QRegExp ar_rx("(-?\\d+.?\\d*):(-?\\d+.?\\d*)><(-?\\d+.?\\d*):(-?\\d+.?\\d*)");  // an area range specifed (y = a + bx) ==> a:b
   QRegExp ar_par("(\\w+):(\\w+)");  // the header should be defined as the x_par:y_par, where the y_par = a + x_par * b
   map<QString, Range> ranges;
   map<QString, AreaRange> areaRanges;   // Need to parse the pars to work out which are area ranges..

@@ -128,7 +128,8 @@ HEADERS		= \
                 imageBuilder/BlobMerger.h \
                 imageBuilder/BlobSetPlotter.h \
                 imageBuilder/CellParCollector.h \
-		util/matrix.h	
+		util/matrix.h \
+                util/c_array.h
 SOURCES		= \
 		dvReader.cpp \
 		deltaViewer.cpp \
@@ -245,6 +246,7 @@ SOURCES		= \
                 imageBuilder/BlobSetPlotter.cpp \
                 imageBuilder/CellParCollector.cpp \
 		util/matrix.cpp \
+                util/c_array.cpp \
 		globalVariables.cpp \
 		main.cpp
 TARGET		= reader

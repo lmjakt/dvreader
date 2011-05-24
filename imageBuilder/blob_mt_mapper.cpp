@@ -8,6 +8,7 @@
 #include "../image/blobModel.h"
 #include "../image/two_d_background.h"
 #include "../panels/fileSet.h"
+#include "../util/c_array.h"
 #include "BlobMerger.h"
 
 using namespace std;
@@ -34,9 +35,9 @@ Blob_mt_mapper::Blob_mt_mapper(stack_info s_info, FileSet* fset, unsigned int ma
   stack_channel = 0;
   // stack_width, stack_height and stack_depth are still used by a couple of inline functions (linear and toVol)
   // as I suspect that might be faster. ?? 
-  stack_width = pos.w; //stack->w();   // references to these should be replaced with pos.w and so on.. 
-  stack_height = pos.h; //stack->h();
-  stack_depth = pos.d; //stack->d();
+  //stack_width = pos.w; //stack->w();   // references to these should be replaced with pos.w and so on.. 
+  //stack_height = pos.h; //stack->h();
+  //stack_depth = pos.d; //stack->d();
 }
 
 Blob_mt_mapper::Blob_mt_mapper(ImStack* imStack, unsigned int mapper_id, bool free_memory)
@@ -59,9 +60,9 @@ Blob_mt_mapper::Blob_mt_mapper(ImStack* imStack, unsigned int mapper_id, bool fr
   minEdge = 0;
   minPeak = 1.0;
   stack_channel = 0;
-  stack_width = stack->w();
-  stack_height = stack->h();
-  stack_depth = stack->d();
+  //stack_width = stack->w();
+  //stack_height = stack->h();
+  //stack_depth = stack->d();
   //Left = 1; Right = 2; Bottom = 4; Top = 8;
 
 }
@@ -126,9 +127,9 @@ void Blob_mt_mapper::addToBlobModel(BlobModel* bmodel, vector<blob*>& b)
   if(!stack)
     setImageStack(true);
   for(unsigned int i=0; i < b.size(); ++i){
-    if(b[i]->min_x >= 0 && b[i]->max_x < stack_width &&
-       b[i]->min_y >= 0 && b[i]->max_y < stack_height &&
-       b[i]->min_z >= 0 && b[i]->max_z < stack_depth)
+    if(b[i]->min_x >= 0 && b[i]->max_x < (int)pos.w &&
+       b[i]->min_y >= 0 && b[i]->max_y < (int)pos.h &&
+       b[i]->min_z >= 0 && b[i]->max_z < (int)pos.d)
       incrementBlobModel(b[i], bmodel);
   }
 }
@@ -336,7 +337,8 @@ vector<float> Blob_mt_mapper::blob_model_correlations(BlobModel* bmodel, vector<
   return correlations;
 }
 
-vector<blob_set> Blob_mt_mapper::blob_sets(std::vector<Blob_mt_mapper*> mappers, std::vector<ChannelOffset> offsets)
+vector<blob_set> Blob_mt_mapper::blob_sets(std::vector<Blob_mt_mapper*> mappers, std::vector<ChannelOffset> offsets,
+					   unsigned int radius)
 {
   vector<blob_set> bsets;
   // first check to make sure that the mappers have unique mapper ids, and that all are
@@ -365,7 +367,7 @@ vector<blob_set> Blob_mt_mapper::blob_sets(std::vector<Blob_mt_mapper*> mappers,
   }
   
   BlobMerger blobMerger;
-  return( blobMerger.mergeBlobs(mappers, offsets, 2) );
+  return( blobMerger.mergeBlobs(mappers, offsets, radius) );
 
   //////// All the below code is implicitly removed, by the above return statement.. ///// 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -448,6 +450,33 @@ void Blob_mt_mapper::freeImageStack()
   stack = 0;
 }
 
+void Blob_mt_mapper::serialise(c_array* buf)
+{
+  buf->push(map_id);
+  buf->push(pos.x);
+  buf->push(pos.y);
+  buf->push(pos.z);
+  buf->push(pos.w);
+  buf->push(pos.h);
+  buf->push(pos.d);
+  buf->push(pos.channels.size());
+  for(unsigned int i=0; i < pos.channels.size(); ++i)
+    buf->push(pos.channels[i]);
+  
+  buf->push(minEdge);
+  buf->push(minPeak);
+  buf->push(bg_xm);
+  buf->push(bg_ym);
+  buf->push(bg_q);
+ 
+  buf->push(blobs.size());
+  for(map<unsigned int, blob*>::iterator it=blobs.begin(); it != blobs.end(); ++it){
+    buf->push((*it).first);
+    (*it).second->serialise(buf);
+  }
+  
+}
+
 void Blob_mt_mapper::setBlobMap()
 {
   if(blobMap)
@@ -482,6 +511,7 @@ void Blob_mt_mapper::run()
     subtract_background();
   float v;
   blob* tempBlob = new blob();
+  tempBlob->mapper = this;
   for(uint z=0; z < pos.d; ++z){
     for(uint y=0; y < pos.h; ++y){
       for(uint x=0; x < pos.w; ++x){
@@ -544,6 +574,7 @@ blob* Blob_mt_mapper::initBlob(blob* b, uint x, uint y, uint z, float v)
   if(stack->lv(stack_channel, b->peakPos) >= minPeak){
     temp_blobs.push_back(b);
     blob* tempBlob = new blob();
+    tempBlob->mapper = this;
     return(tempBlob);
   }
   // the blob failed it's requirements. The voxels should remain masked, but
