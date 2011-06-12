@@ -159,7 +159,7 @@ DistanceViewer::~DistanceViewer(){
 // has as many rows as distances has. However, does not check
 // that these actually are the real positions (i.e. that
 // point to point distances would give this).
-void DistanceViewer::setPositions(vector<vector<float> > p)
+void DistanceViewer::setPositions(vector<vector<float> > p, unsigned int grid_points)
 {
   // we shouldn't really set it, but if not.. 
   if(p.size() != distances.size() || !distances.size())
@@ -172,7 +172,7 @@ void DistanceViewer::setPositions(vector<vector<float> > p)
   }
   positions = p;
   real_dimensionality = p[0].size();  
-  mapper->setInitialPoints(positions);
+  mapper->setInitialPoints(positions, grid_points);
 }
 
 void DistanceViewer::setPointPlotType(PointDrawer::PointPlotType ppt)
@@ -188,6 +188,18 @@ void DistanceViewer::drawForces(bool b)
 void DistanceViewer::setPointDiameter(int d)
 {
   drawer->setPointDiameter(d);
+}
+
+void DistanceViewer::set_simple_gaussian_background(std::vector<unsigned int> dims,
+						    unsigned char* color_matrix, float var)
+{
+  drawer->set_simple_gaussian_background(dims, color_matrix, var);
+}
+
+void DistanceViewer::set_starting_dimensionality(unsigned int dim)
+{
+  dimSpinner->setValue(dim);
+  mapper->setDim(dimSpinner->value(), iterSpinner->value(), dimReductTypeBox->currentItem());
 }
 
 void DistanceViewer::start(){

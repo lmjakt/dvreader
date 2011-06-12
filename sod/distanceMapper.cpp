@@ -295,9 +295,8 @@ void DistanceMapper::updatePosition(int i, float x, float y){
   }
   adjustVectors();
   updateParentPoints();
-  movePoints();
-  resetPoints();
-  //run();
+  movePoints(points);
+  resetPoints(points);
 }
 
 
@@ -316,17 +315,26 @@ float DistanceMapper::adjustVectors(bool linear){
   return totalStress;
 }
 
-float DistanceMapper::movePoints(){
+float DistanceMapper::adjustGridVectors(bool linear){
+  float stress = 0;
+  for(unsigned int i=0; i < gridPoints.size(); ++i){
+    for(unsigned int j=0; j < points.size(); ++j)
+      stress += gridPoints[i]->adjustVectors(points[j], gridDistances[i][j], dimFactors, linear);
+  }
+  return(stress);
+}
+
+float DistanceMapper::movePoints(vector<dpoint*>& pnts){
   float movedDistance = 0;
-  for(uint i=0; i < points.size(); i++){
-    movedDistance += points[i]->move(moveFactor);
+  for(uint i=0; i < pnts.size(); i++){
+    movedDistance += pnts[i]->move(moveFactor);
   }
   return(movedDistance);
 }
 
-void DistanceMapper::resetPoints(){
-  for(uint i=0; i < points.size(); i++){
-    points[i]->resetForces();
+void DistanceMapper::resetPoints(vector<dpoint*>& pnts){
+  for(uint i=0; i < pnts.size(); i++){
+    pnts[i]->resetForces();
   }
 }
 
@@ -346,9 +354,16 @@ void DistanceMapper::run(){
       // update the parent..
       updateParentPoints();
       
-      movePoints();
-      resetPoints();
+      movePoints(points);
+      resetPoints(points);
       
+      // if we have gridPoints
+      if(gridPoints.size()){
+	adjustGridVectors(linear);
+	movePoints(gridPoints);
+	resetPoints(gridPoints);
+      }
+
       // Squeeze or eliminate dimensions..
       reduceDimensionality(dimReductionType, i);
   }
@@ -384,7 +399,7 @@ void DistanceMapper::setDim(int dim, int iter, int drt){
     reInitialise();
 }
 
-void DistanceMapper::setInitialPoints(vector<vector<float> > i_points){
+void DistanceMapper::setInitialPoints(vector<vector<float> > i_points, unsigned int grid_points){
   if(i_points.size() != points.size()){
     cerr << "DistanceMapper setInitialPoints, i_points size is not good: "
 	 << i_points.size() << " != " << points.size();
@@ -392,6 +407,8 @@ void DistanceMapper::setInitialPoints(vector<vector<float> > i_points){
   // apart from that we can allow anything.. 
   initialPoints = i_points;
   initialisePoints();
+  if(grid_points)
+    initialiseGrid(grid_points, i_points);
 }
 
 void DistanceMapper::initialisePoints(){
@@ -403,11 +420,131 @@ void DistanceMapper::initialisePoints(){
       if(initialPoints.size() == points.size() && initialPoints[i].size() > (uint)j){
 	points[i]->coordinates[j] = initialPoints[i][j];
       }else{
-      points[i]->coordinates[j] = float(100) * rand()/RAND_MAX;
+	points[i]->coordinates[j] = float(100) * rand()/RAND_MAX;
       }
     }
   }
 } 
+
+// 
+void DistanceMapper::initialiseGrid(unsigned int pno, vector<vector<float> >& i_points)
+{
+  unsigned int i_dim = 0;
+  // determine the correct number of dimensions, then find ranges for
+  // those dimensions.
+  for(unsigned int i=0; i < i_points.size(); ++i)
+    i_dim = i_points[i].size() > i_dim ? i_points[i].size() : i_dim;
+  if(!i_dim){
+    cerr << "DistanceMapper::initialiseGrid no dimensions obtained" << endl;
+    return;
+  }
+  vector<float> max_v(i_dim);
+  vector<float> min_v(i_dim);
+  // set inital mins and maxes
+  for(unsigned int i=0; i < i_points.size(); ++i){
+    if(i_points[i].size() == i_dim){
+      for(unsigned int j=0; j < i_points[i].size(); ++j){
+	max_v[j] = i_points[i][j];
+	min_v[j] = i_points[i][j];
+      }
+      break;
+    }
+  }
+  for(unsigned int i=0; i < i_points.size(); ++i){
+    for(unsigned int j=0; j < i_points[i].size(); ++j){
+      max_v[j] = max_v[j] < i_points[i][j] ? i_points[i][j] : max_v[j];
+      min_v[j] = min_v[j] > i_points[i][j] ? i_points[i][j] : min_v[j];
+    }
+  }
+  // then set up points in space. I'm not exactly sure of the best way of doing
+  // this, but let's put it into another function that takes the number of points
+  // and the max_v and min_v vectors... 
+  createGridPoints(pno, min_v, max_v);
+}
+
+void DistanceMapper::createGridPoints(unsigned int pno, vector<float> min_v, vector<float> max_v)
+{
+  if(min_v.size() != max_v.size() || !pno || !min_v.size())
+    return;
+  // first calculate the total number of grid components.
+  unsigned grid_size = pno;
+  for(unsigned int i=1; i < min_v.size(); ++i)
+    grid_size *= pno;
+  // the position at a given point.
+  vector<unsigned int> g_pos(min_v.size(), 0);
+  vector<unsigned int> g_pos_counters(min_v.size(), 0);
+  gridPoints.resize(grid_size);
+  gridDistances.resize(grid_size);
+  gridPoints[0] = createGridPoint(pno, g_pos, min_v, max_v);
+  for(unsigned int i=1; i < gridPoints.size(); ++i){
+    g_pos[0] = i % pno;
+    for(unsigned int j=1; j < g_pos.size(); ++j){
+      if(!g_pos[j-1]){
+	++g_pos_counters[j];
+	g_pos[j] = g_pos_counters[j] % pno;
+      }
+    }
+    gridPoints[i] = createGridPoint(pno, g_pos, min_v, max_v);
+  }
+  // Then we need to set up the distances between points and grid_points
+  for(unsigned int i=0; i < gridPoints.size(); ++i){
+    gridDistances[i].resize(points.size());
+    for(unsigned int j=0; j < points.size(); ++j){
+      float d = 0;
+      for(unsigned int k=0; k < (uint)points[j]->dimNo; ++k){
+	d += 
+	  ((gridPoints[i]->coordinates[k] - points[j]->coordinates[k]) *
+	   (gridPoints[i]->coordinates[k] - points[j]->coordinates[k]));
+      }
+      gridDistances[i][j] = sqrt(d);
+    }
+  }
+
+  // setting up the neighbours
+  for(unsigned int i=0; i < gridPoints.size(); ++i){
+    vector<dpoint*> neighbors(min_v.size(), 0);
+    unsigned int inc = 1;
+    for(unsigned int j=0; j < neighbors.size(); ++j){
+      if(i + inc < gridPoints.size())
+	neighbors[j] = gridPoints[i + inc];
+      inc *= pno;
+    }
+    gridPoints[i]->neighbors = neighbors;
+  }
+
+  // and that should be everything thats necessary. Though I don't know
+  // how stable this is to all kinds of input. esp. if dimNo isn't matched
+  // with initial points. Anyway, let's see. 
+ 
+}
+
+// g_pos should contain the grid point index position for each dimension
+// i.e 0 --> (p_no - 1)    and these should be used to set the position
+// in conjunction with the mins & maxes of each dimension
+dpoint* DistanceMapper::createGridPoint(unsigned int p_no, vector<unsigned int>& g_pos,
+					vector<float>& min_v, vector<float>& max_v)
+{
+  if(g_pos.size() != min_v.size())
+    exit(1);
+  vector<float> pos(min_v.size());
+  for(unsigned int i=0; i < pos.size(); ++i){
+    if(!(max_v[i] - min_v[i])){
+      pos[i] = min_v[i];
+      continue;
+    }
+    pos[i] = min_v[i] + float(g_pos[i])/float(p_no-1) * (max_v[i] - min_v[i]);
+  }
+  dpoint* point = new dpoint(0, dimensionality, expts.size());
+  point->setPos( pos );
+  for(unsigned int i=0; i < (uint)point->dimNo; ++i){
+    if(i < pos.size()){
+      point->coordinates[i] = pos[i];
+    }else{
+      point->coordinates[i] = float(100) * rand()/RAND_MAX; // but this should never happen
+    }
+  }
+  return(point);
+}
 
 void DistanceMapper::updateParentPoints(){
     // this basically sets the last parent points to something else..
@@ -428,14 +565,19 @@ void DistanceMapper::updateParentPoints(){
 	
 
 
+// This function should only be used if the points pointers are previously
+// copied to somewhere else. As it will not have any way of storing the new pointers
+// a better way would be to return a new vector of points.. oh well.. 
 void DistanceMapper::clonePoints(){
   // because we are handing over control of the points to the owner, we need to have some new points to 
   // manipulate. Because we are using pointers for everything, we will need to copy the thingy.. probably the best way 
   // would be to provide a copy constructor.. -- using = ,, but hmm,, I think a copy command might be better.. 
 //    cout << "clone points .. " << endl;
   for(uint i=0; i < points.size(); i++){
-    points[i] = points[i]->copy();    // this doesn't copy the componentVectors, nor the stress, but should be enough.. Note this is could easily lead to memory leaks..
-
+    points[i] = points[i]->copy();    
+    // this doesn't copy the componentVectors, nor the stress, 
+    // but should be enough.. Note this is could easily lead to memory leaks..
+    // but this should only be called once..  
   }
 }
 

@@ -97,7 +97,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
   }else{
       fName = ifName;
   }
-  cout << "trying to open file " << ifName << endl;
+  //  cout << "trying to open file " << ifName << endl;
   reader = new DVReader(ifName, maxLevel, xyMargin);
   reader->printInfo();
   fileSet = reader->fileData();   // then use fileData to do everything.. 

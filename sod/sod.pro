@@ -9,7 +9,9 @@ HEADERS         = \
                 distanceMapper.h \
                 pointDrawer.h \
                 stressPlotter.h \
+                BackgroundDrawer.h \
                 node_set.h \
+                posInfo.h \
                 ../customWidgets/clineEdit.h \
                 ../imageBuilder/f_parameter.h
 SOURCES         = \
@@ -18,6 +20,7 @@ SOURCES         = \
                 distanceMapper.cpp \
                 pointDrawer.cpp \
                 stressPlotter.cpp \
+                BackgroundDrawer.cpp \
                 node_set.cpp \
                 ../imageBuilder/f_parameter.cpp \
                 main.cpp

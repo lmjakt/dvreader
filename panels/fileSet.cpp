@@ -230,7 +230,7 @@ bool FileSet::finalise(){
     // set the vectors up. I'm not sure if I need these, but they may come in useful.. 
     x_positions.assign(x_set.begin(), x_set.end());
     y_positions.assign(y_set.begin(), y_set.end());
-    z_positions.assign(z_set.begin(), z_set.end());   // I have a feeling that these vectors may not be very useful, but .. you never know..
+    z_positions.assign(z_set.begin(), z_set.end());   
 
     // these values are likely to be useful. 
     float xscale = frameWidth / float(pixelWidth);

@@ -49,10 +49,13 @@ class DistanceViewer : public QWidget
     DistanceViewer(std::vector<int> expI, std::vector<std::vector<float> > d, QString cName, QWidget* parent=0, const char* name=0);
   ~DistanceViewer();
   
-  void setPositions(std::vector<std::vector<float> > p);
+  void setPositions(std::vector<std::vector<float> > p, unsigned int grid_points=0);
   void setPointPlotType(PointDrawer::PointPlotType ppt);
   void drawForces(bool b);
   void setPointDiameter(int d);
+  void set_simple_gaussian_background(std::vector<unsigned int> dims,
+				      unsigned char* color_matrix, float var);
+  void set_starting_dimensionality(unsigned int dim);
 
   private slots :
   void start();    // start the mapper.. 

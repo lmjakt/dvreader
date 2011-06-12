@@ -24,6 +24,7 @@
 
 #include "pointDrawer.h"
 #include "distanceMapper.h"    // for the dpoint .. bit messy but there you go..
+#include "BackgroundDrawer.h"
 #include <math.h>
 #include <vector>
 #include <QPainter>
@@ -49,15 +50,20 @@ PointDrawer::PointDrawer(QWidget* parent, const char* name)
   frameCounter = 0;
   point_plot_type = STRESS;
   diameter = 16;             // diameter for circles representing.. things.. 
+  pos.setMargin(32);
   margin = 32;               // number of pixels around the edge that we don't want to draw..
   coord_sum_max = 0;
   coord_radius_factor = 0;
   draw_forces = true;
+  labelPen = QPen(QColor(50, 50, 50), 0);
   menu = new QMenu(this);
   menu->addAction("Compare Cell Types", this, SLOT(compareCellTypes()) );
   menu->addAction("Set Coordinates", this, SLOT(setcoords()) );
   menu->addAction("Record on/off", this, SLOT(toggleRecording()) );
 
+  bg_data = 0;
+  bg_drawer = 0;
+  
   defaultColors.push_back(QColor("green"));
   defaultColors.push_back(QColor("blue"));
   defaultColors.push_back(QColor("cyan"));
@@ -70,6 +76,8 @@ PointDrawer::PointDrawer(QWidget* parent, const char* name)
 
 PointDrawer::~PointDrawer(){
   cout << "destroying point drawer" << endl;
+  delete []bg_data;
+  delete bg_drawer;
 }
 
 void PointDrawer::emptyData(){
@@ -93,18 +101,35 @@ void PointDrawer::setPointDiameter(unsigned int d)
 {
   diameter = d;
   margin = 2 * d;
+  pos.setMargin(2 * d);
   determine_coordinate_scale();
   update();
 }
 
+void PointDrawer::set_simple_gaussian_background(std::vector<unsigned int> dims,
+						 unsigned char* color_matrix, float var)
+{
+  if(!bg_drawer)
+    bg_drawer = new BackgroundDrawer(points, &pos);
+  unsigned char* nbg = bg_drawer->simple_gaussian(dims, color_matrix, var);
+  if(!nbg){
+    cerr << "PointDrawer::set_simple_gaussian_background: failed to obtain background " << endl;
+    return;
+  }
+  bg_data = nbg;
+  bg_image = QImage(bg_data, pos.w(), pos.h(), QImage::Format_ARGB32);
+  update();
+}
 
 void PointDrawer::setData(vector<dpoint*> p){
   points = p;
   regions.resize(points.size());
   itsA = true;
+  float minX, maxX, minY, maxY;
   // and work out max, min, etc..
   if(!points.size()){
-    maxX = minX = maxY = minY = 0;
+    pos.setRanges(0, 0, 0, 0);
+    //    maxX = minX = maxY = minY = 0;
     return;
   }
   if(points[0]->dimNo < 2){
@@ -121,11 +146,13 @@ void PointDrawer::setData(vector<dpoint*> p){
     if(points[i]->coordinates[1] < minY){ minY = points[i]->coordinates[1]; }
     if(points[i]->stress > maxStress){ maxStress = points[i]->stress; }
   }
+  pos.setRanges(minX, maxX, minY, maxY);
   // and call update.. !!! hooo hoo yeah....
   update();
 }
 
 void PointDrawer::paintEvent(QPaintEvent* e){
+  pos.setDims(width(), height());
   float forceMultiplier = 0.5;       // forces are too large, makes the picture too messy.. 
   // rather than try to work out areas and related stuff.. -just 
   // draw the whole thing to a pixmap and then bitBlt it.. shouldn't be 
@@ -135,15 +162,23 @@ void PointDrawer::paintEvent(QPaintEvent* e){
   
 
   // draw the forces first so that they are in the background
-  float xMult = ((float)(width() - 2 * margin))/(maxX - minX);
-  float yMult = ((float)(height() - 2 * margin))/(maxY - minY);
+  //  float xMult = ((float)(width() - 2 * margin))/(maxX - minX);
+  //float yMult = ((float)(height() - 2 * margin))/(maxY - minY);
   float stressMultiplier = 0;
   QString numString;  
   QPainter p(&pix);              // should be ok.. 
+
+  if(bg_image.width()){
+    std::cout << "Calling drawImage " << bg_image.width() << "x" << bg_image.height() << std::endl;
+    p.drawImage( QRect(0, 0, width(), height()), bg_image,
+		 QRect(0, 0, bg_image.width(), bg_image.height()));
+  }
+  
+
+  if(maxStress > 0){
+    stressMultiplier = 254.0 / maxStress;     // not so good as we don't see any reduction in the max stress. 
+  }
   if(draw_forces && points.size()){
-    if(maxStress > 0){
-      stressMultiplier = 254.0 / maxStress;     // not so good as we don't see any reduction in the max stress. 
-    }
     QPen attraction(QColor(255, 255, 0), 1);   // yellow
     QPen repulse(QColor(145, 152, 226), 1);    // light blue.. 
     // and let's go through the points and draw them as we see fit.. need some
@@ -152,14 +187,18 @@ void PointDrawer::paintEvent(QPaintEvent* e){
 	cerr << "??? bugger me backwards, but the coordinates size is less than two for i : " << i << endl;
 	continue;
       }
-      int x = (int)((points[i]->coordinates[0] - minX) * xMult) + margin;
-      int y = (int)((points[i]->coordinates[1] - minY) * yMult) + margin;
+      int x = pos.x(points[i]->coordinates[0]);
+      int y = pos.y(points[i]->coordinates[1]);
+      //      int x = (int)((points[i]->coordinates[0] - minX) * xMult) + margin;
+      //int y = (int)((points[i]->coordinates[1] - minY) * yMult) + margin;
       // draw the component vectors as lines, either light blue or yellow.. 
       for(int j=0; j < points[i]->componentNo; j++){
 	float fx = points[i]->coordinates[0] + forceMultiplier * points[i]->components[j]->forces[0];
 	float fy = points[i]->coordinates[1] + forceMultiplier * points[i]->components[j]->forces[1];
-	int x2 = (int)((fx - minX) * xMult) + margin;
-	int y2 = (int)((fy - minY) * yMult) + margin;
+	int x2 = pos.x(fx);
+	int y2 = pos.y(fy);
+	//	int x2 = (int)((fx - minX) * xMult) + margin;
+	//int y2 = (int)((fy - minY) * yMult) + margin;
 	if(points[i]->components[j]->attractive){
 	  p.setPen(attraction);
 	}else{
@@ -176,8 +215,11 @@ void PointDrawer::paintEvent(QPaintEvent* e){
 	cerr << "??? bugger me backwards, but the coordinates size is less than two for i : " << i << endl;
 	continue;
       }
-      int x = (int)((points[i]->coordinates[0] - minX) * xMult) + margin - diameter/2;
-      int y = (int)((points[i]->coordinates[1] - minY) * yMult) + margin - diameter/2;
+      int x = pos.x(points[i]->coordinates[0]) - (diameter / 2);
+      int y = pos.y(points[i]->coordinates[1]) - (diameter / 2);
+      
+      //      int x = (int)((points[i]->coordinates[0] - minX) * xMult) + margin - diameter/2;
+      //int y = (int)((points[i]->coordinates[1] - minY) * yMult) + margin - diameter/2;
       
       int r = (int)(points[i]->stress * stressMultiplier);
       int g = 255 - r;
@@ -199,7 +241,7 @@ void PointDrawer::paintEvent(QPaintEvent* e){
       regions[i].setRect(x, y, diameter, diameter);
       
       // draw the number of the thing..
-      p.setPen(QPen(QColor(255, 255, 255), 1));
+      p.setPen(labelPen);
       numString.setNum(points[i]->index);
       int extra = 10;
       p.drawText(x-extra, y, diameter+extra*2, diameter, Qt::AlignCenter, numString);
@@ -211,11 +253,14 @@ void PointDrawer::paintEvent(QPaintEvent* e){
 	cerr << "??? bugger me backwards, but the coordinates size is less than two for i : " << i << endl;
 	continue;
       }
-      int x = (int)((points[i]->coordinates[0] - minX) * xMult) + margin;
-      int y = (int)((points[i]->coordinates[1] - minY) * yMult) + margin;
+      int x = pos.x(points[i]->coordinates[0]);
+      int y = pos.y(points[i]->coordinates[1]);
+      //      int x = (int)((points[i]->coordinates[0] - minX) * xMult) + margin;
+      // int y = (int)((points[i]->coordinates[1] - minY) * yMult) + margin;
       QString label;
       label.setNum(points[i]->index);
       drawPie(p, points[i], x, y, label);
+      regions[i].setRect(x-diameter/2, y-diameter/2, diameter, diameter);
     }
     
   }
@@ -230,7 +275,7 @@ void PointDrawer::paintEvent(QPaintEvent* e){
   
   if(frameCounter){
     QPainter p(this);
-    p.setPen(QPen(QColor(200, 0, 0), 1));
+    p.setPen(QPen(QColor(255, 0, 0), 1));
     p.drawText(0, 0, width(), height(), Qt::AlignRight|Qt::AlignBottom, "Rec");
     QString fname;
     fname.sprintf("%s/img_%04d.jpg", dirName.latin1(), frameCounter);
@@ -267,14 +312,14 @@ void PointDrawer::mousePressEvent(QMouseEvent* e){
 void PointDrawer::mouseMoveEvent(QMouseEvent* e){
   //cout << "mouseMoveEvent" << endl;
   if(movingId != -1){
-    //cout << "moving so moving the rect .. " << endl;
     movingRect.moveBy(e->x() - lastX, e->y() - lastY);
+    //update();
+    //return;
   }
   if(selectPoints.size()){
-    QPainter p(this);
-    p.setPen(QPen(QColor(255, 255, 255), 1));
-    //p.drawPoint(e->pos());
-    p.drawLine(lastX, lastY, e->x(), e->y());
+    //    QPainter p(this);
+    //    p.setPen(QPen(QColor(255, 255, 255), 1));
+    //    p.drawLine(lastX, lastY, e->x(), e->y());  // not allowed to draw here, has to be in paintEvent
     selectPoints.push_back(e->pos());
   }
   lastX = e->x();
@@ -288,10 +333,12 @@ void PointDrawer::mouseReleaseEvent(QMouseEvent* e){
   // and emit something useful here so the mapper changes the coordinates and tries to update things..
   // do in a couple of different steps.. 
   if(movingId != -1){
-    float xMult = ((float)(width() - 2 * margin))/(maxX - minX);
-    float yMult = ((float)(height() - 2 * margin))/(maxY - minY);
-    float x = minX + ((float)(movingRect.x() + diameter/2 - margin))/xMult;
-    float y = minY + ((float)(movingRect.y() + diameter/2 - margin))/yMult;
+    //float xMult = ((float)(width() - 2 * margin))/(maxX - minX);
+    //float yMult = ((float)(height() - 2 * margin))/(maxY - minY);
+    float x = pos.rx( movingRect.x() + diameter / 2);
+    float y = pos.ry( movingRect.y() + diameter / 2);
+    //    float x = minX + ((float)(movingRect.x() + diameter/2 - margin))/xMult;
+    //float y = minY + ((float)(movingRect.y() + diameter/2 - margin))/yMult;
     emit updatePosition(movingId, x, y);    // catch in the viewer, pass on to the mapper, and continue the mapping.. 
   }
   if(selectPoints.size()){
@@ -315,9 +362,6 @@ void PointDrawer::checkSelected(){
   }
   // make a QRegion with these points.. and then check to see what's inside ..
   QRegion r(pts);
-  // and now we can go through and check all of the things and see which ones belong..
-  float xMult = ((float)(width() - 2 * margin))/(maxX - minX);
-  float yMult = ((float)(height() - 2 * margin))/(maxY - minY);
   set<uint>* a;
   set<uint>* b;
   cout << "itsA is " << itsA << endl;
@@ -335,8 +379,8 @@ void PointDrawer::checkSelected(){
   // empty a..
   while(a->size()){ a->erase(a->begin()); }
   for(uint i=0; i < points.size(); i++){
-    int x = (int)((points[i]->coordinates[0] - minX) * xMult) + margin;
-    int y = (int)((points[i]->coordinates[1] - minY) * yMult) + margin;
+    int x = pos.x(points[i]->coordinates[0]);
+    int y = pos.y(points[i]->coordinates[1]);
     if(r.contains(QPoint(x, y))){
       cout << "Point with index : " << points[i]->index << " is contained by the region " << endl;
       // stick everything into a..
@@ -358,7 +402,7 @@ void PointDrawer::drawPie(QPainter& p, dpoint* point, int x, int y, QString labe
   if(point->position.size() < 2){
     p.setBrush(QColor("red"));
     p.drawEllipse(x-radius, y-radius, diameter, diameter);
-    p.setPen(QPen(QColor(255, 255, 255), 0));
+    p.setPen(labelPen);
     p.drawText(x-tbs, y-tbs, tbs*2, tbs*2, Qt::AlignCenter, label);
     p.restore();
     return;
@@ -381,7 +425,7 @@ void PointDrawer::drawPie(QPainter& p, dpoint* point, int x, int y, QString labe
     p.drawPie(rect, start_angle, span_angle);
     start_angle += span_angle;
   }
-  p.setPen(QPen(QColor(255, 255, 255), 0));
+  p.setPen(labelPen);
   p.drawText(x-tbs, y-tbs, tbs*2, tbs*2, Qt::AlignCenter, label);
   p.restore();
 }

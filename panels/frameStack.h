@@ -254,8 +254,9 @@ class FrameStack {
     unsigned int pWidth, pHeight;   // pixel height and pixel number.
     int pixelX, pixelY;    // the begin position in pixel coordinates (this has to be set by the owner as frameStack itself can't know
     float maxIntensity;
-    int margin;             // the amount of margin in the xy_space. Set at the beginning of construction.
-    
+    int margin;   // set to 0. use rolloff instead.
+    int rolloff;  // set to the value specified for xymargin for the constructor.
+
     int* wave_lengths;
     int wave_no;            // for making frameSets...
     std::vector<float> fwaves;  // for useful things.. 

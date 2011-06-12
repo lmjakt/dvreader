@@ -36,7 +36,9 @@ using namespace std;
 
 // somehow we need rolloff and margin, though to be honest I've quite forgotten what each one does
 // 
-int rolloff = 36; //36; // use margin instead ??? 
+//int rolloff = 36; 
+// it seems that margin isn't actually necessary at the moment. It can well be 0.
+// rolloff is used instead to determine positions using the contrib map.
 
 FrameStack::FrameStack(int* waveLengths, int waveNo, ifstream* inStream, float maxLevel, int xy_margin){
     maxIntensity = maxLevel;
@@ -46,7 +48,9 @@ FrameStack::FrameStack(int* waveLengths, int waveNo, ifstream* inStream, float m
     channelOffsets.resize(wave_no);
     focalPlanes.resize(wave_no);
     frameInformation = 0;
-    margin = xy_margin > 0 ? xy_margin : 0;
+    rolloff = xy_margin;
+    margin = 0;      // keep as experimental. Make sure no bad consequences.
+    //    margin = xy_margin > 0 ? xy_margin : 0;
     for(int i=0; i < wave_no; i++){
 	fwaves[i] = float(wave_lengths[i]);
 	focalPlanes[i] = 0;
@@ -254,7 +258,6 @@ void FrameStack::setContribMap(float* map){
 // // This function needs to take into consideration the rolloff of the
 // // image. Unfortunately I've not found any record for it anywhere.
 void FrameStack::setContribMap(IdMap* idmap, ulong id){
-  // int rolloff = 0; // set at the beginning of this file
   if(!contribMap)
     contribMap = new float[pWidth * pHeight];
   float* map = contribMap;
@@ -263,7 +266,6 @@ void FrameStack::setContribMap(IdMap* idmap, ulong id){
     map = contribMap + dy * pWidth + rolloff;
     for(int dx=rolloff; dx < pWidth-rolloff; ++dx){
       *map = idmap->count(id, pixelX + dx, pixelY + dy) ? 1.0 / float(idmap->count(pixelX + dx, pixelY + dy)) : 0.0;
-      //cout << "[" << id << " " << idmap->id(pixelX + dx, pixelY + dy) << " c: " << idmap->count(pixelX + dx, pixelY + dy) << " " << *map << "] ";
       ++map;
     }
   }

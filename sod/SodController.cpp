@@ -18,7 +18,10 @@ SodController::SodController(QWidget* parent)
   input = new CLineEdit(this);
   output = new QPlainTextEdit(this);
 
+  commandPos = 0;
+  historySize = 300;
   connect(input, SIGNAL(returnPressed()), this, SLOT(parseInput()) );
+  connect(input, SIGNAL(arrowPressed(bool)), this, SLOT(repeatCommand(bool)) );
 
   QVBoxLayout* mainBox = new QVBoxLayout(this);
   mainBox->addWidget(output);
@@ -28,6 +31,7 @@ SodController::SodController(QWidget* parent)
   general_functions["read_distances"] = &SodController::read_distances;
   general_functions["read_positions"] = &SodController::read_positions;
   general_functions["set_plot_par"] = &SodController::set_plot_par;
+  general_functions["gaussian_bg"] = &SodController::make_gaussian_background;
 }
 
 SodController::~SodController()
@@ -43,8 +47,25 @@ SodController::~SodController()
 void SodController::parseInput()
 {
   output->appendPlainText(input->text());
+  commandHistory.push_back(input->text());
+  if(commandHistory.size() > historySize)
+    commandHistory.pop_front();
+  commandPos = commandHistory.size();
   general_command(input->text());
   input->clear();
+}
+
+void SodController::repeatCommand(bool up)
+{
+  if(up && commandPos > 0){
+    input->setText( commandHistory[--commandPos] );
+    return;
+  }
+  if(!up && commandPos < commandHistory.size() - 1){
+    input->setText( commandHistory[++commandPos] );
+    return;
+  }
+  input->setText("");
 }
 
 void SodController::general_command(QString line)
@@ -104,6 +125,7 @@ void SodController::read_positions(f_parameter& par)
   QTextStream qts(&error);
   QString filename;
   QString pos_name;
+  unsigned int grid_points = 0;
   if(!par.param("file", filename))
     qts << "read_distances: no distance file specified\n";
   if(!par.param("pos", pos_name) || pos_name.isEmpty())
@@ -112,6 +134,7 @@ void SodController::read_positions(f_parameter& par)
     warn(error);
     return;
   }
+  par.param("grid", grid_points);
   node_set ns = read_node_set(filename);
   if(!ns.n_size()){
     warn("read_positions obtained empty node_set");
@@ -121,9 +144,10 @@ void SodController::read_positions(f_parameter& par)
   
   bool set_mapper = true;
   par.param("set_mapper", set_mapper);
-  if(set_mapper && distanceViewers.count(pos_name))
-    distanceViewers[pos_name]->setPositions(ns.Nodes());
-  
+  if(set_mapper && distanceViewers.count(pos_name)){
+    distanceViewers[pos_name]->set_starting_dimensionality(ns.n_dim());
+    distanceViewers[pos_name]->setPositions(ns.Nodes(), grid_points);
+  }
 }
 
 void SodController::set_plot_par(f_parameter& par)
@@ -151,6 +175,67 @@ void SodController::set_plot_par(f_parameter& par)
   if(par.param("forces", forces))
     viewer->drawForces(forces);
   
+}
+
+void SodController::make_gaussian_background(f_parameter& par)
+{
+  QString error;
+  QTextStream qts(&error);
+  QString dviewer;
+  float var;
+  std::vector<unsigned int> dims;
+  std::vector<unsigned int> alpha;
+  std::vector<unsigned int> red;
+  std::vector<unsigned int> green;
+  std::vector<unsigned int> blue;
+  if(!par.param("viewer", dviewer))
+    qts << "Specify viewer (viewer=..)\n";
+  if(!dviewer.isEmpty() && !distanceViewers.count(dviewer))
+    qts << "Unknown viewer " << dviewer << "\n";
+  if(!par.param("dims", ',', dims))
+    qts << "Specify dimensions to use (dims=a,b,c)\n";
+  if(!par.param("a", ',', alpha) || !par.param("r", ',', red) || 
+     !par.param("g", ',', green) || !par.param("b", ',', blue))
+    qts << "Specify argb components (a=a,b,c r=a,b,c) one value (0-255) for each dim\n";
+  if(!par.param("var", var))
+    qts << "Specify the variance to use (radius will be 2xvar) (var=..)\n";
+  if(error.length()){
+    warn(error);
+    return;
+  }
+  // there should be a viewer, but also there should be a positions of the same name
+  if(!positions.count(dviewer)){
+    qts << "No positions set for viewer " << dviewer << " aborting";
+    warn(error);
+    return;
+  }
+  // check that colours have been specified for all dimensions and that no value is
+  // larger than 255
+  if(dims.size() != alpha.size() || dims.size() != red.size() ||
+     dims.size() != green.size() || dims.size() != blue.size()){
+    warn("Colors not same size as specified by dim\n");
+  }
+  // check that none of the dimensions is too large..
+  for(unsigned int i=0; i < dims.size(); ++i){
+    if(dims[i] >= positions[dviewer].n_dim()){
+      warn("dimension specified too large");
+      return;
+    }
+    if(alpha[i] > 255 || red[i] > 255 || green[i] > 255 || blue[i] > 255){
+      warn("Illegal color specified (value larger than 255)");
+      return;
+    }
+  }
+  // if that's ok..
+  unsigned char* color_matrix = new unsigned char[4 * dims.size()];
+  for(unsigned int i=0; i < dims.size(); ++i){
+    color_matrix[i * 4 + 0] = alpha[i];
+    color_matrix[i * 4 + 1] = red[i];
+    color_matrix[i * 4 + 2] = green[i];
+    color_matrix[i * 4 + 3] = blue[i];
+  }
+  // then make a function in the viewer..
+  distanceViewers[dviewer]->set_simple_gaussian_background(dims, color_matrix, var);
 }
 
 void SodController::warn(QString message)

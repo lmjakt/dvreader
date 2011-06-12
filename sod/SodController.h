@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <vector>
 #include <map>
+#include <deque>
 #include "node_set.h"
 #include "../imageBuilder/f_parameter.h"
 
@@ -20,11 +21,14 @@ class SodController : public QWidget
 
  private slots:
   void parseInput();
+  void repeatCommand(bool up);
 
  private:
   // members
   CLineEdit* input;
   QPlainTextEdit* output;
+  std::deque<QString> commandHistory;
+  unsigned int commandPos, historySize;
   std::map<QString, DistanceViewer*> distanceViewers;
   
   // data members that we can do stuff with
@@ -40,6 +44,7 @@ class SodController : public QWidget
   void read_distances(f_parameter& par);
   void read_positions(f_parameter& par);
   void set_plot_par(f_parameter& par);
+  void make_gaussian_background(f_parameter& par);
 
   // and some useful functions
   void warn(QString message);

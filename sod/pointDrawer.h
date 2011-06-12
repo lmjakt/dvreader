@@ -26,18 +26,22 @@
 #define POINTDRAWER_H
 
 #include "distanceMapper.h"
+#include "posInfo.h"
 #include <QWidget>
 #include <QRect>
 #include <QPoint>
+#include <QImage>
 #include <QColor>
 //#include <qpopupmenu.h>
 #include <QString>
 #include <vector>
 #include <set>
+#include <QPen>
 
 //using namespace std;
 class QMenu;
 class QMouseEvent;
+class BackgroundDrawer;
 
 class PointDrawer : public QWidget
 {
@@ -59,6 +63,10 @@ class PointDrawer : public QWidget
   void setPointPlotType(PointPlotType ppt);
   void setPointDiameter(unsigned int d);
 
+  // background images..
+  void set_simple_gaussian_background(std::vector<unsigned int> dims, 
+				      unsigned char* color_matrix, float var);
+
   private slots :
   void compareCellTypes();
   void setcoords();
@@ -74,6 +82,11 @@ class PointDrawer : public QWidget
   void drawPie(QPainter& p, dpoint* point, int x, int y, QString label);
   void determine_coordinate_scale();
 
+  // optional background
+  QImage bg_image;
+  unsigned char* bg_data; // since bg_image doesn't delete.. 
+  BackgroundDrawer* bg_drawer;
+
   // and somewhere to keep data for stuff in..
   std::vector<QPoint> selectPoints;
   std::vector<dpoint*> points;
@@ -83,7 +96,8 @@ class PointDrawer : public QWidget
   bool itsA;              // stupid if I ever saw something but there you go.. 
   QRect movingRect;    // 0 if nothing moving, otherwise, move it by 
   int movingId;
-  float maxX, minX, maxY, minY, maxStress;    // need this for the painting..
+  float maxStress;
+  PosInfo pos;         // contains dimensions and converters.. 
   int diameter;                               // how big do we make the circles.. 
   int margin;                                 // how much of a margin do we want.
   bool draw_forces;
@@ -91,6 +105,8 @@ class PointDrawer : public QWidget
   std::vector<QColor> defaultColors;
   float coord_sum_max;
   float coord_radius_factor;  // used to scale the radius on the basis of coord_sum 
+  
+  QPen labelPen;
 
   int lastX, lastY;      // so that I can use QRegion::translate .. 
 

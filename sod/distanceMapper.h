@@ -104,6 +104,9 @@ struct dpoint {
   
   // an optional position (when the starting dimensionality is reasonably small)
   std::vector<float> position;  
+  // an optional vector set for grid points (passive points representing the
+  // distortion of n-dimensional space).
+  std::vector<dpoint*> neighbors;
 
   dpoint();  
   dpoint(int i, int dimensions, int compNo=100);
@@ -142,10 +145,9 @@ class DistanceMapper : public QThread
   ~DistanceMapper();  // don't know how much I'll need for these..
   void restart();     // start the mapping process agains. 
   void updatePosition(int i, float x, float y);  
-  void initialisePoints();       // find some nice random positions for the points..
   void reInitialise();
   void setDim(int dim, int iter, int drt);
-  void setInitialPoints(std::vector<std::vector<float> > i_points);
+  void setInitialPoints(std::vector<std::vector<float> > i_points, unsigned int grid_points = 0);
 
   bool calculating; 
   bool initOK;        // so we can check if it initialised ok.. 
@@ -157,6 +159,11 @@ class DistanceMapper : public QThread
   std::vector<dpoint*> points;              // the points representing the objects (usually experiments.. )..  
   std::vector<std::vector<dpoint*> >* parentPoints;
   std::vector<stressInfo>* errors;
+
+  // points representing a grid distorted by points (like points, but do not affect the movement)
+  std::vector<dpoint*> gridPoints;
+  std::vector<std::vector<float> > gridDistances; // initial distances to points.
+
   QObject* parent;                 // for updating information.. 
   QMutex* pointMutex;
 
@@ -172,8 +179,14 @@ class DistanceMapper : public QThread
   // some functions..
 
   float adjustVectors(bool linear=true);          // adjust the Vectors in the points.. returns the total force
-  float movePoints();             // move the points.. and reset force vectors.. -- return distance moved
-  void resetPoints();             // just go through and reset the points.. 
+  float adjustGridVectors(bool linear=true);
+  float movePoints(std::vector<dpoint*>& pnts);             // move the points.. and reset force vectors.. -- return distance moved
+  void resetPoints(std::vector<dpoint*>& pnts);             // just go through and reset the points.. 
+  void initialisePoints();       // find some nice random positions for the points..
+  void initialiseGrid(unsigned int pno, std::vector<std::vector<float> >& i_points);
+  void createGridPoints(unsigned int pno, std::vector<float> min_v, std::vector<float> max_v);
+  dpoint* createGridPoint(unsigned int pno, std::vector<unsigned int>& g_pos, 
+			  std::vector<float>& min_v, std::vector<float>& max_v);
   void updateParentPoints();
   void clonePoints();
   void reduceDimensionality(DimReductionType drt, int it_no);   // adjust dimFactors by some means..
