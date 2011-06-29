@@ -62,10 +62,15 @@ class PointDrawer : public QWidget
   void drawForces(bool b);
   void setPointPlotType(PointPlotType ppt);
   void setPointDiameter(unsigned int d);
+  void setPlotScale(float s);
 
   // background images..
   void set_simple_gaussian_background(std::vector<unsigned int> dims, 
 				      unsigned char* color_matrix, float var);
+
+
+  // n-dimensional grid
+  void setGrid(std::vector<dpoint*> grid);
 
   private slots :
   void compareCellTypes();
@@ -80,6 +85,7 @@ class PointDrawer : public QWidget
   void checkSelected();
 
   void drawPie(QPainter& p, dpoint* point, int x, int y, QString label);
+  void drawGridPoint(QPainter& p, dpoint* gpoint);
   void determine_coordinate_scale();
 
   // optional background
@@ -90,6 +96,7 @@ class PointDrawer : public QWidget
   // and somewhere to keep data for stuff in..
   std::vector<QPoint> selectPoints;
   std::vector<dpoint*> points;
+  std::vector<dpoint*> gridPoints; // no ownership
   std::vector<QRect> regions;  // one region for each point.. so that we can check for mouse Events... 
   std::set<uint> selectedA;
   std::set<uint> selectedB;     // bit ugly but there you go.. 
@@ -98,6 +105,7 @@ class PointDrawer : public QWidget
   int movingId;
   float maxStress;
   PosInfo pos;         // contains dimensions and converters.. 
+  float drawScale;     // default to one, but can be set.
   int diameter;                               // how big do we make the circles.. 
   int margin;                                 // how much of a margin do we want.
   bool draw_forces;

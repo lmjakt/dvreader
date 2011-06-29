@@ -144,8 +144,6 @@ DistanceViewer::~DistanceViewer(){
   
   // and delete the data that we are not going to be using anymore.. 
   for(uint i=0; i < points.size(); i++){
-    cout << "deleting from : " << i << endl;
-    cout << "points " << i << "   size is " << points[i].size() << endl;
     for(uint j=0; j < points[i].size(); j++){
       delete points[i][j];
     }
@@ -153,6 +151,8 @@ DistanceViewer::~DistanceViewer(){
   for(uint i=0; i < localPoints.size(); ++i){
       delete localPoints[i];
   }
+  for(uint i=0; i < gridPoints.size(); ++i)
+    delete gridPoints[i];
 }
 
 // Checks that the positions is rectangular and that it
@@ -185,6 +185,11 @@ void DistanceViewer::drawForces(bool b)
   drawer->drawForces(b);
 }
 
+void DistanceViewer::setPlotScale(float scale)
+{
+  drawer->setPlotScale(scale);
+}
+
 void DistanceViewer::setPointDiameter(int d)
 {
   drawer->setPointDiameter(d);
@@ -200,6 +205,19 @@ void DistanceViewer::set_starting_dimensionality(unsigned int dim)
 {
   dimSpinner->setValue(dim);
   mapper->setDim(dimSpinner->value(), iterSpinner->value(), dimReductTypeBox->currentItem());
+}
+
+void DistanceViewer::setGrid(bool drawGrid)
+{
+  mapper->wait();
+  gridPoints = mapper->grid();
+  std::vector<dpoint*> emptyGrid;
+  if(!drawGrid){
+    drawer->setGrid(emptyGrid);
+  }else{
+    drawer->setGrid(gridPoints);
+  }
+  drawer->update();
 }
 
 void DistanceViewer::start(){
@@ -255,8 +273,7 @@ void DistanceViewer::updatePoints(){
     if(!mapper->calculating && followFrame >= (int)points.size()){
 	cout << "stopping the timer.. " << endl;
 	watchTimer->stop();
-//	pointMutex.unlock();
-//	return;
+	gridPoints = mapper->grid();
     }
     vector<dpoint*>& pointRefs = points.back();
     if((uint)followFrame < points.size()){

@@ -52,10 +52,12 @@ class DistanceViewer : public QWidget
   void setPositions(std::vector<std::vector<float> > p, unsigned int grid_points=0);
   void setPointPlotType(PointDrawer::PointPlotType ppt);
   void drawForces(bool b);
+  void setPlotScale(float scale);
   void setPointDiameter(int d);
   void set_simple_gaussian_background(std::vector<unsigned int> dims,
 				      unsigned char* color_matrix, float var);
   void set_starting_dimensionality(unsigned int dim);
+  void setGrid(bool drawGrid);
 
   private slots :
   void start();    // start the mapper.. 
@@ -73,8 +75,9 @@ class DistanceViewer : public QWidget
 
   QString captionName;                    // something for the captions.. 
   std::vector<std::vector<dpoint*> > points;          // keep points in here.. receive from the thingy. 
-                                           // keep whole history in here, so that I can replay things..
+                                           // used to keep whole history in here, for replay function
   std::vector<dpoint*> localPoints;             // a copy of the points that is never touched by the mapper.
+  std::vector<dpoint*> gridPoints;              // shared with mapper, but deleted here.
   std::vector<stressInfo> stressValues;              // to monitor the reduction in error... 
   std::vector<std::vector<float> > distances;
 

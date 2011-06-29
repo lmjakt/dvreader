@@ -52,6 +52,7 @@ PointDrawer::PointDrawer(QWidget* parent, const char* name)
   diameter = 16;             // diameter for circles representing.. things.. 
   pos.setMargin(32);
   margin = 32;               // number of pixels around the edge that we don't want to draw..
+  drawScale = 1.0;
   coord_sum_max = 0;
   coord_radius_factor = 0;
   draw_forces = true;
@@ -71,7 +72,8 @@ PointDrawer::PointDrawer(QWidget* parent, const char* name)
   defaultColors.push_back(QColor("yellow"));
   defaultColors.push_back(QColor("magenta"));
   defaultColors.push_back(QColor("white"));
-
+  defaultColors.push_back(QColor("pink"));
+  defaultColors.push_back(QColor("brown"));
 }
 
 PointDrawer::~PointDrawer(){
@@ -106,6 +108,12 @@ void PointDrawer::setPointDiameter(unsigned int d)
   update();
 }
 
+void PointDrawer::setPlotScale(float s)
+{
+  drawScale = s;
+  update();
+}
+
 void PointDrawer::set_simple_gaussian_background(std::vector<unsigned int> dims,
 						 unsigned char* color_matrix, float var)
 {
@@ -118,6 +126,12 @@ void PointDrawer::set_simple_gaussian_background(std::vector<unsigned int> dims,
   }
   bg_data = nbg;
   bg_image = QImage(bg_data, pos.w(), pos.h(), QImage::Format_ARGB32);
+  update();
+}
+
+void PointDrawer::setGrid(std::vector<dpoint*> grid)
+{
+  gridPoints = grid;
   update();
 }
 
@@ -167,7 +181,7 @@ void PointDrawer::paintEvent(QPaintEvent* e){
   float stressMultiplier = 0;
   QString numString;  
   QPainter p(&pix);              // should be ok.. 
-
+  p.scale(drawScale, drawScale);
   if(bg_image.width()){
     std::cout << "Calling drawImage " << bg_image.width() << "x" << bg_image.height() << std::endl;
     p.drawImage( QRect(0, 0, width(), height()), bg_image,
@@ -263,6 +277,12 @@ void PointDrawer::paintEvent(QPaintEvent* e){
       regions[i].setRect(x-diameter/2, y-diameter/2, diameter, diameter);
     }
     
+  }
+  // change the if to something reasonable at some point
+  if(gridPoints.size()){
+    p.setPen(labelPen);
+    for(unsigned int i=0; i < gridPoints.size(); ++i)
+      drawGridPoint(p, gridPoints[i]);
   }
   if(movingId != -1){
     p.setBrush(QColor(100, 100, 100));   // a gray shadow..
@@ -428,6 +448,33 @@ void PointDrawer::drawPie(QPainter& p, dpoint* point, int x, int y, QString labe
   p.setPen(labelPen);
   p.drawText(x-tbs, y-tbs, tbs*2, tbs*2, Qt::AlignCenter, label);
   p.restore();
+}
+
+void PointDrawer::drawGridPoint(QPainter& p, dpoint* gpoint)
+{
+  if(gpoint->dimNo < 2)
+    return;
+  int x1 = pos.x(gpoint->coordinates[0]);
+  int y1 = pos.y(gpoint->coordinates[1]);
+  std::cout << "from " << x1 << "," << y1 << ":";
+  for(unsigned int j=0; j < gpoint->position.size(); ++j)
+    cout << "\t" << (int)gpoint->position[j];
+  cout << endl;
+  for(unsigned int i=0; i < gpoint->neighbors.size(); ++i){
+    if(!gpoint->neighbors[i])
+      continue;
+    if(gpoint->neighbors[i]->dimNo < 2)
+      continue;
+    p.setPen(QPen(defaultColors[i % defaultColors.size()], 0));
+    cout << i << " color " << defaultColors[i % defaultColors.size()].name().toAscii().constData() << endl;
+    int x2 = pos.x(gpoint->neighbors[i]->coordinates[0]);
+    int y2 = pos.y(gpoint->neighbors[i]->coordinates[1]);
+    cout << "\t" << i << " -->  " << x2 << "," << y2 << ":";
+    for(unsigned int j=0; j < gpoint->neighbors[i]->position.size(); ++j)
+      cout << "\t" << (int)gpoint->neighbors[i]->position[j];
+    cout << endl;
+    p.drawLine(x1, y1, x2, y2);
+  }
 }
 
 void PointDrawer::determine_coordinate_scale()

@@ -411,6 +411,13 @@ void DistanceMapper::setInitialPoints(vector<vector<float> > i_points, unsigned 
     initialiseGrid(grid_points, i_points);
 }
 
+// makes no copy. will delete or modify during mapping.
+// use carefully.
+std::vector<dpoint*> DistanceMapper::grid()
+{
+  return(gridPoints);
+}
+
 void DistanceMapper::initialisePoints(){
   calculating = true;
   for(uint i=0; i < points.size(); i++){
@@ -470,20 +477,29 @@ void DistanceMapper::createGridPoints(unsigned int pno, vector<float> min_v, vec
   unsigned grid_size = pno;
   for(unsigned int i=1; i < min_v.size(); ++i)
     grid_size *= pno;
+
+  vector<float> ranges;
+  for(unsigned int i=0; i < min_v.size(); ++i)
+    ranges.push_back( max_v[i] - min_v[i] );
+
   // the position at a given point.
   vector<unsigned int> g_pos(min_v.size(), 0);
-  vector<unsigned int> g_pos_counters(min_v.size(), 0);
+  //  vector<unsigned int> g_pos_counters(min_v.size(), 0);
   gridPoints.resize(grid_size);
   gridDistances.resize(grid_size);
-  gridPoints[0] = createGridPoint(pno, g_pos, min_v, max_v);
-  for(unsigned int i=1; i < gridPoints.size(); ++i){
-    g_pos[0] = i % pno;
-    for(unsigned int j=1; j < g_pos.size(); ++j){
-      if(!g_pos[j-1]){
-	++g_pos_counters[j];
-	g_pos[j] = g_pos_counters[j] % pno;
-      }
+
+  for(unsigned int i=0; i < gridPoints.size(); ++i){
+    int d_size = grid_size / pno;
+    int remainder = i;
+    for(unsigned j = g_pos.size()-1; j < g_pos.size(); --j){  // if j is unsiged should overflow
+      g_pos[j] = remainder / d_size;
+      remainder -= g_pos[j] * d_size;
+      d_size /= pno;
     }
+    cout << "gridPoint : " << i;
+    for(unsigned int j=0; j < g_pos.size(); ++j)
+      cout << "\t" << g_pos[j];
+    cout << endl;
     gridPoints[i] = createGridPoint(pno, g_pos, min_v, max_v);
   }
   // Then we need to set up the distances between points and grid_points
@@ -505,7 +521,7 @@ void DistanceMapper::createGridPoints(unsigned int pno, vector<float> min_v, vec
     vector<dpoint*> neighbors(min_v.size(), 0);
     unsigned int inc = 1;
     for(unsigned int j=0; j < neighbors.size(); ++j){
-      if(i + inc < gridPoints.size())
+      if(gridPoints[i]->position[j] + ranges[j] <= ((ranges[j] / 100.0) + max_v[j]) &&  i + inc < gridPoints.size())
 	neighbors[j] = gridPoints[i + inc];
       inc *= pno;
     }

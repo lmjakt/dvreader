@@ -148,6 +148,7 @@ class DistanceMapper : public QThread
   void reInitialise();
   void setDim(int dim, int iter, int drt);
   void setInitialPoints(std::vector<std::vector<float> > i_points, unsigned int grid_points = 0);
+  std::vector<dpoint*> grid();
 
   bool calculating; 
   bool initOK;        // so we can check if it initialised ok.. 
@@ -161,7 +162,7 @@ class DistanceMapper : public QThread
   std::vector<stressInfo>* errors;
 
   // points representing a grid distorted by points (like points, but do not affect the movement)
-  std::vector<dpoint*> gridPoints;
+  std::vector<dpoint*> gridPoints;      // deleted by the viewer.
   std::vector<std::vector<float> > gridDistances; // initial distances to points.
 
   QObject* parent;                 // for updating information.. 

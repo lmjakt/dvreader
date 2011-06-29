@@ -32,6 +32,7 @@ SodController::SodController(QWidget* parent)
   general_functions["read_positions"] = &SodController::read_positions;
   general_functions["set_plot_par"] = &SodController::set_plot_par;
   general_functions["gaussian_bg"] = &SodController::make_gaussian_background;
+  general_functions["draw_grid"] = &SodController::drawGrid;
 }
 
 SodController::~SodController()
@@ -174,7 +175,9 @@ void SodController::set_plot_par(f_parameter& par)
   bool forces;
   if(par.param("forces", forces))
     viewer->drawForces(forces);
-  
+  float scale;
+  if(par.param("scale", scale))
+    viewer->setPlotScale(scale);
 }
 
 void SodController::make_gaussian_background(f_parameter& par)
@@ -236,6 +239,25 @@ void SodController::make_gaussian_background(f_parameter& par)
   }
   // then make a function in the viewer..
   distanceViewers[dviewer]->set_simple_gaussian_background(dims, color_matrix, var);
+}
+
+void SodController::drawGrid(f_parameter& par)
+{
+  QString dviewer;
+  if(!par.param("viewer", dviewer)){
+    warn("Specify viewer to be used viewer=(..)");
+    return;
+  }
+  if(!distanceViewers.count(dviewer)){
+    warn("Unknown viewer specified");
+    return;
+  }
+  bool draw;
+  if(!par.param("draw", draw)){
+    warn("Specify as to whether to draw the grid or not (draw=true/false)");
+    return;
+  }
+  distanceViewers[dviewer]->setGrid(draw);
 }
 
 void SodController::warn(QString message)
