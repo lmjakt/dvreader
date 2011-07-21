@@ -528,10 +528,12 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
   // might want to set stretch factors and stuff, but migth work fine.. 
 
   colorBox = new QVBoxLayout(box);
-  colorBox->setSpacing(1);
+  colorBox->setSpacing(0);
+  colorBox->setMargin(0);
   colorBox->setContentsMargins(1, 1, 1, 1);
   for(uint i=0; i < colorChoosers.size(); i++){
     colorBox->addWidget(colorChoosers[i]);
+    //    colorBox->addSpacing(-10);
   }
   QHBoxLayout* exportBox = new QHBoxLayout();
   exportBox->setSpacing(0);

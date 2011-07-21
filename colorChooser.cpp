@@ -37,6 +37,7 @@ using namespace std;
 ColorChooser::ColorChooser(QString label, int windex, int wlength, QColor c, QWidget* parent, const char* name)
   : QWidget(parent, name)
 {
+  setContentsMargins(0, 0, 0, 0);
   currentColor = c;
   constColor = c;
   waveLength = wlength;
@@ -75,12 +76,13 @@ ColorChooser::ColorChooser(QString label, int windex, int wlength, QColor c, QWi
   connect(subtractBox, SIGNAL(toggled(bool)), this, SIGNAL(checkSubtractions(bool)) );  // which actually ignores the thingy
 
   vbox = new QVBoxLayout(this);
-
+  vbox->setSpacing(0);
+  vbox->setMargin(0);
   QHBoxLayout* box = new QHBoxLayout();
-  //  QHBoxLayout* box = new QHBoxLayout(this);
-  vbox->addLayout(box);
   box->setSpacing(0);
   box->setMargin(0);
+  //  QHBoxLayout* box = new QHBoxLayout(this);
+  vbox->addLayout(box);
   box->setContentsMargins(0, 0, 0, 0);
   box->addWidget(wLabel);
   box->addStretch();

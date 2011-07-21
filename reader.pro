@@ -66,6 +66,9 @@ HEADERS		= \
 		panels/borderInformation.h \
 		panels/idMap.h \
 		panels/stack_stats.h \
+                panels/sLookup.h \
+                panels/mt_f_lookup.h \
+                panels/mt_rgb_lookup.h \
 		image/imageFunc.h \
 		image/imageAnalyser.h \
 		image/imageData.h \
@@ -190,6 +193,9 @@ SOURCES		= \
 		panels/frameRect.cpp \
 		panels/borderInformation.cpp \
 		panels/idMap.cpp \
+                panels/sLookup.cpp \
+                panels/mt_f_lookup.cpp \
+                panels/mt_rgb_lookup.cpp \
 		image/imageFunc.cpp \
 		image/imageAnalyser.cpp \
 		image/volumeCache.cpp \

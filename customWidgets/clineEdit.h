@@ -10,7 +10,7 @@ class CLineEdit : public QLineEdit
     
     public:
   CLineEdit(QWidget* parent=0)
-    : QLineEdit(parent) {}
+    : QLineEdit(parent) {};
 
     signals :
   void arrowPressed(bool);
