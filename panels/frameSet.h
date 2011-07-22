@@ -69,10 +69,6 @@ class FrameSet {
 	return(frames.size());
     }
 
-    bool readToRGB(float* dest, unsigned int source_x, unsigned int source_y, 
-		   unsigned int width, unsigned int height,
-		   unsigned int dest_x, unsigned int dest_y, unsigned int dest_w, 
-		   std::vector<channel_info> chinfo, raw_data* raw=0);
     bool readToRGB(float* dest, unsigned int source_x, unsigned int source_y,
 		   unsigned int width, unsigned int height,
 		   unsigned int dest_x, unsigned int dest_y,

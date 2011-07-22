@@ -141,6 +141,7 @@ bool FrameStack::setChannelOffsets(vector<ChannelOffset> offsets)
   if(offsets.size() != channelOffsets.size())
     return(false);
   channelOffsets = offsets;
+  return(true);
 }
 
 void FrameStack::setLookupTables(map<fluorInfo, SLookup*>* luts)

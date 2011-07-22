@@ -147,43 +147,6 @@ void FrameSet::setLookupTables(map<fluorInfo, SLookup*>* luts)
   }
 }
 
-// I should probably deprecate the following function. To simplify things a little bit.
-bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source_y, 
-			 unsigned int width, unsigned int height,
-			 unsigned int dest_x, unsigned int dest_y, 
-			 unsigned int dest_w, vector<channel_info> chinfo,
-			 raw_data* raw)
-{
-    // actually we haven't explicitly defined how the colors and the other things will be treated, but
-    //  since we have a map<float, colors> then we can sort of assume that we will use the same ones..
-
-    unsigned int i = 0;
-    bool ok = true;
-    bool read;
-    // the above is a bit ugly, but it makes the following a little less ugly. 
-    for(map<fluorInfo, Frame*>::iterator it = frames.begin(); it != frames.end(); it++){
-      if( !chinfo[i].include || (!(chinfo[i].color.r + chinfo[i].color.g + chinfo[i].color.b) && !raw) ){
-	++i;
-	continue;
-      }
-      if(!raw){
-	read = (*it).second->readToRGB(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, 
-				       chinfo[i]);
-      }else{
-	if(read = (*it).second->readToRGB(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, 
-					  chinfo[i], raw->values[i] + raw->positions[i])){
-	  raw->positions[i] += (width * height);
-	}
-      }
-      if(!read){
-	cerr << "FrameSet::readToRGB some error reading wave : " << i << endl;
-	ok = false;
-      }
-      i++;
-    }
-    return(ok);   // so a partial read gives a false..
-}
-
 bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source_y,
 			 unsigned int width, unsigned int height,
 			 unsigned int dest_x, unsigned int dest_y,
@@ -191,6 +154,8 @@ bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source
 {
   if(!frames.count(chinfo.finfo))
     return(false);
+  if( !chinfo.include || (!(chinfo.color.r + chinfo.color.g + chinfo.color.b) && !raw) )
+    return(true);
   return( frames[chinfo.finfo]->readToRGB(dest, source_x, source_y, width, height, dest_x, dest_y, dest_w, chinfo, raw) );
 }
 
