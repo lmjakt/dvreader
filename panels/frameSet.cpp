@@ -136,6 +136,17 @@ void FrameSet::setBackgroundPars(unsigned int waveIndex, int xm, int ym, float q
     frames[fInfo[waveIndex]]->setBackgroundPars(xm, ym, qnt, bg_subtract);
 }
 
+void FrameSet::setLookupTables(map<fluorInfo, SLookup*>* luts)
+{
+  for(map<fluorInfo, Frame*>::iterator it=frames.begin(); it != frames.end(); ++it){
+    if(!luts->count((*it).first)){
+      cerr << "FrameSet::setLookupTables no lookup table for frame aborting" << endl;
+      exit(1);
+    }
+    (*it).second->setLookupTable( (*luts)[ (*it).first ] );
+  }
+}
+
 // I should probably deprecate the following function. To simplify things a little bit.
 bool FrameSet::readToRGB(float* dest, unsigned int source_x, unsigned int source_y, 
 			 unsigned int width, unsigned int height,

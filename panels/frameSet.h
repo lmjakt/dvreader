@@ -31,6 +31,7 @@
 #include <set>
 
 class Background;
+class SLookup;
 
 class FrameSet {
     public :
@@ -47,6 +48,7 @@ class FrameSet {
     void setContribMap(float* map);
     void setPanelBias(panel_bias* pb, unsigned int waveIndex);
     void setBackgroundPars(unsigned int waveIndex, int xm, int ym, float qnt, bool bg_subtract);
+    void setLookupTables(std::map<fluorInfo, SLookup*>* luts);
     // we also need a whole load of accessor functions, and wrappers for the frame functions.. 
     float z_pos(){
 	return(z);

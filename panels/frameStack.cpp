@@ -143,6 +143,12 @@ bool FrameStack::setChannelOffsets(vector<ChannelOffset> offsets)
   channelOffsets = offsets;
 }
 
+void FrameStack::setLookupTables(map<fluorInfo, SLookup*>* luts)
+{
+  for(uint i=0; i < sections.size(); ++i)
+    sections[i]->setLookupTables(luts);
+}
+
 bool FrameStack::addFrame(Frame* frame){
   //cout << "FrameStack::addFrame excite : " << frame->excitation() << "--> " << frame->emission()
   //    << "  z pos : " << frame->zPos() << endl;

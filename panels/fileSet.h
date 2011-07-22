@@ -45,6 +45,7 @@ class IdMap;
 class FrameStack;
 class FileSetInfo;
 class ImStack;
+class SLookup;
 
 // Background objects contain a reference to an imageData object; the imageData object
 // provides some higher level access functions for the FileSet Object, and has a pointer
@@ -174,13 +175,15 @@ class FileSet {
     void determineZOffsets();    // this is actually a bit tricky .. 
     void initBackgrounds();      // we should probably remove this at some point.
     void initBackgrounds(std::map<fluorInfo, backgroundPars> bgp);
-    
+    void setLookupTables(std::vector<channel_info>& ch_info);
+
     std::map<float, std::map<float, FrameStack*> > frames;      // since this is inconvenient to access I'll have an accessor function
     std::map<ulong, FrameStack*> frameIds;
     IdMap* framePosMap;
     std::set<fluorInfo> flInfo;        // the various file sets and things.. 
     // the first photoSensor value for a given channel. 
     // set the values for each frame.. 
+    std::map<fluorInfo, SLookup*> luts;
     std::map<fluorInfo, float> photoSensors;  
     std::map<fluorInfo, Background*> backgrounds;
     std::vector<float> x_positions;

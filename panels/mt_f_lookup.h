@@ -17,6 +17,7 @@ class mt_f_lookup : public QThread
   
   // since run cannot be called with any parameters, we need to set them here.
   // this is bit problematic, as run can be called by the public function start()
+  // might want to consider overriding qthread start() to do nothing.
   
   unsigned int lu_size;
 

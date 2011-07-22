@@ -10,6 +10,7 @@
 // not be a major issue.
 
 #include <vector>
+#include "../dataStructs.h" // for channel_info
 
 class mt_f_lookup;
 class mt_rgb_lookup;
@@ -21,6 +22,7 @@ class SLookup
   SLookup(float scale, float bias, float r, float g, float b, unsigned short thread_no, unsigned int mx=max_ushort);
   ~SLookup();
 
+  void setPars(channel_info& chi);
   void setMx(unsigned int mx);
   void setPars(float scl, float bs);
   void setColor(float r, float g, float b);
@@ -31,7 +33,7 @@ class SLookup
 
   bool addToRGB_f(unsigned short* source, unsigned int s_x, unsigned int s_y, unsigned int s_w,
 		  float* dest, unsigned int d_x, unsigned int d_y, unsigned int d_w,
-		  unsigned int read_width, unsigned int read_height);
+		  unsigned int read_width, unsigned int read_height, float* contribMap);
 
   
  private:

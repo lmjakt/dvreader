@@ -10,12 +10,16 @@ class mt_rgb_lookup : public QThread
   ~mt_rgb_lookup();
 
   void toRGB(unsigned short* source, unsigned int s_x, unsigned int s_y, unsigned int s_w,
-	       float* dest, unsigned int d_x, unsigned int d_y, unsigned int d_w,
+	     float* dest, unsigned int d_x, unsigned int d_y, unsigned int d_w,
 	     unsigned int read_width, unsigned int read_height, 
-	     float* lu_red, float* lu_green, float* lu_blue);
-
+	     float* lu_red, float* lu_green, float* lu_blue, float* c_map = 0);
+  
  private:
   void run();
+  void resetVars();    // call to make sure fresh variables each time.. 
+
+  void toRGB_direct();
+  void toRGB_contrib();  // uses a contribMap of the same dimensions as source
 
   // not very ideal structure of these things. A aimple C function using posix threads
   // seems like a better idea. I need to study posix threads..
@@ -23,6 +27,7 @@ class mt_rgb_lookup : public QThread
   unsigned int lu_size;
 
   unsigned short* src;
+  float* contribMap;
   unsigned int source_x;
   unsigned int source_y;
   unsigned int source_w;

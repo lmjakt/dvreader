@@ -10,7 +10,7 @@
     (at your option) any later version.
  
     This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    but WITHOUT ANY WARRANTY; without even the implied warranty ofhttp://www.dn.se/nyheter/sverige/kraftigt-askvader--37-000-blixtnedslag
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
    
@@ -27,6 +27,7 @@
 #include "frameStack.h"
 #include "fileSetInfo.h"
 #include "frame.h"
+#include "sLookup.h"
 #include "../stat/stat.h"
 #include <iostream>
 #include <fstream>
@@ -74,6 +75,9 @@ FileSet::~FileSet(){
 	delete overlapData[i];
     }
     delete framePosMap;
+    for(map<fluorInfo, SLookup*>::iterator it=luts.begin(); it != luts.end(); ++it)
+      delete (*it).second;
+    luts.clear();
 }
 
 bool FileSet::addFrame(string fname, ifstream* in, std::ios::pos_type framePos, 
@@ -105,6 +109,10 @@ bool FileSet::addFrame(string fname, ifstream* in, std::ios::pos_type framePos,
   }
   fluorInfo finfo(frame->excitation(), frame->emission(), frame->exposure());
   flInfo.insert(finfo);
+
+  if(!luts.count(finfo))
+    luts.insert(make_pair(finfo, new SLookup(1.0, 0.0, 1.0, 1.0, 1.0, 4, maxIntensity)));
+
   if(!photoSensors.count(finfo)){
     photoSensors[finfo] = frame->phSensor();
   }
@@ -369,7 +377,7 @@ bool FileSet::finalise(){
     h = frameHeight + y_positions.back() - y_positions.front();
     d = z_positions.back() - z_positions.front();
     
-    
+     
     pw = (int) roundf( w / xscale );
     ph = (int) roundf( h / yscale );   // but it is not quite correct.. (but it may be good enough.. 
     cout << "Area covered : " << x << ", " << y << "  size : " << w << ", " << h << endl
@@ -379,6 +387,12 @@ bool FileSet::finalise(){
 	 << "For a total pixels of        : " << pw << " x " << ph << endl;
     cout << "And completeRectangle is : " << completeRectangle << endl;
     adjustStackBorders();
+
+    // assign the map<fluorInfo, SLookup> luts structure to the frameStacks..
+    // note that the frameIds structure gets set up as a consequence of adjustStackBorders() called above
+    for(map<ulong, FrameStack*>::iterator it=frameIds.begin(); it != frameIds.end(); ++it)
+      (*it).second->setLookupTables(&luts);
+
     return(true);  // lets see if we can handle incomplete rectangles
     return(completeRectangle);
 }
@@ -508,6 +522,8 @@ bool FileSet::readToRGB(float* dest, unsigned int xpos, unsigned int ypos,
   //  initBackgrounds();
   //}
   
+  setLookupTables(chinfo);
+
   int counter = 0;  // this just counts how many different framestacks contribute to the slice..
   for(map<float, map<float, FrameStack*> >::iterator it=frames.begin(); it != frames.end(); it++){
     for(map<float, FrameStack*>::iterator fit=(*it).second.begin(); fit != (*it).second.end(); fit++){
@@ -842,6 +858,24 @@ void FileSet::initBackgrounds(map<fluorInfo, backgroundPars> bgp){
     }
   }
   
+}
+
+// Problematic function since we hold the lookup table objects as
+// a map<fluorInfo, SLookup*> collection.
+// The following is how it has been done in the FileSet object
+void FileSet::setLookupTables(std::vector<channel_info>& ch_info)
+{
+  unsigned int i=0;
+  for(map<fluorInfo, SLookup*>::iterator it=luts.begin(); it != luts.end(); ++it){
+    if(i >= ch_info.size()){
+      cerr << "FileSet::setLookupTables Not enough channel_info objects in ch_info: i " << i << " size: " << ch_info.size() << endl;
+      break;
+    }
+    (*it).second->setPars(ch_info[i]);
+    ++i;
+  }
+  if(i < luts.size())
+    cerr << "FileSet::setLookupTables not enough luts : ch_info.size() " << ch_info.size() << " > " << i << endl;
 }
 
 void FileSet::setBackgroundParameters(map<fluorInfo, backgroundPars> bgp){

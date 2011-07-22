@@ -833,10 +833,11 @@ void DeltaViewer::paintCoverage(float maxCount){
   imageBuilder->setImage(image, w, h);
 }
 
+// This function is used by spotFinder/spotMapper/spotMapperWindow
+// but nowhere else that I know of. We should try to get rid of it, but
+// it's not that urgent.
+// This function is called from PerimeterWindow as well ??  
 bool DeltaViewer::readToRGB(float* dest, int xb, int yb, unsigned int tw, unsigned int th, unsigned int slice_no){
-    // this is a bit redundant with the above function and we should probably rewrite the above function to use this 
-    // one..
-    // This function is called from PerimeterWindow ??  
     if(slice_no >= (uint)fileSet->sectionNo()){
 	return(false);
     }

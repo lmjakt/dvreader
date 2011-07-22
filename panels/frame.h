@@ -35,28 +35,9 @@
 #include "../image/two_d_background.h"
 
 class Background;
+class SLookup;
 
 typedef unsigned int uint;
-
-// a small background struct. Only to be used by the Frame Class. Not to be passed around.
-
-/* struct td_bg { */
-/*   int x_m, y_m; */
-/*   int w, h;          // not using unsigned ints, since I get into so much trouble with such. */
-/*   float quantile; */
-/*   float* background;  // use float even if source is short. */
-/*   a_pos* bg_pos; */
-/*   float bg(int x, int y); */
-/*   td_bg(){ */
-/*     x_m = y_m = w = h = 0; */
-/*     background = 0; */
-/*     bg_pos = 0; */
-/*   } */
-/*   ~td_bg(){ */
-/*     delete background; */
-/*     delete bg_pos; */
-/*   } */
-/* }; */
 
 struct panel_bias {
   float scale;
@@ -86,6 +67,7 @@ class Frame {
 	in = inStream;
     }
    
+    void setLookupTable(SLookup* lut);
     // simple accesor functions..
     bool ok();
     float emission();
@@ -157,6 +139,7 @@ class Frame {
     int zp;               // the z position, or rather the slice number
     float* contribMap;    // gives partial contributions at specific positions. This is a shared pointer, do not delete here.
     // other image parameters...
+    SLookup* lookup_table;
     float photoSensor;
     float photoSensorStandard;  // the standard value
     float phSensor_m;           // photoSensor multiplier

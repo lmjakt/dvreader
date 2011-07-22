@@ -23,6 +23,7 @@
 //End Copyright Notice
 
 #include "frame.h"
+#include "sLookup.h"
 #include <string.h>
 #include <iostream>
 #include <vector>
@@ -33,48 +34,16 @@
 
 using namespace std;
 
-// don't do any error checking as this function should only be used from within this 
-// class. (Maybe I should declare it in the .cpp file rather than in the .h 
-
-// float td_bg::bg(int x, int y){
-//   int xb = (x - x_m/2) / x_m;
-//   int yb = (y - y_m/2) / y_m;
-
-//   // as long as x and y are not negative, then the smallest value we'll get here will
-//   // be -0.5, which will be rouned to 0. So this should be a safe way of finding the appropriate
-//   // points from which to interpolate.
-  
-//   // xb and yb can be 0, but we need xb to be smaller than the the width and height of the background.
-//   // note that this is not error checking as these are allowed values, but for which we need to make
-//   // some compensation.
-//   int bgw = w / x_m;
-//   int bgh = h / y_m;
-//   xb = xb < bgw - 1 ? xb : bgw - 2;
-//   yb = yb < bgh - 1 ? yb : bgh - 2;
-//   int pb = yb * bgw + xb;
-
-//   float bot = background[pb] + ((float)(x - bg_pos[pb].x) / (float)x_m) * (background[pb+1] - background[pb]);
-//   float top = background[pb + bgw] + ((float)(x - bg_pos[pb+bgw].x) / (float)x_m) * (background[pb+bgw+1] - background[pb+bgw]);
-//   float b = bot + ((float)(y - bg_pos[pb].y)/(float)y_m) * (top - bot);
-//   return(b);
-// }
-
 Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type readPos, std::ios::pos_type extHeadSize, 
 	     short numInt, short numFloat, unsigned short byteSize, 
 	     bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz)
 {
   // we should try to remove all references to threeDBackground as we gave up on it previously
     threeDBackground = 0;
+    lookup_table = 0;  //only use if present.. 
     // Instead use td_background (two dimensional specific to the frame)
     background = new Two_D_Background();
     background->setParameters(0.2, 16, 16);
-
-    // background.x_m = 16;
-    // background.y_m = 16;
-    // background.quantile = 0.2;
-    // background.w = width;
-    // background.h = height;
-    // Instead of setting it elsewhere.. 
 
     contribMap = 0;
     panelBias = 0;
@@ -112,23 +81,13 @@ Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type
     in->seekg(readPos);
     in->read((char*)headerInt, numInt * 4);    // but this fails if int is of a different size.
     in->read((char*)headerFloat, numFloat * 4); // and again this is dependant on various things..
-   if(in->fail()){
-	cerr << "Frame::Frame failed to read extended header" << endl;
-	delete []headerInt;
-	delete []headerFloat;
-	return;
+    if(in->fail()){
+      cerr << "Frame::Frame failed to read extended header" << endl;
+      delete []headerInt;
+      delete []headerFloat;
+      return;
     }
-
-   // cout << "extended header information : " << endl;
-   // cout << "numInt : " << numInt << "  numFloat : " << numFloat << endl;
-   // cout << "ints first: " << endl;
-   // for(int i=0; i < numInt; ++i)
-   //   cout << i << " : " << headerInt[i] << endl;
-   // cout << "and then the floats" << endl;
-   // for(int i=0; i < numFloat; ++i)
-   //   cout << i << " : " << headerFloat[i] << endl;
-
-
+    
     photoSensor = headerFloat[0];
     timeStamp = headerFloat[1];
     x = headerFloat[2] * -1.0;
@@ -150,6 +109,11 @@ Frame::Frame(ifstream* inStream, std::ios::pos_type framePos, std::ios::pos_type
 Frame::~Frame(){
 //    delete in;  // this isn't owned by frame anymore .. 
   delete background;
+}
+
+void Frame::setLookupTable(SLookup* lut)
+{
+  lookup_table = lut;
 }
 
 bool Frame::ok(){
@@ -319,13 +283,12 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
   // 3. Go through all values in the read position, do the transformation and 
 
   // The commented section refers to the use of a two dimensional background subtraction
-  //  if(chinfo.bg_subtract && !background.background){
+
   if(chinfo.bg_subtract && !background->backgroundSet()){
-    //cout << "Frame::readToRGB_s background subtraction requested: creating background object" << endl;
-    // changing from true to false to true avoids an infinite loop or exit (as setBackground calls readToFloat which checks background).
+    // changing from true to false to true avoids an infinite loop or 
+    // exit (as setBackground calls readToFloat which checks background).
     channelInfo.bg_subtract = false;
     setBackground();
-    //    setBackground(16, 16, 0.2);
     channelInfo.bg_subtract = true;
   }
 
@@ -359,7 +322,16 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
   }else{
     convertFunction = raw ? &Frame::convert_s_raw_pb : &Frame::convert_s_pb;
     convertFunction = chinfo.contrast ? &Frame::convert_s_contrast : convertFunction;
-  }  
+  }
+  // if simple conversion use lookup table..
+  if(convertFunction == &Frame::convert_s){
+    cout << "Calling lookup_table->addToRGB : " << excitationWavelength << " --> " << emissionWavelength << endl;
+    lookup_table->addToRGB_f(buffer, source_x, 0, pWidth,
+			     dest, dest_x, dest_y, dest_w,
+			     width, height, contribMap + source_y * pWidth); // we always read full lines.. 
+    delete []buffer;
+    return(true);
+  }
   for(unsigned int yp = 0; yp < height; yp++){
     source = buffer + yp * pWidth + source_x;
     dst = dest + (dest_y * dest_w + yp * dest_w + dest_x) * 3 ; // then increment the counters appopriately.. 

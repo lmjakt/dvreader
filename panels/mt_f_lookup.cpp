@@ -31,7 +31,7 @@ void mt_f_lookup::toFloat(unsigned short* source, unsigned int s_x, unsigned int
   r_height = read_height;
   lut = lu_table;
   
-  run();
+  start();
 }
 
 void mt_f_lookup::run()

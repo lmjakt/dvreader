@@ -40,6 +40,7 @@ class Background;
 class IdMap;
 class Frame;
 class FrameSet;
+class SLookup;
 struct panel_bias;
 
 class FrameStack {
@@ -59,6 +60,7 @@ class FrameStack {
     void setPanelBias(unsigned int wi, float scale, short bias);
     void setBackgroundPars(unsigned int wi, int xm, int ym, float qnt, bool bg_subtract);
     bool setChannelOffsets(std::vector<ChannelOffset> offsets);
+    void setLookupTables(std::map<fluorInfo, SLookup*>* luts);
     // returns 0, if the frame is added to this stack
     // otherwise returns another frameStack
     std::ifstream* fileStream(){
