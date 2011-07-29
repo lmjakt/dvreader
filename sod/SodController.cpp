@@ -183,6 +183,9 @@ void SodController::set_plot_par(f_parameter& par)
   float moveFactor;
   if(par.param("move_factor", moveFactor))
     viewer->setMoveFactor(moveFactor);
+  unsigned int threads;
+  if(par.param("threads", threads))
+    viewer->setThreadNumber(threads);
 }
 
 void SodController::titrate(f_parameter& par)

@@ -70,6 +70,12 @@ struct componentVector {
   int forceNo;        // this should have been called dimNo for dimensionNo, I may rename later .. 
   
   componentVector(){};   // empty constructor
+  componentVector(unsigned int dimNo){
+    attractive = true;
+    forceNo = dimNo;
+    forces = new float[dimNo];
+    memset((void*)forces, 0, sizeof(float) * dimNo);
+  }
   componentVector(std::vector<float> f, bool a){
     attractive = a;
     forces = new float[f.size()];
@@ -120,7 +126,7 @@ struct dpoint {
 
   // given another point, with an optimal distance of d
   // adjust the vectors and return a measure of force in the system.. 
-  float adjustVectors(dpoint* p, float d, float* dimFactors, bool linear=true);   
+  float adjustVectors(dpoint* p, float d, float* dimFactors, bool linear, unsigned int comp_index);   
   // move the point, return the euclidean distance moved
   float move(float forceMultiplier);              
   // set the stress and force vectors to be 0.. 
@@ -153,6 +159,7 @@ class DistanceMapper : public QThread
   void updatePosition(int i, float x, float y);  
   void reInitialise();
   void setDim(int dim, int iter, int drt);
+  void setThreadNumber(unsigned int tno);
   void setMoveFactor(float mf);
   void setInitialPoints(std::vector<std::vector<float> > i_points, unsigned int grid_points = 0);
   std::vector<dpoint*> grid();
@@ -177,6 +184,7 @@ class DistanceMapper : public QThread
 
   float moveFactor;               // how much do we move a point by. -- i.e. how much do we multiply the forceVectors by to get a 
                                   // to move distance.. 
+  unsigned int thread_no;         // the number of threads to use when mapping.
   float totalDistance;
   int dimensionality;
   int currentDimNo;

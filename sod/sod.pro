@@ -7,6 +7,7 @@ HEADERS         = \
                 SodController.h \
                 distanceViewer.h \
                 distanceMapper.h \
+		VectorAdjustThread.h \
                 pointDrawer.h \
                 stressPlotter.h \
                 BackgroundDrawer.h \
@@ -18,6 +19,7 @@ SOURCES         = \
                 SodController.cpp \
                 distanceViewer.cpp \
                 distanceMapper.cpp \
+		VectorAdjustThread.cpp \
                 pointDrawer.cpp \
                 stressPlotter.cpp \
                 BackgroundDrawer.cpp \

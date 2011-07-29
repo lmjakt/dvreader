@@ -23,6 +23,7 @@
 //End Copyright Notice
 
 #include "distanceMapper.h"
+#include "VectorAdjustThread.h"
 #include <qthread.h>
 #include <math.h>
 #ifdef Q_OS_MACX
@@ -64,9 +65,12 @@ dpoint::dpoint(int i, int dimensions, int compNo){
   forceVectors = new float[dimNo];
   if(compNo < 1){ compNo = 1; }
   components = new componentVector*[compNo];     // where do I add these, I'm not sure.. we'll have to work it out later.. 
-  memset((void*)components, 0, sizeof(componentVector*) * compNo); 
+  //memset((void*)components, 0, sizeof(componentVector*) * compNo); 
   componentSize = compNo;
-  componentNo = 0;
+  for(int i=0; i < componentSize; ++i){
+    components[i] = new componentVector(dimNo);
+  }
+  componentNo = componentSize;
   //  coordinates.resize(dimensions);
   // forceVectors.resize(dimensions);
   for(int i=0; i < dimNo; i++){
@@ -100,24 +104,24 @@ dpoint* dpoint::copy(bool includeComponents){
 }
 
 void dpoint::assignValues(dpoint* p){
-    if(dimNo > p->dimNo || componentSize > p->componentSize){
-      cerr << "dpoint::assignValues unable to assign values since point sizes do not appear to match" 
-	   << endl;
-      cerr << "this : " << dimNo << "  " << componentSize << "  p: " 
-	   << (long)p << "  "  << p->dimNo << "  " << p->componentSize << endl;
-      exit(1);
-    }
-    p->position = position;
-    /// possible memory leak here. But deleting the pointers would be a possible seg fault. so.. 
-    p->componentNo = componentNo;
-    memcpy(p->coordinates, coordinates, sizeof(float) * dimNo);
-    memcpy(p->forceVectors, forceVectors, sizeof(float) * dimNo);
-    p->stress = stress;
-    for(int i=0; i < componentNo; ++i){
-	p->components[i]->attractive = components[i]->attractive;
-	p->components[i]->forceNo = components[i]->forceNo;   /// But this seems very inadvisable.
-	memcpy(p->components[i]->forces, components[i]->forces, sizeof(float) * components[i]->forceNo);
-    }
+  if(dimNo > p->dimNo || componentSize > p->componentSize){
+    cerr << "dpoint::assignValues unable to assign values since point sizes do not appear to match" 
+	 << endl;
+    cerr << "this : " << dimNo << "  " << componentSize << "  p: " 
+	 << (long)p << "  "  << p->dimNo << "  " << p->componentSize << endl;
+    exit(1);
+  }
+  p->position = position;
+  /// possible memory leak here. But deleting the pointers would be a possible seg fault. so.. 
+  p->componentNo = componentNo;
+  memcpy(p->coordinates, coordinates, sizeof(float) * dimNo);
+  memcpy(p->forceVectors, forceVectors, sizeof(float) * dimNo);
+  p->stress = stress;
+  for(int i=0; i < componentNo; ++i){
+    p->components[i]->attractive = components[i]->attractive;
+    p->components[i]->forceNo = components[i]->forceNo;   /// But this seems very inadvisable.
+    memcpy(p->components[i]->forces, components[i]->forces, sizeof(float) * components[i]->forceNo);
+  }
 }
 
 
@@ -141,10 +145,14 @@ void dpoint::addComponent(componentVector* cv){
   //void dpoint::addComponent(float* f, int n, bool a){
   //  cout << "point with address : " << (long)this << "  adding component vector component No " << componentNo << "  size : " << componentSize << endl;
     if(componentNo < componentSize){
+      if(components[componentNo]){
 	delete components[componentNo];  // This should be safe in C++ as long as the pointer is set to 0.
-	components[componentNo] = cv;
-	componentNo++;
-	return;
+	cerr << "dpoint::addComponent deleting previous component. Unsuspected behaviour" << endl;
+      }
+      components[componentNo] = cv;
+      componentNo++;
+      cout << "Added a new component size is now : " << componentNo << endl;
+      return;
     }
     cout << endl << "\t\t\tGROWING THE COMPONENTS FROM " << componentSize << "  to " << componentSize * 2 + 1 << endl << endl;
     componentSize = componentSize * 2 + 1;    // just in case we start with 0.
@@ -159,13 +167,19 @@ void dpoint::addComponent(componentVector* cv){
 // Note that dimFactors has to have the same size as the number of dimensions
 // or to be completely correct has to be as large as dimNo or we'll end up
 // getting out of bounds values
-float dpoint::adjustVectors(dpoint* p, float d, float* dimFactors, bool linear){
+float dpoint::adjustVectors(dpoint* p, float d, float* dimFactors, bool linear, unsigned int comp_index){  // include unsigned int index..
   if(dimNo != p->dimNo){
     cerr << "point coordinate mismatch size thingy : " << endl;
     return(stress);
   }
-  // we can speed up the process by making coordDists a member, so we don't have to new it every time (bigger memory use though)
-  float* coordDists = new float[dimNo];
+  // if we have a componentForce from previous mappings, then we can use that
+  // array rather than using a new one..
+  float* coordDists;
+  if((int)comp_index < componentNo){   // componentNo should probably be unsigned int.. 
+    coordDists = components[comp_index]->forces;
+  }else{
+    coordDists = new float[dimNo];
+  }
 
   float D = 0;                 // the actual euclidean distance.. 
   for(int i=0; i < dimNo; i++){
@@ -183,20 +197,27 @@ float dpoint::adjustVectors(dpoint* p, float d, float* dimFactors, bool linear){
   }else{
     delta = (D- d) * fabs(log(D/d));    // scale by the fold difference.. 
   }
-
+  D = (D <= 0) ? MINFLOAT : D; 
                                   // adjust the force vectors by some measure
   stress += fabs(delta);     // the absolute amount of stress on the point.. 
-  float* compForces = new float[dimNo];
-  for(int i=0; i < dimNo; i++ && D > 0){
+  //float* compForces = new float[dimNo];
+  float* compForces = coordDists;
+  for(int i=0; i < dimNo; ++i){
     if(fabs(delta) > MINFLOAT){
       forceVectors[i] += (delta * coordDists[i])/D;
-      compForces[i] = (delta * coordDists[i])/D;   // Squaring seems to get us out of normal range of values.. bugger.  
+      compForces[i] = (delta * coordDists[i])/D;   // strictly speaking we don't need this one.. 
     }else{
       compForces[i] = 0;
     }
   }
-  addComponent(new componentVector(compForces, dimNo, (delta > 0)));
-  delete []coordDists;
+  if((int)comp_index < componentNo){
+    components[comp_index]->forceNo = dimNo;
+    components[comp_index]->attractive = (delta > 0);
+  }else{
+    cout << "calling addComponent comp_index is " << comp_index << "  and componentNo is " << componentNo << "  and componentSize is " << componentSize <<  endl;
+    addComponent(new componentVector(compForces, dimNo, (delta > 0)));
+  }
+  //delete []coordDists; // reusing coordDists as compForces
   return(stress);     // not really useful as it's an intermediate value.. 
 }
 
@@ -214,7 +235,7 @@ void dpoint::resetForces(){              /// THIS GIVES RISE TO A MEMORY LEAK IF
   for(int i=0; i < dimNo; i++){
     forceVectors[i] = 0;
   }
-  componentNo = 0;        // componentSize still holds what has been assigned.
+  //  componentNo = 0;        // componentSize still holds what has been assigned.
 }
 
 void dpoint::setPos(vector<float> coords){
@@ -233,6 +254,7 @@ DistanceMapper::DistanceMapper(vector<int> expI, vector<vector<float> > d, QMute
 
   iterationNo = 0;  // this means nothing happens unless setDim is called at some point.
   dimensionality = 4;  // actually set by setDim, without which we do nothing
+  thread_no = 4;        // most CPUs these days seem to have 4 cores.. 
   currentDimNo = dimensionality;
 
   // set the dimFactors to 1.
@@ -305,23 +327,43 @@ void DistanceMapper::updatePosition(int i, float x, float y){
 float DistanceMapper::adjustVectors(bool linear){
   // Looks like we could optimise this one,, in some way.. 
   float totalStress = 0;
-  for(uint i=0; i < expts.size(); i++){
-    float stress = 0;
-    for(uint j=0; j < expts.size(); j++){      // crash if the dimensions of the distances are not good.. what the hell though..
-      if(i != j){
-	stress = points[i]->adjustVectors(points[j], distances[i][j], dimFactors, linear);
-      }
-    }
-    totalStress += stress;
+
+  // for(uint i=0; i < expts.size(); i++){
+  //   float stress = 0;
+  //   for(uint j=0; j < expts.size(); j++){      // crash if the dimensions of the distances are not good.. what the hell though..
+  //     if(i != j){
+  // 	stress = points[i]->adjustVectors(points[j], distances[i][j], dimFactors, linear);
+  //     }
+  //   }
+  //   totalStress += stress;
+  // }
+  // return totalStress;
+
+  // rewrite to make use of VectorAdjustThread objects.
+  unsigned int t_no = thread_no;       // in case it gets changed half-way through..
+  t_no = t_no > points.size() ? points.size() : t_no;
+  unsigned int group_size = points.size() / t_no;
+  vector<VectorAdjustThread*> vecAdjusters(t_no);
+  for(unsigned int i=0; i < vecAdjusters.size(); ++i){
+    unsigned int beg = i * group_size;
+    unsigned int end = i < (t_no - 1) ? beg + group_size : points.size();
+    vecAdjusters[i] = new VectorAdjustThread(points, distances, dimFactors, linear, beg, end);
   }
-  return totalStress;
+  for(unsigned int i=0; i < vecAdjusters.size(); ++i)
+    vecAdjusters[i]->start();
+  for(unsigned int i=0; i < vecAdjusters.size(); ++i){
+    vecAdjusters[i]->wait();
+    totalStress += vecAdjusters[i]->totalStress();
+    delete vecAdjusters[i];
+  }
+  return(totalStress);
 }
 
 float DistanceMapper::adjustGridVectors(bool linear){
   float stress = 0;
   for(unsigned int i=0; i < gridPoints.size(); ++i){
     for(unsigned int j=0; j < points.size(); ++j)
-      stress += gridPoints[i]->adjustVectors(points[j], gridDistances[i][j], dimFactors, linear);
+      stress += gridPoints[i]->adjustVectors(points[j], gridDistances[i][j], dimFactors, linear, j);
   }
   return(stress);
 }
@@ -350,27 +392,26 @@ void DistanceMapper::run(){
   
   float minError = MAXFLOAT;
   for(int i=0; i < iterationNo; ++i){
-      float stress = adjustVectors(linear);
-      if(effectiveDimensionality() == 2.0)
-	minError = minError > stress ? stress : minError;
-      pointMutex->lock();
-      (*errors)[i].setStress(dimensionality, dimFactors, currentDimNo, stress);
-      pointMutex->unlock();
-      // update the parent..
-      updateParentPoints();
-      
-      movePoints(points);
-      resetPoints(points);
-      
-      // if we have gridPoints
-      if(gridPoints.size()){
-	adjustGridVectors(linear);
-	movePoints(gridPoints);
-	resetPoints(gridPoints);
-      }
-
-      // Squeeze or eliminate dimensions..
-      reduceDimensionality(dimReductionType, i);
+    float stress = adjustVectors(linear);
+    if(effectiveDimensionality() == 2.0)
+      minError = minError > stress ? stress : minError;
+    pointMutex->lock();
+    (*errors)[i].setStress(dimensionality, dimFactors, currentDimNo, stress);
+    pointMutex->unlock();
+    // update the parent..
+    updateParentPoints();
+    movePoints(points);
+    resetPoints(points);
+    
+    // if we have gridPoints
+    if(gridPoints.size()){
+      adjustGridVectors(linear);
+      movePoints(gridPoints);
+      resetPoints(gridPoints);
+    }
+    
+    // Squeeze or eliminate dimensions..
+    reduceDimensionality(dimReductionType, i);
   }
   cout << "distanceMapper is done .. minError was " << minError << endl;
   calculating = false; 
@@ -402,6 +443,14 @@ void DistanceMapper::setDim(int dim, int iter, int drt){
     iterationNo = iter;
 //    resetDimFactors();
     reInitialise();
+}
+
+void DistanceMapper::setThreadNumber(unsigned int tno)
+{
+  if(!tno || isRunning())
+    return;
+  
+  thread_no = tno;
 }
 
 void DistanceMapper::setMoveFactor(float mf)

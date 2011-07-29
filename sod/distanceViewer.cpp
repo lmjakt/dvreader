@@ -233,6 +233,11 @@ void DistanceViewer::setMoveFactor(float mf)
   mapper->setMoveFactor(mf);
 }
 
+void DistanceViewer::setThreadNumber(unsigned int tno)
+{
+  mapper->setThreadNumber(tno);
+}
+
 void DistanceViewer::setGrid(bool drawGrid)
 {
   mapper->wait();

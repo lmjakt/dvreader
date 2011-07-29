@@ -61,6 +61,7 @@ class DistanceViewer : public QWidget
   void svg(QString fname, int w, int h);
   void set_starting_dimensionality(unsigned int dim);
   void setMoveFactor(float mf);
+  void setThreadNumber(unsigned int tn);
   void setGrid(bool drawGrid);
 
   // returns the minStresses from each run. (Doesn't return positions, just the stress).
