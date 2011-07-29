@@ -31,7 +31,9 @@ SodController::SodController(QWidget* parent)
   general_functions["read_distances"] = &SodController::read_distances;
   general_functions["read_positions"] = &SodController::read_positions;
   general_functions["set_plot_par"] = &SodController::set_plot_par;
+  general_functions["titrate"] = &SodController::titrate;
   general_functions["gaussian_bg"] = &SodController::make_gaussian_background;
+  general_functions["postscript"] = &SodController::postscript;
   general_functions["draw_grid"] = &SodController::drawGrid;
 }
 
@@ -178,7 +180,76 @@ void SodController::set_plot_par(f_parameter& par)
   float scale;
   if(par.param("scale", scale))
     viewer->setPlotScale(scale);
+  float moveFactor;
+  if(par.param("move_factor", moveFactor))
+    viewer->setMoveFactor(moveFactor);
 }
+
+void SodController::titrate(f_parameter& par)
+{
+  QString dviewer;
+  if(!par.param("viewer", dviewer)){
+    warn("Specify viewer to be used viewer=(..)");
+    return;
+  }
+  if(!distanceViewers.count(dviewer)){
+    warn("Unknown viewer specified");
+    return;
+  }
+  DistanceViewer* viewer = distanceViewers[dviewer];
+  unsigned int rep=10;
+  std::vector<unsigned int> iter;
+  std::vector<unsigned int> dim_no;
+  QString error;
+  QTextStream qts(&error);
+  par.param("rep", rep);
+  if(!par.param("iter", ',', iter))
+    qts << "Please specify iteration numbers: iter=300,500, etc..\n";
+  if(!par.param("dim_no", ',', dim_no))
+    qts << "Please specify starting dimensionalities dim_no=6,4,2 or something\n";
+  if(error.length()){
+    warn(error);
+    return;
+  }
+  std::vector<std::vector<float> > minStresses ;
+  for(unsigned int i=0; i < dim_no.size(); ++i){
+    for(unsigned int j=0; j < iter.size(); ++j)
+      minStresses.push_back( viewer->runMultiple(rep, iter[j], dim_no[i]));
+  }
+  // and then let's try to print out a simple table..
+  std::string out_file;
+  std::ofstream out;
+  if(par.param("ofile", out_file))
+    out.open(out_file.c_str());
+
+  for(unsigned int d=0; d < dim_no.size(); ++d){
+    for(unsigned int it=0; it < iter.size(); ++it){
+      std::cout << "\t" << dim_no[d] << "," << iter[it];
+      if(out.is_open())
+	out << "\t" << dim_no[d] << "," << iter[it];
+    }
+  }
+  std::cout << std::endl;
+  if(out.is_open())
+    out << std::endl;
+  for(unsigned int i=0; i < rep; ++i){
+    std::cout << i;
+    if(out.is_open())
+      out << i;
+    for(unsigned int d=0; d < dim_no.size(); ++d){
+      for(unsigned int it=0; it < iter.size(); ++it){
+	unsigned int j = d * iter.size() + it;
+	std::cout << "\t" << minStresses[j][i];
+	if(out.is_open())
+	  out << "\t" << minStresses[j][i];
+      }
+    }
+    std::cout << std::endl;
+    if(out.is_open())
+      out << std::endl;
+  }
+}
+
 
 void SodController::make_gaussian_background(f_parameter& par)
 {
@@ -240,6 +311,43 @@ void SodController::make_gaussian_background(f_parameter& par)
   // then make a function in the viewer..
   distanceViewers[dviewer]->set_simple_gaussian_background(dims, color_matrix, var);
 }
+
+void SodController::postscript(f_parameter& par)
+{
+  QString dviewer;
+  if(!par.param("viewer", dviewer)){
+    warn("Specify viewer to be used viewer=(..)");
+    return;
+  }
+  if(!distanceViewers.count(dviewer)){
+    warn("Unknown viewer specified");
+    return;
+  }
+  DistanceViewer* viewer = distanceViewers[dviewer];  
+
+  QString error;
+  QTextStream qts(&error);
+  float w, h;
+  QString fname;
+  if(!par.param("fname", fname))
+    qts << "Specify postscript output file name fname=...\n";
+  if(!par.param("w", w))
+    qts << "Specify width of plot w=..\n";
+  if(!par.param("h", h))
+    qts << "Specify height of plot h=..\n";
+  if(error.length()){
+    warn(error);
+    return;
+  }
+  bool stress = par.defined("stress");
+  
+  if(!par.defined("svg")){
+    viewer->postscript(fname, w, h, stress);
+  }else{
+    viewer->svg(fname, (int)w, (int)h);
+  }
+}
+
 
 void SodController::drawGrid(f_parameter& par)
 {

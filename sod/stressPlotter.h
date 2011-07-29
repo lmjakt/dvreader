@@ -39,10 +39,11 @@ class StressPlotter : public QWidget
   StressPlotter(QWidget* parent=0, const char* name=0);
   ~StressPlotter();
   void setData(std::vector<stressInfo> stress);
-  
+  void postscript(QString fname, float w, float h);
+
  private :
   void paintEvent(QPaintEvent* e);
-  void drawStress(QPainter* p, int w, int h);
+  void drawStress(QPainter* p, int w, int h, bool black=false);
   void drawDims(QPainter* p, int xp, stressInfo& si, int h);
   std::vector<stressInfo> values;
   float maxValue;

@@ -28,6 +28,9 @@
 #include <math.h>
 #include <vector>
 #include <QPainter>
+#include <QPrinter>
+#include <QSvgGenerator>
+#include <QSizeF>
 #include <QColor>
 #include <QRegion>
 #include <QPixmap>
@@ -114,6 +117,32 @@ void PointDrawer::setPlotScale(float s)
   update();
 }
 
+// w and h in points.
+void PointDrawer::postscript(QString fname, float w, float h)
+{
+  QPrinter printer;
+  printer.setPaperSize(QSizeF(w, h), QPrinter::Point);
+  //printer.setResolution(600);  // this has weird effects
+  printer.setOutputFormat(QPrinter::PostScriptFormat);
+  printer.setOutputFileName(fname);  // can override to pdf if not .ps
+  pos.setDims((int)w, (int)h);
+  QPainter p(&printer);
+  drawPicture(p);
+}
+
+void PointDrawer::svg(QString fname, int w, int h)
+{
+  QSvgGenerator gen;
+  gen.setFileName(fname);
+  gen.setSize(QSize(w, h));
+  gen.setViewBox(QRect(0, 0, w, h));
+  gen.setTitle("SOD");
+  QPainter p;
+  p.begin(&gen);
+  drawPicture(p);
+  p.end();
+}
+
 void PointDrawer::set_simple_gaussian_background(std::vector<unsigned int> dims,
 						 unsigned char* color_matrix, float var)
 {
@@ -167,7 +196,6 @@ void PointDrawer::setData(vector<dpoint*> p){
 
 void PointDrawer::paintEvent(QPaintEvent* e){
   pos.setDims(width(), height());
-  float forceMultiplier = 0.5;       // forces are too large, makes the picture too messy.. 
   // rather than try to work out areas and related stuff.. -just 
   // draw the whole thing to a pixmap and then bitBlt it.. shouldn't be 
   // too much of a problem.. 
@@ -175,12 +203,28 @@ void PointDrawer::paintEvent(QPaintEvent* e){
   pix.fill(QColor(0, 0, 0));     // black backround man it's good stuff.. 
   
 
-  // draw the forces first so that they are in the background
-  //  float xMult = ((float)(width() - 2 * margin))/(maxX - minX);
-  //float yMult = ((float)(height() - 2 * margin))/(maxY - minY);
+  QPainter p(&pix);              // should be ok.. 
+  drawPicture(p);
+
+  // ando bitblt.. 
+  bitBlt(this, 0, 0, &pix, 0, 0);
+  
+  if(frameCounter){
+    QPainter p(this);
+    p.setPen(QPen(QColor(255, 0, 0), 1));
+    p.drawText(0, 0, width(), height(), Qt::AlignRight|Qt::AlignBottom, "Rec");
+    QString fname;
+    fname.sprintf("%s/img_%04d.jpg", dirName.latin1(), frameCounter);
+    ++frameCounter;
+    pix.save(fname, "JPEG", 100);
+  }
+}
+
+void PointDrawer::drawPicture(QPainter& p)
+{
   float stressMultiplier = 0;
   QString numString;  
-  QPainter p(&pix);              // should be ok.. 
+  float forceMultiplier = 0.5;       // forces are too large, makes the picture too messy.. 
   p.scale(drawScale, drawScale);
   if(bg_image.width()){
     std::cout << "Calling drawImage " << bg_image.width() << "x" << bg_image.height() << std::endl;
@@ -188,10 +232,10 @@ void PointDrawer::paintEvent(QPaintEvent* e){
 		 QRect(0, 0, bg_image.width(), bg_image.height()));
   }
   
-
   if(maxStress > 0){
     stressMultiplier = 254.0 / maxStress;     // not so good as we don't see any reduction in the max stress. 
   }
+  // draw the forces first so that they are in the background
   if(draw_forces && points.size()){
     QPen attraction(QColor(255, 255, 0), 1);   // yellow
     QPen repulse(QColor(145, 152, 226), 1);    // light blue.. 
@@ -203,16 +247,11 @@ void PointDrawer::paintEvent(QPaintEvent* e){
       }
       int x = pos.x(points[i]->coordinates[0]);
       int y = pos.y(points[i]->coordinates[1]);
-      //      int x = (int)((points[i]->coordinates[0] - minX) * xMult) + margin;
-      //int y = (int)((points[i]->coordinates[1] - minY) * yMult) + margin;
-      // draw the component vectors as lines, either light blue or yellow.. 
       for(int j=0; j < points[i]->componentNo; j++){
 	float fx = points[i]->coordinates[0] + forceMultiplier * points[i]->components[j]->forces[0];
 	float fy = points[i]->coordinates[1] + forceMultiplier * points[i]->components[j]->forces[1];
 	int x2 = pos.x(fx);
 	int y2 = pos.y(fy);
-	//	int x2 = (int)((fx - minX) * xMult) + margin;
-	//int y2 = (int)((fy - minY) * yMult) + margin;
 	if(points[i]->components[j]->attractive){
 	  p.setPen(attraction);
 	}else{
@@ -222,7 +261,7 @@ void PointDrawer::paintEvent(QPaintEvent* e){
       }
     }
   }
-  // lets farm these plot things to some 
+    // lets farm these plot things to some 
   if(point_plot_type == STRESS){
     for(uint i=0; i < points.size(); i++){
       if(points[i]->dimNo < 2){
@@ -231,9 +270,6 @@ void PointDrawer::paintEvent(QPaintEvent* e){
       }
       int x = pos.x(points[i]->coordinates[0]) - (diameter / 2);
       int y = pos.y(points[i]->coordinates[1]) - (diameter / 2);
-      
-      //      int x = (int)((points[i]->coordinates[0] - minX) * xMult) + margin - diameter/2;
-      //int y = (int)((points[i]->coordinates[1] - minY) * yMult) + margin - diameter/2;
       
       int r = (int)(points[i]->stress * stressMultiplier);
       int g = 255 - r;
@@ -261,7 +297,7 @@ void PointDrawer::paintEvent(QPaintEvent* e){
       p.drawText(x-extra, y, diameter+extra*2, diameter, Qt::AlignCenter, numString);
     }
   }
-  if(point_plot_type == LEVELS_PIE){
+    if(point_plot_type == LEVELS_PIE){
     for(uint i=0; i < points.size(); ++i){
       if(points[i]->dimNo < 2){
 	cerr << "??? bugger me backwards, but the coordinates size is less than two for i : " << i << endl;
@@ -269,14 +305,11 @@ void PointDrawer::paintEvent(QPaintEvent* e){
       }
       int x = pos.x(points[i]->coordinates[0]);
       int y = pos.y(points[i]->coordinates[1]);
-      //      int x = (int)((points[i]->coordinates[0] - minX) * xMult) + margin;
-      // int y = (int)((points[i]->coordinates[1] - minY) * yMult) + margin;
       QString label;
       label.setNum(points[i]->index);
       drawPie(p, points[i], x, y, label);
       regions[i].setRect(x-diameter/2, y-diameter/2, diameter, diameter);
     }
-    
   }
   // change the if to something reasonable at some point
   if(gridPoints.size()){
@@ -288,19 +321,6 @@ void PointDrawer::paintEvent(QPaintEvent* e){
     p.setBrush(QColor(100, 100, 100));   // a gray shadow..
     p.setPen(Qt::NoPen);
     p.drawEllipse(movingRect);
-  }
-  
-  // ando bitblt.. 
-  bitBlt(this, 0, 0, &pix, 0, 0);
-  
-  if(frameCounter){
-    QPainter p(this);
-    p.setPen(QPen(QColor(255, 0, 0), 1));
-    p.drawText(0, 0, width(), height(), Qt::AlignRight|Qt::AlignBottom, "Rec");
-    QString fname;
-    fname.sprintf("%s/img_%04d.jpg", dirName.latin1(), frameCounter);
-    ++frameCounter;
-    pix.save(fname, "JPEG", 100);
   }
 }
 

@@ -26,6 +26,8 @@
 #include <qpainter.h>
 #include <qcolor.h>
 #include <qpixmap.h>
+#include <QPrinter>
+#include <QSizeF>
 #include <math.h>
 #ifdef Q_OS_MACX
 #include <limits.h>
@@ -75,11 +77,19 @@ void StressPlotter::setData(vector<stressInfo> stress){
   update();
 }
 
+void StressPlotter::postscript(QString fname, float w, float h)
+{
+  QPrinter printer;
+  printer.setPaperSize(QSizeF(w, h), QPrinter::Point);
+  printer.setOutputFormat(QPrinter::PostScriptFormat);
+  printer.setOutputFileName(fname);  // can override to pdf if not .ps
+  QPainter p(&printer);
+  drawStress(&p, (int)w, int(h), true);
+}
+
 void StressPlotter::paintEvent(QPaintEvent* e){
   int w = width();
   int h = height();
-  float r = maxValue - minValue;
-  r = (r == 0) ? maxValue : r;
   // draw some kind of background..
   QPixmap pix(w, h);
   pix.fill(QColor(0, 0, 0));
@@ -89,22 +99,33 @@ void StressPlotter::paintEvent(QPaintEvent* e){
   bitBlt(this, 0, 0, &pix, 0, 0);
 }
 
-void StressPlotter::drawStress(QPainter* p, int w, int h){
+void StressPlotter::drawStress(QPainter* p, int w, int h, bool black){
   float r = maxValue - minValue;
   r = (r == 0) ? maxValue : r;
   // draw some kind of background..
   p->setPen(QPen(QColor(255, 255, 255), 1));
   p->setBrush(Qt::NoBrush);
+
+  for(uint i=0; i < values.size(); ++i){
+    if(!values[i].stress)
+      continue;
+    int x = (w * i) / values.size();
+    drawDims(p, x, values[i], h);
+  }
+
+  p->setPen(QPen(QColor(255, 255, 255), 1));
+  if(black)
+    p->setPen(QPen(QColor(0, 0, 0), 1));
+  
   for(uint i= 0; i < values.size(); ++i){
     if(!values[i].stress)
       continue;
     int x = (w * i) / values.size();
     int y =  h - (int)(float(h) *  values[i].stress / maxValue);
-    drawDims(p, x, values[i], h);
+    // drawDims(p, x, values[i], h);
     //	int dimY = (int)(h - h * values[i].currentDF());
     //	p->setPen(QPen(QColor(100, 0, 30), 1));
     //	p->drawLine(x, height(), x, dimY);
-    p->setPen(QPen(QColor(255, 255, 255), 1));
     p->drawEllipse(x, y, 4, 4);
   }
   if(values.size()){

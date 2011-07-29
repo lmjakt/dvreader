@@ -33,6 +33,14 @@
 #include <QPushButton>
 #include <QLabel>
 #include <iostream>
+#ifdef Q_OS_MACX
+#include <limits.h>
+#include <float.h>
+#define MINFLOAT (FLT_MIN)
+#define MAXFLOAT (FLT_MAX)
+#else
+#include <values.h>
+#endif
 
 using namespace std;
 
@@ -64,17 +72,16 @@ DistanceViewer::DistanceViewer(vector<int> expI, vector<vector<float> > d, QStri
   //  int dimNo = 4;
 // mapper updates points, then 
   mapper = new DistanceMapper(experiments, distances, &pointMutex, &points, (QObject*)this, &stressValues, DistanceMapper::GRADUAL_PARALLEL);    
-  
-  frameTimer = new QTimer(this, "frameTimer");
-  connect(frameTimer, SIGNAL(timeout()), this, SLOT(updateFrame()) );
+  connect(mapper, SIGNAL(started()), this, SLOT(mapperStarted()) );
+  connect(mapper, SIGNAL(finished()), this, SLOT(mapperFinished()) );
+
+  //frameTimer = new QTimer(this, "frameTimer");
+  //connect(frameTimer, SIGNAL(timeout()), this, SLOT(updateFrame()) );
   
   watchTimer = new QTimer(this, "watchTimer");
   connect(watchTimer, SIGNAL(timeout()), this, SLOT(updatePoints()) );
 
   QLabel* sodLabel = new QLabel("Self Organising Deltoids", this, "sodLabel");
-
-  //QPushButton* replayButton = new QPushButton("Replay", this, "replayButton");
-  //connect(replayButton, SIGNAL(clicked()), this, SLOT(replay()) );
 
   QPushButton* continueButton = new QPushButton("Continue", this, "continueButton");
   connect(continueButton, SIGNAL(clicked()), this, SLOT(continueMapping()) );   // is this legal ?? 
@@ -201,10 +208,29 @@ void DistanceViewer::set_simple_gaussian_background(std::vector<unsigned int> di
   drawer->set_simple_gaussian_background(dims, color_matrix, var);
 }
 
+void DistanceViewer::postscript(QString fname, float w, float h, bool stress)
+{
+  if(!stress){
+    drawer->postscript(fname, w, h);
+    return;
+  }
+  stressPlotter->postscript(fname, w, h);
+}
+
+void DistanceViewer::svg(QString fname, int w, int h)
+{
+  drawer->svg(fname, w, h);
+}
+
 void DistanceViewer::set_starting_dimensionality(unsigned int dim)
 {
   dimSpinner->setValue(dim);
   mapper->setDim(dimSpinner->value(), iterSpinner->value(), dimReductTypeBox->currentItem());
+}
+
+void DistanceViewer::setMoveFactor(float mf)
+{
+  mapper->setMoveFactor(mf);
 }
 
 void DistanceViewer::setGrid(bool drawGrid)
@@ -220,14 +246,54 @@ void DistanceViewer::setGrid(bool drawGrid)
   drawer->update();
 }
 
+vector<float> DistanceViewer::runMultiple(unsigned int rep_no, unsigned int iter_no, unsigned int start_dim_no)
+{
+  mapper->wait();
+  vector<float> minStresses;
+  vector<float> lastStresses;
+  minStresses.reserve(rep_no);
+  lastStresses.reserve(rep_no);
+  for(unsigned int i=0; i < rep_no; ++i){
+    deletePoints();
+    mapper->setDim(start_dim_no, iter_no, dimReductTypeBox->currentItem());  // reinitialises the points
+    mapper->start();
+    mapper->wait();
+    // find the smallest 
+    float minStress = MAXFLOAT;
+    for(unsigned int i=0; i < stressValues.size(); ++i){
+      if(stressValues[i].dimensionality() == 2.0){
+	minStress = minStress > stressValues[i].stress ? stressValues[i].stress : minStress;
+      }
+    }
+    minStresses.push_back(minStress);
+    lastStresses.push_back(stressValues.back().stress);
+  }
+  // then output the minStresses somehow.. 
+  for(unsigned int i=0; i < minStresses.size(); ++i)
+    cout << i << "\t" << minStresses[i] << "\t" << lastStresses[i] << endl;
+  return(minStresses);
+}
+
 void DistanceViewer::start(){
     mapper->wait();
     deletePoints();
     mapper->setDim(dimSpinner->value(), iterSpinner->value(), dimReductTypeBox->currentItem());
     cout << "start called " << endl;
     followFrame = 0;
-    watchTimer->start(20);  // 33 fps.. 
+    watchTimer->start(50);  // 50 ms = 20 fps 
     mapper->start();   // for now, let's just run one of these babies.. !!
+}
+
+void DistanceViewer::mapperStarted()
+{
+  stopWatch.start();
+}
+
+void DistanceViewer::mapperFinished()
+{
+  int msec = stopWatch.elapsed();
+  cout << "Distance Mapper finished elapsed time : " << msec << " ms\t" << msec / 1000 << "  sec\t" 
+       << msec / (1000 * 60) << " min\t" << endl;
 }
 
 void DistanceViewer::deletePoints(){
@@ -241,20 +307,20 @@ void DistanceViewer::deletePoints(){
 
 // A comment .. 
 
-void DistanceViewer::restart(){
-  mapper->wait();
-  // we have to delete the old points, this maybe dangerous as if the drawer were to try to draw something at this point we
-  // will get a segmentation fault as the two vectors share the pointers. Need to do something about that.. perhaps..
-  drawer->emptyData();           // so the drawer doesn't try to draw any of these points after they've been deleted..
-  deletePoints();
-  cout << "resized points to 0" << endl;
-  mapper->reInitialise();
-  cout << "and got thingy to init points" << endl;
-  followFrame = 0;
-  mapper->start();
-  cout << "starting mapping process" << endl;
-  watchTimer->start(20);
-}
+// void DistanceViewer::restart(){
+//   mapper->wait();
+//   // we have to delete the old points, this maybe dangerous as if the drawer were to try to draw something at this point we
+//   // will get a segmentation fault as the two vectors share the pointers. Need to do something about that.. perhaps..
+//   drawer->emptyData();           // so the drawer doesn't try to draw any of these points after they've been deleted..
+//   deletePoints();
+//   cout << "resized points to 0" << endl;
+//   mapper->reInitialise();
+//   cout << "and got thingy to init points" << endl;
+//   followFrame = 0;
+//   mapper->start();
+//   cout << "starting mapping process" << endl;
+//   watchTimer->start(20);
+// }
 
 void DistanceViewer::continueMapping(){
   mapper->wait();
@@ -305,26 +371,26 @@ void DistanceViewer::updatePoints(){
     stressPlotter->setData(stressValues);
 }
 
-void DistanceViewer::replay(){
-  cout << "replay function " << endl;
-  frame = 0;
-  //somDrawer->setMaxDev(maxDev->fvalue());
-  frameTimer->start(10);    // 25 fps.. as not so many frames..
-}
+// void DistanceViewer::replay(){
+//   cout << "replay function " << endl;
+//   frame = 0;
+//   //somDrawer->setMaxDev(maxDev->fvalue());
+//   frameTimer->start(10);    // 25 fps.. as not so many frames..
+// }
 
-void DistanceViewer::updateFrame(){
-  cout << "calling updateFrame frame is : " << frame << endl;
-  if(frame >= (int)points.size()){
-    frameTimer->stop();
-    return;
-  }
-  pointMutex.lock();
-  vector<dpoint*> localPoints = points[frame];
-  pointMutex.unlock();
+// void DistanceViewer::updateFrame(){
+//   cout << "calling updateFrame frame is : " << frame << endl;
+//   if(frame >= (int)points.size()){
+//     frameTimer->stop();
+//     return;
+//   }
+//   pointMutex.lock();
+//   vector<dpoint*> localPoints = points[frame];
+//   pointMutex.unlock();
 
-  drawer->setData(localPoints);
-  frame++;
-}
+//   drawer->setData(localPoints);
+//   frame++;
+// }
 
 void DistanceViewer::updatePosition(int i, float x, float y){
   mapper->updatePosition(i, x, y);

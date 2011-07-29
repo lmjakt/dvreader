@@ -1,7 +1,7 @@
 # change debug to release and recompile when working
 TEMPLATE        = app
 CONFIG          += qt opengl debug thread
-QT		+= qt3support 
+QT		+= qt3support svg
 CONFIG          += console
 HEADERS         = \
                 SodController.h \

@@ -29,6 +29,7 @@
 #include <limits.h>
 #include <float.h>
 #define MINFLOAT (FLT_MIN)
+#define MAXFLOAT (FLT_MAX)
 #else
 #include <values.h>
 #endif
@@ -123,6 +124,7 @@ void dpoint::assignValues(dpoint* p){
 // Since we don't need to add any more memory, we can just decrease the number that tell us how
 // many dimensions we are using. For the dpoint that is just changing the dimNo itself. For the
 // componentVectors, all that is necessary is to change forceNo.
+// note that I don't use this function anymore. Instead I use dimFactors
 int dpoint::shrinkDimNo(uint s){
     if((uint)dimNo - s < 2){
 	cerr << "Attempt to shrink dpoint dimNo to " << (uint)dimNo - s << "  foiled. " << endl;
@@ -346,8 +348,11 @@ void DistanceMapper::run(){
   errors->resize(iterationNo);
   pointMutex->unlock();
   
+  float minError = MAXFLOAT;
   for(int i=0; i < iterationNo; ++i){
       float stress = adjustVectors(linear);
+      if(effectiveDimensionality() == 2.0)
+	minError = minError > stress ? stress : minError;
       pointMutex->lock();
       (*errors)[i].setStress(dimensionality, dimFactors, currentDimNo, stress);
       pointMutex->unlock();
@@ -367,7 +372,7 @@ void DistanceMapper::run(){
       // Squeeze or eliminate dimensions..
       reduceDimensionality(dimReductionType, i);
   }
-  cout << "distanceMapper is done .." << endl;
+  cout << "distanceMapper is done .. minError was " << minError << endl;
   calculating = false; 
 }
 
@@ -397,6 +402,11 @@ void DistanceMapper::setDim(int dim, int iter, int drt){
     iterationNo = iter;
 //    resetDimFactors();
     reInitialise();
+}
+
+void DistanceMapper::setMoveFactor(float mf)
+{
+  moveFactor = mf;
 }
 
 void DistanceMapper::setInitialPoints(vector<vector<float> > i_points, unsigned int grid_points){
@@ -634,6 +644,13 @@ void DistanceMapper::reduceDimensionality(DimReductionType drt, int it_no){
 	dimFactors[i] = dimFactors[i] > 0 ? dimFactors[i] : 0;
 }
 
+float DistanceMapper::effectiveDimensionality()
+{
+  float dim = 0;
+  for(int i=0; i < dimensionality; ++i)
+    dim += dimFactors[i];
+  return(dim);
+}
 
 void DistanceMapper::resetDimFactors(){
     delete dimFactors;

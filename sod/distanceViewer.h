@@ -35,6 +35,7 @@
 #include <QEvent>
 #include <QMutex>
 #include <QWidget>
+#include <QTime>
 #include <QTimer>
 #include <QString>
 #include <QSpinBox>
@@ -56,15 +57,20 @@ class DistanceViewer : public QWidget
   void setPointDiameter(int d);
   void set_simple_gaussian_background(std::vector<unsigned int> dims,
 				      unsigned char* color_matrix, float var);
+  void postscript(QString fname, float w, float h, bool stress=false);
+  void svg(QString fname, int w, int h);
   void set_starting_dimensionality(unsigned int dim);
+  void setMoveFactor(float mf);
   void setGrid(bool drawGrid);
+
+  // returns the minStresses from each run. (Doesn't return positions, just the stress).
+  std::vector<float> runMultiple(unsigned int rep_no, unsigned int iter_no, unsigned int start_dim_no);
 
   private slots :
   void start();    // start the mapper.. 
-  void replay();                           // play again.. 
-  void updateFrame();                      // for replay action..
+  void mapperStarted();
+  void mapperFinished();  // just report the time taken.
   void continueMapping();                  // continue the mapping.. -- just calls start..  
-  void restart();                           // restart the thread ?? possible?? or not.. 
   void updatePosition(int i, float x, float y);   // update the position of thingy indexed by i, to x and y.. see how this goes.. 
   void updatePoints();                     // send a vector to the thingy.. 
   void setcoords();                        // work out the coordinates and send them up the food chain.. 
@@ -74,11 +80,11 @@ class DistanceViewer : public QWidget
   void deletePoints();                     // remove the points.. 
 
   QString captionName;                    // something for the captions.. 
-  std::vector<std::vector<dpoint*> > points;          // keep points in here.. receive from the thingy. 
-                                           // used to keep whole history in here, for replay function
+  std::vector<std::vector<dpoint*> > points;    // the mapper thread has a pointer to this, and adds on if necessary
+
   std::vector<dpoint*> localPoints;             // a copy of the points that is never touched by the mapper.
-  std::vector<dpoint*> gridPoints;              // shared with mapper, but deleted here.
-  std::vector<stressInfo> stressValues;              // to monitor the reduction in error... 
+  std::vector<dpoint*> gridPoints;              // shared with mapper, but deleted here. not much used yet
+  std::vector<stressInfo> stressValues;         // to monitor the reduction in error... 
   std::vector<std::vector<float> > distances;
 
   unsigned int real_dimensionality;             // the real positions of the points.
@@ -94,8 +100,9 @@ class DistanceViewer : public QWidget
   StressPlotter* stressPlotter;            // plots the reduction in stress.. 
   //  TDPointDrawer* tdDrawer;                 // 3 dimensions.. !! 
 
-  QTimer* frameTimer;
+  //QTimer* frameTimer;
   QTimer* watchTimer;        // check if I have any more frames.. start when starting.. 
+  QTime stopWatch;        // to check running times. Hence stopWatch.. 
   int frame;    // which frame am I t0..
   int followFrame;   // I'm following frames.. 
 

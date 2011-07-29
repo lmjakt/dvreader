@@ -51,6 +51,12 @@ struct stressInfo {
       dimFactors[i] = df[i];
     stress = s;
   }
+  float dimensionality(){
+    float d=0;
+    for(unsigned int i=0; i < dimFactors.size(); ++i)
+      d += dimFactors[i];
+    return(d);
+  }
   float currentDF(){
     if(activeDimNo - 1 > 0)
       return(dimFactors[activeDimNo - 1]);
@@ -143,10 +149,11 @@ class DistanceMapper : public QThread
   
   DistanceMapper(std::vector<int> expI, std::vector<std::vector<float> > d, QMutex* mutx, std::vector<std::vector<dpoint*> >* prntPoints, QObject* prnt, std::vector<stressInfo>* stressLevels, DimReductionType drt);
   ~DistanceMapper();  // don't know how much I'll need for these..
-  void restart();     // start the mapping process agains. 
+  void restart();     // restart, but this is deprecated at the moment. Avoid this.
   void updatePosition(int i, float x, float y);  
   void reInitialise();
   void setDim(int dim, int iter, int drt);
+  void setMoveFactor(float mf);
   void setInitialPoints(std::vector<std::vector<float> > i_points, unsigned int grid_points = 0);
   std::vector<dpoint*> grid();
 
@@ -191,6 +198,7 @@ class DistanceMapper : public QThread
   void updateParentPoints();
   void clonePoints();
   void reduceDimensionality(DimReductionType drt, int it_no);   // adjust dimFactors by some means..
+  float effectiveDimensionality();
   void resetDimFactors();        // deletes dimFactors and then resets them to dimensionality.. 
 
   protected :

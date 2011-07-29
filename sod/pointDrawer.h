@@ -64,6 +64,9 @@ class PointDrawer : public QWidget
   void setPointDiameter(unsigned int d);
   void setPlotScale(float s);
 
+  void postscript(QString fname, float w, float h); // in points. No resolution specified.
+  void svg(QString fname, int w, int h);
+
   // background images..
   void set_simple_gaussian_background(std::vector<unsigned int> dims, 
 				      unsigned char* color_matrix, float var);
@@ -79,6 +82,7 @@ class PointDrawer : public QWidget
   
   private :
     void paintEvent(QPaintEvent* e);
+    void drawPicture(QPainter& p);
   void mousePressEvent(QMouseEvent* e);
   void mouseMoveEvent(QMouseEvent* e);
   void mouseReleaseEvent(QMouseEvent* e);
