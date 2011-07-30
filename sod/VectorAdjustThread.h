@@ -17,12 +17,15 @@ class VectorAdjustThread : public QThread
   VectorAdjustThread(std::vector<dpoint*>& points, 
 		     std::vector<std::vector<float> >& distances,
 		     float* dimFactors, bool linear,
-		     unsigned int beg, unsigned int end);
+		     unsigned int beg, unsigned int end,
+		     bool useSlowMethod);
   ~VectorAdjustThread();
   float totalStress();
 
  private:
   void run();
+  void runSlow();
+  void runFast();
 
   std::vector<dpoint*>& points;
   std::vector<std::vector<float> >& distances;
@@ -30,6 +33,7 @@ class VectorAdjustThread : public QThread
   bool linear;
   unsigned int beg;
   unsigned int end;
+  bool useSlowMethod;  // remember the coordinate vectors
   unsigned int p_size;
   
   float stress;

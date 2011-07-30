@@ -47,10 +47,11 @@ class DistanceViewer : public QWidget
 {
   Q_OBJECT
     public :
-    DistanceViewer(std::vector<int> expI, std::vector<std::vector<float> > d, QString cName, QWidget* parent=0, const char* name=0);
+  DistanceViewer(std::vector<int> expI, std::vector<std::vector<float> > d, QString cName, bool trackCoordinates, QWidget* parent=0, const char* name=0);
   ~DistanceViewer();
   
   void setPositions(std::vector<std::vector<float> > p, unsigned int grid_points=0);
+  void setDrawInterval(unsigned int di);
   void setPointPlotType(PointDrawer::PointPlotType ppt);
   void drawForces(bool b);
   void setPlotScale(float scale);
@@ -103,6 +104,7 @@ class DistanceViewer : public QWidget
 
   //QTimer* frameTimer;
   QTimer* watchTimer;        // check if I have any more frames.. start when starting.. 
+  unsigned int draw_interval;
   QTime stopWatch;        // to check running times. Hence stopWatch.. 
   int frame;    // which frame am I t0..
   int followFrame;   // I'm following frames.. 

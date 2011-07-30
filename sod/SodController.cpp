@@ -112,7 +112,10 @@ void SodController::read_distances(f_parameter& par)
   for(unsigned int i=0; i < memberInts.size(); ++i)
     memberInts[i] = i;
 
-  DistanceViewer* viewer = new DistanceViewer(memberInts, ns.Nodes(), fileName);
+  bool trackCoordinates = true;
+  par.param("coords", trackCoordinates);
+
+  DistanceViewer* viewer = new DistanceViewer(memberInts, ns.Nodes(), fileName, trackCoordinates);
   if(distanceViewers.count(disName))
     delete distanceViewers[disName];
 
@@ -186,6 +189,9 @@ void SodController::set_plot_par(f_parameter& par)
   unsigned int threads;
   if(par.param("threads", threads))
     viewer->setThreadNumber(threads);
+  unsigned int drawInterval;
+  if(par.param("interval", drawInterval))
+    viewer->setDrawInterval(drawInterval);
 }
 
 void SodController::titrate(f_parameter& par)

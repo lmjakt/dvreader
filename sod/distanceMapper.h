@@ -106,11 +106,11 @@ struct dpoint {
   
   float* coordinates;
   float* forceVectors;
-  int dimNo;       // the no of dimensions. --  we have one value for each forceVector.. 
+  unsigned int dimNo;       // the no of dimensions. --  we have one value for each forceVector.. 
   
   componentVector** components;
-  int componentNo;
-  int componentSize;   // memory allocated for components.
+  unsigned int componentNo;
+  unsigned int componentSize;   // memory allocated for components.
   int index;                    // some kind of identifier..
   float stress;                 // total amount of stress (absolute).. 
   
@@ -121,12 +121,14 @@ struct dpoint {
   std::vector<dpoint*> neighbors;
 
   dpoint();  
-  dpoint(int i, int dimensions, int compNo=100);
+  dpoint(int i, unsigned int dimensions, unsigned int compNo);
   ~dpoint();
 
   // given another point, with an optimal distance of d
   // adjust the vectors and return a measure of force in the system.. 
-  float adjustVectors(dpoint* p, float d, float* dimFactors, bool linear, unsigned int comp_index);   
+  float adjustVectors(dpoint* p, float d, float* dimFactors, bool linear, unsigned int comp_index);
+  // the fast method does not calculate any componentVectors. The buffer should be of dimFactors length (to avoid creating a new one)
+  float adjustVectorsFast(dpoint* p, float d, float* dimFactors, float* buffer);  
   // move the point, return the euclidean distance moved
   float move(float forceMultiplier);              
   // set the stress and force vectors to be 0.. 
@@ -153,7 +155,9 @@ class DistanceMapper : public QThread
     STARBURST, GRADUAL_SERIAL, GRADUAL_PARALLEL
   };
   
-  DistanceMapper(std::vector<int> expI, std::vector<std::vector<float> > d, QMutex* mutx, std::vector<std::vector<dpoint*> >* prntPoints, QObject* prnt, std::vector<stressInfo>* stressLevels, DimReductionType drt);
+  DistanceMapper(std::vector<int> expI, std::vector<std::vector<float> > d, QMutex* mutx, 
+		 std::vector<std::vector<dpoint*> >* prntPoints, QObject* prnt, 
+		 std::vector<stressInfo>* stressLevels, DimReductionType drt, bool rememberComponents);
   ~DistanceMapper();  // don't know how much I'll need for these..
   void restart();     // restart, but this is deprecated at the moment. Avoid this.
   void updatePosition(int i, float x, float y);  
@@ -185,6 +189,8 @@ class DistanceMapper : public QThread
   float moveFactor;               // how much do we move a point by. -- i.e. how much do we multiply the forceVectors by to get a 
                                   // to move distance.. 
   unsigned int thread_no;         // the number of threads to use when mapping.
+  bool rememberComponentVectors; // whether or not to create coordinate vectors
+  unsigned int update_interval;   // allow the updating to be done for every n iterations.. 
   float totalDistance;
   int dimensionality;
   int currentDimNo;

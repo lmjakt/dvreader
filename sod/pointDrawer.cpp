@@ -247,7 +247,7 @@ void PointDrawer::drawPicture(QPainter& p)
       }
       int x = pos.x(points[i]->coordinates[0]);
       int y = pos.y(points[i]->coordinates[1]);
-      for(int j=0; j < points[i]->componentNo; j++){
+      for(unsigned int j=0; j < points[i]->componentNo; j++){
 	float fx = points[i]->coordinates[0] + forceMultiplier * points[i]->components[j]->forces[0];
 	float fy = points[i]->coordinates[1] + forceMultiplier * points[i]->components[j]->forces[1];
 	int x2 = pos.x(fx);

@@ -44,7 +44,7 @@
 
 using namespace std;
 
-DistanceViewer::DistanceViewer(vector<int> expI, vector<vector<float> > d, QString cName, QWidget* parent, const char* name)
+DistanceViewer::DistanceViewer(vector<int> expI, vector<vector<float> > d, QString cName, bool trackCoordinates, QWidget* parent, const char* name)
   : QWidget(parent, name)
 {
   cout << "Distance Viewer constructor " << endl;
@@ -71,7 +71,7 @@ DistanceViewer::DistanceViewer(vector<int> expI, vector<vector<float> > d, QStri
 
   //  int dimNo = 4;
 // mapper updates points, then 
-  mapper = new DistanceMapper(experiments, distances, &pointMutex, &points, (QObject*)this, &stressValues, DistanceMapper::GRADUAL_PARALLEL);    
+  mapper = new DistanceMapper(experiments, distances, &pointMutex, &points, (QObject*)this, &stressValues, DistanceMapper::GRADUAL_PARALLEL, trackCoordinates);    
   connect(mapper, SIGNAL(started()), this, SLOT(mapperStarted()) );
   connect(mapper, SIGNAL(finished()), this, SLOT(mapperFinished()) );
 
@@ -79,6 +79,7 @@ DistanceViewer::DistanceViewer(vector<int> expI, vector<vector<float> > d, QStri
   //connect(frameTimer, SIGNAL(timeout()), this, SLOT(updateFrame()) );
   
   watchTimer = new QTimer(this, "watchTimer");
+  draw_interval = 50; // in milli seconds.. 
   connect(watchTimer, SIGNAL(timeout()), this, SLOT(updatePoints()) );
 
   QLabel* sodLabel = new QLabel("Self Organising Deltoids", this, "sodLabel");
@@ -180,6 +181,11 @@ void DistanceViewer::setPositions(vector<vector<float> > p, unsigned int grid_po
   positions = p;
   real_dimensionality = p[0].size();  
   mapper->setInitialPoints(positions, grid_points);
+}
+
+void DistanceViewer::setDrawInterval(unsigned int di)
+{
+  draw_interval = di;
 }
 
 void DistanceViewer::setPointPlotType(PointDrawer::PointPlotType ppt)
@@ -285,7 +291,7 @@ void DistanceViewer::start(){
     mapper->setDim(dimSpinner->value(), iterSpinner->value(), dimReductTypeBox->currentItem());
     cout << "start called " << endl;
     followFrame = 0;
-    watchTimer->start(50);  // 50 ms = 20 fps 
+    watchTimer->start(draw_interval);  
     mapper->start();   // for now, let's just run one of these babies.. !!
 }
 
