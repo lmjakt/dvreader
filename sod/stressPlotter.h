@@ -39,12 +39,14 @@ class StressPlotter : public QWidget
   StressPlotter(QWidget* parent=0, const char* name=0);
   ~StressPlotter();
   void setData(std::vector<stressInfo> stress);
+  void setStressRange(float min, float max);
+  void resetStressRange();
   void postscript(QString fname, float w, float h);
 
  private :
   void paintEvent(QPaintEvent* e);
   void drawStress(QPainter* p, int w, int h, bool black=false);
-  void drawDims(QPainter* p, int xp, stressInfo& si, int h);
+  void drawDims(QPainter* p, int xp, stressInfo& si, int h, int dim_box_width);
   std::vector<stressInfo> values;
   float maxValue;
   float minValue;

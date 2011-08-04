@@ -54,6 +54,7 @@ class DistanceViewer : public QWidget
   void setDrawInterval(unsigned int di);
   void setPointPlotType(PointDrawer::PointPlotType ppt);
   void drawForces(bool b);
+  void drawIds(bool b);
   void setPlotScale(float scale);
   void setPointDiameter(int d);
   void set_simple_gaussian_background(std::vector<unsigned int> dims,
@@ -62,8 +63,12 @@ class DistanceViewer : public QWidget
   void svg(QString fname, int w, int h);
   void set_starting_dimensionality(unsigned int dim);
   void setMoveFactor(float mf);
+  void setUpdateInterval(unsigned int ui);
   void setThreadNumber(unsigned int tn);
   void setGrid(bool drawGrid);
+
+  void setStressRange(float min, float max);
+  void resetStressRange();
 
   // returns the minStresses from each run. (Doesn't return positions, just the stress).
   std::vector<float> runMultiple(unsigned int rep_no, unsigned int iter_no, unsigned int start_dim_no);

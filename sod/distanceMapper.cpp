@@ -173,52 +173,31 @@ float dpoint::adjustVectors(dpoint* p, float d, float* dimFactors, bool linear, 
     cerr << "point coordinate mismatch size thingy : " << endl;
     return(stress);
   }
-  // if we have a componentForce from previous mappings, then we can use that
-  // array rather than using a new one..
-  float* coordDists;
-  if(comp_index < componentNo){   // componentNo should probably be unsigned int.. 
-    coordDists = components[comp_index]->forces;
-  }else{
-    coordDists = new float[dimNo];
+  // this function requires that component forces have already been set up. Failure to do so will lead to
+  if(comp_index >= componentNo){
+    cerr << "dpoint::adjustVectors no components created returning without adjustment" << endl;
+    return(0);
   }
-
+  float* coordDists = components[comp_index]->forces;  // this must be ok. or we should crash.. 
   float D = 0;                 // the actual euclidean distance.. 
   for(unsigned int i=0; i < dimNo; i++){
     coordDists[i] = dimFactors[i] * (p->coordinates[i] - coordinates[i]);
-    if(coordDists[i] == 0){                // disaster.. 
-      coordDists[i] = MINFLOAT;                   // it's cheating, to avoid divide by 0 for a D of 0. (maybe better below).
-    }
+    // coordDists[i] = (!coordDists[i]) ? MINFLOAT : coordDists[i]; // stabilises but slows down.
     D += (coordDists[i] * coordDists[i]);
   }
-  D = sqrt(D);   // alleluliahh
+  D = sqrt(D);
 
-  float delta;
-  if(linear){
-    delta = (D- d); // linear  by the fold difference.. 
-  }else{
-    delta = (D- d) * fabs(log(D/d));    // scale by the fold difference.. 
-  }
+  float delta = (D- d); // linear  by the fold difference.. 
   D = (D <= 0) ? MINFLOAT : D; 
-                                  // adjust the force vectors by some measure
+  // adjust the force vectors by some measure
   stress += fabs(delta);     // the absolute amount of stress on the point.. 
-  //float* compForces = new float[dimNo];
+
   float* compForces = coordDists;
   for(unsigned int i=0; i < dimNo; ++i){
-    if(fabs(delta) > MINFLOAT){
-      forceVectors[i] += (delta * coordDists[i])/D;
-      compForces[i] = (delta * coordDists[i])/D;   // strictly speaking we don't need this one.. 
-    }else{
-      compForces[i] = 0;
-    }
-  }
-  if(comp_index < componentNo){
-    components[comp_index]->forceNo = dimNo;
+    forceVectors[i] += (delta * coordDists[i])/D;
+    compForces[i] = (delta * coordDists[i])/D;   // strictly speaking we don't need this one.. 
     components[comp_index]->attractive = (delta > 0);
-  }else{
-    cout << "calling addComponent comp_index is " << comp_index << "  and componentNo is " << componentNo << "  and componentSize is " << componentSize <<  endl;
-    addComponent(new componentVector(compForces, dimNo, (delta > 0)));
   }
-  //delete []coordDists; // reusing coordDists as compForces
   return(stress);     // not really useful as it's an intermediate value.. 
 }
 
@@ -231,10 +210,9 @@ float dpoint::adjustVectorsFast(dpoint* p, float d, float* dimFactors, float* bu
   // use the provided buffer for the coordDists (in order not to new and delete)
   float* coordDists = buffer;
 
-  float D = 0;                 // the actual euclidean distance.. 
-  for(unsigned int i=0; i < dimNo; i++){
+  float D = 0;                 // the display space euclidean distance.. 
+  for(unsigned int i=0; i < dimNo; ++i){
     coordDists[i] = dimFactors[i] * (p->coordinates[i] - coordinates[i]);
-    //coordDists[i] = !coordDists[i] ? MINFLOAT : coordDists[i];
     D += (coordDists[i] * coordDists[i]);
   }
   D = sqrt(D);   // alleluliahh
@@ -505,6 +483,11 @@ void DistanceMapper::setInitialPoints(vector<vector<float> > i_points, unsigned 
   initialisePoints();
   if(grid_points)
     initialiseGrid(grid_points, i_points);
+}
+
+void DistanceMapper::setUpdateInterval(unsigned int ui)
+{
+  update_interval = ui;
 }
 
 // makes no copy. will delete or modify during mapping.

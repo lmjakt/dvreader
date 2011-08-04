@@ -198,6 +198,11 @@ void DistanceViewer::drawForces(bool b)
   drawer->drawForces(b);
 }
 
+void DistanceViewer::drawIds(bool b)
+{
+  drawer->drawIds(b);
+}
+
 void DistanceViewer::setPlotScale(float scale)
 {
   drawer->setPlotScale(scale);
@@ -239,6 +244,11 @@ void DistanceViewer::setMoveFactor(float mf)
   mapper->setMoveFactor(mf);
 }
 
+void DistanceViewer::setUpdateInterval(unsigned int ui)
+{
+  mapper->setUpdateInterval(ui);
+}
+
 void DistanceViewer::setThreadNumber(unsigned int tno)
 {
   mapper->setThreadNumber(tno);
@@ -255,6 +265,16 @@ void DistanceViewer::setGrid(bool drawGrid)
     drawer->setGrid(gridPoints);
   }
   drawer->update();
+}
+
+void DistanceViewer::setStressRange(float min, float max)
+{
+  stressPlotter->setStressRange(min, max);
+}
+
+void DistanceViewer::resetStressRange()
+{
+  stressPlotter->resetStressRange();
 }
 
 vector<float> DistanceViewer::runMultiple(unsigned int rep_no, unsigned int iter_no, unsigned int start_dim_no)

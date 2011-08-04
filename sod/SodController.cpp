@@ -114,6 +114,7 @@ void SodController::read_distances(f_parameter& par)
 
   bool trackCoordinates = true;
   par.param("coords", trackCoordinates);
+  par.param("comps", trackCoordinates);
 
   DistanceViewer* viewer = new DistanceViewer(memberInts, ns.Nodes(), fileName, trackCoordinates);
   if(distanceViewers.count(disName))
@@ -158,6 +159,10 @@ void SodController::read_positions(f_parameter& par)
 
 void SodController::set_plot_par(f_parameter& par)
 {
+  if(par.defined("help")){
+    warn("set_plot_par viewer=vname [ plot_type=stress|pie diameter=i forces=bool scale=f move_factor=f threads=i interval=ms ids=bool");
+    return;
+  }
   QString dviewer;
   if(!par.param("viewer", dviewer)){
     warn("Specify viewer to be used viewer=(..)");
@@ -192,6 +197,17 @@ void SodController::set_plot_par(f_parameter& par)
   unsigned int drawInterval;
   if(par.param("interval", drawInterval))
     viewer->setDrawInterval(drawInterval);
+  unsigned int update_interval;
+  if(par.param("update_interval", update_interval))
+    viewer->setUpdateInterval(update_interval);
+  bool draw_ids;
+  if(par.param("ids", draw_ids))
+    viewer->drawIds(draw_ids);
+  float stress_min, stress_max;
+  if(par.param("stress_max", stress_max) && par.param("stress_min", stress_min))
+    viewer->setStressRange(stress_min, stress_max);
+  if(par.defined("stress_reset"))
+    viewer->resetStressRange();
 }
 
 void SodController::titrate(f_parameter& par)

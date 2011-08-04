@@ -59,6 +59,7 @@ PointDrawer::PointDrawer(QWidget* parent, const char* name)
   coord_sum_max = 0;
   coord_radius_factor = 0;
   draw_forces = true;
+  draw_ids = true;
   labelPen = QPen(QColor(50, 50, 50), 0);
   menu = new QMenu(this);
   menu->addAction("Compare Cell Types", this, SLOT(compareCellTypes()) );
@@ -99,6 +100,12 @@ void PointDrawer::setPointPlotType(PointPlotType ppt)
 void PointDrawer::drawForces(bool b)
 {
   draw_forces = b;
+  update();
+}
+
+void PointDrawer::drawIds(bool b)
+{
+  draw_ids = b;
   update();
 }
 
@@ -294,7 +301,8 @@ void PointDrawer::drawPicture(QPainter& p)
       p.setPen(labelPen);
       numString.setNum(points[i]->index);
       int extra = 10;
-      p.drawText(x-extra, y, diameter+extra*2, diameter, Qt::AlignCenter, numString);
+      if(draw_ids)
+	p.drawText(x-extra, y, diameter+extra*2, diameter, Qt::AlignCenter, numString);
     }
   }
     if(point_plot_type == LEVELS_PIE){
@@ -443,7 +451,8 @@ void PointDrawer::drawPie(QPainter& p, dpoint* point, int x, int y, QString labe
     p.setBrush(QColor("red"));
     p.drawEllipse(x-radius, y-radius, diameter, diameter);
     p.setPen(labelPen);
-    p.drawText(x-tbs, y-tbs, tbs*2, tbs*2, Qt::AlignCenter, label);
+    if(draw_ids)
+      p.drawText(x-tbs, y-tbs, tbs*2, tbs*2, Qt::AlignCenter, label);
     p.restore();
     return;
   }
@@ -466,7 +475,8 @@ void PointDrawer::drawPie(QPainter& p, dpoint* point, int x, int y, QString labe
     start_angle += span_angle;
   }
   p.setPen(labelPen);
-  p.drawText(x-tbs, y-tbs, tbs*2, tbs*2, Qt::AlignCenter, label);
+  if(draw_ids)
+    p.drawText(x-tbs, y-tbs, tbs*2, tbs*2, Qt::AlignCenter, label);
   p.restore();
 }
 

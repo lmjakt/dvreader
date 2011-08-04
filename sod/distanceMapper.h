@@ -166,6 +166,7 @@ class DistanceMapper : public QThread
   void setThreadNumber(unsigned int tno);
   void setMoveFactor(float mf);
   void setInitialPoints(std::vector<std::vector<float> > i_points, unsigned int grid_points = 0);
+  void setUpdateInterval(unsigned int ui);
   std::vector<dpoint*> grid();
 
   bool calculating; 

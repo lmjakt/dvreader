@@ -74,7 +74,22 @@ void StressPlotter::setData(vector<stressInfo> stress){
     minValue = minValue < values[i].stress ? minValue : values[i].stress;
   }
   maxValue = maxValue > 0 ? maxValue : 1.0;
+  minValue -= (minValue / 5);
+  minValue = minValue < 0 ? 0 : minValue;
   update();
+}
+
+void StressPlotter::setStressRange(float min, float max)
+{
+  //  cout << "setting min value to : " << minValue << " maxValue to : " << maxValue << endl;
+  minValue = min;
+  maxValue = max;
+  update();
+}
+
+void StressPlotter::resetStressRange()
+{
+  setData(values);
 }
 
 void StressPlotter::postscript(QString fname, float w, float h)
@@ -102,26 +117,34 @@ void StressPlotter::paintEvent(QPaintEvent* e){
 void StressPlotter::drawStress(QPainter* p, int w, int h, bool black){
   float r = maxValue - minValue;
   r = (r == 0) ? maxValue : r;
+  if(!r)
+    return;
   // draw some kind of background..
   p->setPen(QPen(QColor(255, 255, 255), 1));
   p->setBrush(Qt::NoBrush);
 
+  int dim_box_width = 1 + w/values.size();
   for(uint i=0; i < values.size(); ++i){
     if(!values[i].stress)
       continue;
     int x = (w * i) / values.size();
-    drawDims(p, x, values[i], h);
+    drawDims(p, x, values[i], h, dim_box_width);
   }
 
   p->setPen(QPen(QColor(255, 255, 255), 1));
-  if(black)
+  p->setBrush(QColor(255, 255, 255));
+  if(black){
     p->setPen(QPen(QColor(0, 0, 0), 1));
+    p->setBrush(QColor(0, 0, 0));
+  }
   
+  //cout << "minValue : " << minValue << "  maxValue " << maxValue << "  and r: " << r << endl;
   for(uint i= 0; i < values.size(); ++i){
     if(!values[i].stress)
       continue;
     int x = (w * i) / values.size();
-    int y =  h - (int)(float(h) *  values[i].stress / maxValue);
+    int y =  h - (int)(float(h) *  (values[i].stress - minValue) / r);
+    //    int y =  h - (int)(float(h) *  values[i].stress / maxValue);
     // drawDims(p, x, values[i], h);
     //	int dimY = (int)(h - h * values[i].currentDF());
     //	p->setPen(QPen(QColor(100, 0, 30), 1));
@@ -135,13 +158,16 @@ void StressPlotter::drawStress(QPainter* p, int w, int h, bool black){
   }
 }
 
-void StressPlotter::drawDims(QPainter* p, int xp, stressInfo& si, int h){
+void StressPlotter::drawDims(QPainter* p, int xp, stressInfo& si, int h, int dim_box_width){
   float dimMult = 1.0 / (float)si.dimFactors.size();
   float y1 = 1.0;
+  p->setPen(Qt::NoPen);
   for(uint i=0; i < si.dimFactors.size(); ++i){
     float y2 = y1 - (dimMult * si.dimFactors[i]);
-    p->setPen(QPen(*(dimColors[ i % dimColors.size() ]), 1));
-    p->drawLine(xp, (int)(h * y1), xp, (int)(h * y2));
+    //    p->setPen(QPen(*(dimColors[ i % dimColors.size() ]), 1));
+    p->setBrush(*dimColors[ i % dimColors.size() ]);
+    p->drawRect(xp-dim_box_width, (int)(h * y2), dim_box_width, (int)( (y1-y2)*h ) );
+    //    p->drawLine(xp, (int)(h * y1), xp, (int)(h * y2));
     y1 = y2;
   }
 }

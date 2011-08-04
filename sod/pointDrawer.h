@@ -60,6 +60,7 @@ class PointDrawer : public QWidget
   
   // how to draw the points..
   void drawForces(bool b);
+  void drawIds(bool b);
   void setPointPlotType(PointPlotType ppt);
   void setPointDiameter(unsigned int d);
   void setPlotScale(float s);
@@ -113,6 +114,7 @@ class PointDrawer : public QWidget
   int diameter;                               // how big do we make the circles.. 
   int margin;                                 // how much of a margin do we want.
   bool draw_forces;
+  bool draw_ids;
   PointPlotType point_plot_type;
   std::vector<QColor> defaultColors;
   float coord_sum_max;
