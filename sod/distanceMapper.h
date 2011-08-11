@@ -31,6 +31,7 @@
 #include <iostream>
 #include <string.h>
 #include <map>
+#include <set>
 
 
 struct stressInfo {
@@ -106,6 +107,7 @@ struct dpoint {
   
   float* coordinates;
   float* forceVectors;
+  //  float forceMagnitudeSum;
   unsigned int dimNo;       // the no of dimensions. --  we have one value for each forceVector.. 
   
   componentVector** components;
@@ -119,7 +121,10 @@ struct dpoint {
   // an optional vector set for grid points (passive points representing the
   // distortion of n-dimensional space).
   std::vector<dpoint*> neighbors;
-
+  
+  // optional for various purposes.. 
+  std::set<unsigned int> neighbor_indices;  // should probably get rid of the neighbors vector
+  
   dpoint();  
   dpoint(int i, unsigned int dimensions, unsigned int compNo);
   ~dpoint();
@@ -163,10 +168,14 @@ class DistanceMapper : public QThread
   void updatePosition(int i, float x, float y);  
   void reInitialise();
   void setDim(int dim, int iter, int drt);
+  void setIter(int iter);
   void setThreadNumber(unsigned int tno);
   void setMoveFactor(float mf);
+  void setSubset(unsigned int subset_size);
+  void useSubSet(bool useSub);
   void setInitialPoints(std::vector<std::vector<float> > i_points, unsigned int grid_points = 0);
   void setUpdateInterval(unsigned int ui);
+  void makeTriangles();  // set's up neighbour_indices to make a 2D mesh connecting points??
   std::vector<dpoint*> grid();
 
   bool calculating; 
@@ -174,6 +183,13 @@ class DistanceMapper : public QThread
   private :
   std::vector<int> expts;    // in this case each object represents an experiment, but it could be anything, -- a gene even. !!
   std::vector<std::vector<float> > distances;  // the optimal distances. 
+
+  // For large data sets, we can compare each point to a set of closest neighbours rather than to
+  // all members. This should work most of the time, but may occasionally fail dramatically.. 
+  std::vector<unsigned int*> compare_subsets;
+  unsigned int subset_length;
+  bool use_subset;
+  
   // starting points, unfortunately get stored many times, as we keep a copy in all of the points
   std::vector<std::vector<float> > initialPoints; 
   std::vector<dpoint*> points;              // the points representing the objects (usually experiments.. )..  

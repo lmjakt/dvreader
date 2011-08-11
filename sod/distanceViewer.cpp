@@ -105,8 +105,8 @@ DistanceViewer::DistanceViewer(vector<int> expI, vector<vector<float> > d, QStri
   
   QLabel* dimLabel = new QLabel("Dim no.", this);
   QLabel* iterLabel = new QLabel("Iterations", this);
-  dimSpinner = new QSpinBox(2, 10, 1, this);
-  iterSpinner = new QSpinBox(20, 10000, 1, this);
+  dimSpinner = new QSpinBox(2, 50, 1, this);
+  iterSpinner = new QSpinBox(1, 10000, 1, this);
   dimSpinner->setValue(4);
   iterSpinner->setValue(500);
 
@@ -244,9 +244,20 @@ void DistanceViewer::setMoveFactor(float mf)
   mapper->setMoveFactor(mf);
 }
 
+void DistanceViewer::setSubset(unsigned int subset_size)
+{
+  mapper->setSubset(subset_size);
+}
+
 void DistanceViewer::setUpdateInterval(unsigned int ui)
 {
   mapper->setUpdateInterval(ui);
+}
+
+void DistanceViewer::makeTriangles()
+{
+  mapper->makeTriangles();
+  drawer->update();
 }
 
 void DistanceViewer::setThreadNumber(unsigned int tno)
@@ -355,6 +366,7 @@ void DistanceViewer::deletePoints(){
 
 void DistanceViewer::continueMapping(){
   mapper->wait();
+  mapper->setIter(iterSpinner->value());
   mapper->start();  // is that possible ??
   watchTimer->start(20);
 }

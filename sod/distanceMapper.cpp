@@ -37,6 +37,8 @@
 #include <qmutex.h>
 #include <qapplication.h>
 #include <vector>
+#include <map>
+#include <set>
 #include <iostream>
 #include <stdlib.h>
 #include <time.h>
@@ -54,7 +56,7 @@ dpoint::dpoint(){
   components = new componentVector*[1];
   componentNo = 0;
   componentSize = 1;
-
+  //  forceMagnitudeSum = 0;
 }
 
 dpoint::dpoint(int i, unsigned int dimensions, unsigned int compNo){
@@ -78,7 +80,7 @@ dpoint::dpoint(int i, unsigned int dimensions, unsigned int compNo){
     coordinates[i] = 0;
     forceVectors[i] = 0;
   }
-  
+  //  forceMagnitudeSum = 0;
 }
 
 dpoint::~dpoint(){
@@ -97,6 +99,8 @@ dpoint* dpoint::copy(bool includeComponents){
   np->position = position;
   memcpy(np->coordinates, coordinates, sizeof(float)*dimNo);
   memcpy(np->forceVectors, forceVectors, sizeof(float)*dimNo);
+  np->neighbor_indices = neighbor_indices;
+  //  np->forceMagnitudeSum = forceMagnitudeSum;
   if(!includeComponents)
     return(np);
   for(unsigned int i=0; i < componentNo; ++i)
@@ -117,6 +121,8 @@ void dpoint::assignValues(dpoint* p){
   p->componentNo = componentNo;
   memcpy(p->coordinates, coordinates, sizeof(float) * dimNo);
   memcpy(p->forceVectors, forceVectors, sizeof(float) * dimNo);
+  p->neighbor_indices = neighbor_indices;
+  //  p->forceMagnitudeSum = forceMagnitudeSum;
   p->stress = stress;
   for(unsigned int i=0; i < componentNo; ++i){
     p->components[i]->attractive = components[i]->attractive;
@@ -191,13 +197,19 @@ float dpoint::adjustVectors(dpoint* p, float d, float* dimFactors, bool linear, 
   D = (D <= 0) ? MINFLOAT : D; 
   // adjust the force vectors by some measure
   stress += fabs(delta);     // the absolute amount of stress on the point.. 
-
+  //float f_mag = 0;
+  //float f_mag_c = 0;
   float* compForces = coordDists;
   for(unsigned int i=0; i < dimNo; ++i){
+    //f_mag_c = (delta * coordDists[i])/D;
     forceVectors[i] += (delta * coordDists[i])/D;
     compForces[i] = (delta * coordDists[i])/D;   // strictly speaking we don't need this one.. 
     components[comp_index]->attractive = (delta > 0);
+    //f_mag += (f_mag_c * f_mag_c);
   }
+  
+  //forceMagnitudeSum += sqrt(f_mag);
+
   return(stress);     // not really useful as it's an intermediate value.. 
 }
 
@@ -218,6 +230,7 @@ float dpoint::adjustVectorsFast(dpoint* p, float d, float* dimFactors, float* bu
   D = sqrt(D);   // alleluliahh
 
   float delta = (D-d);
+  //  forceMagnitudeSum += delta;
   D = (D <= 0) ? MINFLOAT : D; 
                                   // adjust the force vectors by some measure
   stress += fabs(delta);     // the absolute amount of stress on the point.. 
@@ -230,6 +243,21 @@ float dpoint::adjustVectorsFast(dpoint* p, float d, float* dimFactors, float* bu
 
 float dpoint::move(float forceMultiplier){
   float distanceMoved = 0;
+  ////// Experimental
+  /////// instead of using a static forceMultipler use the term:
+  //////  0.5 * forceMagnitude / forceMagnitudeSum
+  // if all vectors point the same direction, then forceMagnitude = forceMagnitudeSum
+  // the only issue is that we have to calculate the forceMagnitude here
+
+  // this idea doesn't work the forcemultiplier should simply be 1 / (n * 2)
+  // where n is the number of comparisons per point. (well 1 / n if not recipocral).
+  //  float forceMagnitude = 0;
+  //for(unsigned int i=0; i < dimNo; ++i)
+  //  forceMagnitude += (forceVectors[i] * forceVectors[i]);
+  //forceMagnitude = sqrt(forceMagnitude);
+  // and override forceMultiplier..
+  //forceMultiplier = 0.5 * forceMagnitude / forceMagnitudeSum;
+  //  cout << "forceMultipler : " << forceMultiplier << " = " << 0.5 << " * " << forceMagnitude << " / " << forceMagnitudeSum << endl;
   for(unsigned int i=0; i < dimNo; i++){
     coordinates[i] += forceMultiplier * forceVectors[i];
     distanceMoved += ((forceMultiplier * forceVectors[i]) * (forceMultiplier * forceVectors[i]));
@@ -243,6 +271,7 @@ void dpoint::resetForces(){              /// THIS GIVES RISE TO A MEMORY LEAK IF
   for(unsigned int i=0; i < dimNo; i++){
     forceVectors[i] = 0;
   }
+  //  forceMagnitudeSum = 0;
   //  componentNo = 0;        // componentSize still holds what has been assigned.
 }
 
@@ -269,6 +298,10 @@ DistanceMapper::DistanceMapper(vector<int> expI, vector<vector<float> > d, QMute
   update_interval = 11;
   currentDimNo = dimensionality;
 
+  // By default we compare everything to everything..
+  subset_length = 0;
+  use_subset = false;
+
   // set the dimFactors to 1.
   // Note this will crash if dimensionality is less than 0. 
   dimFactors = 0;
@@ -278,9 +311,8 @@ DistanceMapper::DistanceMapper(vector<int> expI, vector<vector<float> > d, QMute
   drtMap.insert(make_pair((int)GRADUAL_PARALLEL, GRADUAL_PARALLEL));
   resetDimFactors();
   
-
   srand(time(0));
-  moveFactor = 0.005;      // just keep it below 1,, above one will lead to strange behaviour.. 
+  moveFactor = 1.0 / (float)(distances.size() * 2);      // just keep it below 1,, above one will lead to strange behaviour.. 
   // make sure that the distances are all the same.. 
   if(expts.size() != distances.size()){
     cerr << "bugger everytyhing is going to die man.. " << endl;
@@ -301,6 +333,10 @@ DistanceMapper::DistanceMapper(vector<int> expI, vector<vector<float> > d, QMute
 DistanceMapper::~DistanceMapper(){
   cout << "destryoing the DistanceMapper object, hoho yeahh " << endl;
   delete dimFactors;
+  for(unsigned int i=0; i < compare_subsets.size(); ++i)
+    delete []compare_subsets[i];
+  // I think that I actually need to delete the points vector (it used to
+  // be done by the distance viewer, but I don't think that happens at the moment)
 }
 
 void DistanceMapper::restart(){
@@ -334,26 +370,23 @@ float DistanceMapper::adjustVectors(bool linear){
   // Looks like we could optimise this one,, in some way.. 
   float totalStress = 0;
 
-  // for(uint i=0; i < expts.size(); i++){
-  //   float stress = 0;
-  //   for(uint j=0; j < expts.size(); j++){      // crash if the dimensions of the distances are not good.. what the hell though..
-  //     if(i != j){
-  // 	stress = points[i]->adjustVectors(points[j], distances[i][j], dimFactors, linear);
-  //     }
-  //   }
-  //   totalStress += stress;
-  // }
-  // return totalStress;
-
-  // rewrite to make use of VectorAdjustThread objects.
+  // rewritten to make use of VectorAdjustThread objects.
   unsigned int t_no = thread_no;       // in case it gets changed half-way through..
   t_no = t_no > points.size() ? points.size() : t_no;
   unsigned int group_size = points.size() / t_no;
   vector<VectorAdjustThread*> vecAdjusters(t_no);
+  
+  // set moveFactor appropriately
+  moveFactor = 1.0 / (float)(2 * points.size());
+  if(use_subset && compare_subsets.size() == points.size())
+    moveFactor = 1.0 / (float)(subset_length);
+
   for(unsigned int i=0; i < vecAdjusters.size(); ++i){
     unsigned int beg = i * group_size;
     unsigned int end = i < (t_no - 1) ? beg + group_size : points.size();
     vecAdjusters[i] = new VectorAdjustThread(points, distances, dimFactors, linear, beg, end, rememberComponentVectors);
+    if(use_subset && compare_subsets.size() == points.size())
+      vecAdjusters[i]->setCompareSubset(compare_subsets, subset_length);
   }
   for(unsigned int i=0; i < vecAdjusters.size(); ++i)
     vecAdjusters[i]->start();
@@ -431,17 +464,25 @@ void DistanceMapper::run(){
 }
 
 void DistanceMapper::reInitialise(){
+  vector<set<unsigned int> > nbor_sets(points.size());
+  for(uint i=0; i < points.size(); ++i){
+    nbor_sets[i] = points[i]->neighbor_indices;
+    delete points[i];
+  }
+  points.resize(0);
+  points.reserve(expts.size());
+  unsigned int comp_vectors = rememberComponentVectors ? expts.size() : 0;
+  for(uint i=0; i < expts.size(); i++)
+    points.push_back(new dpoint(expts[i], dimensionality, comp_vectors));    
+
+  if(nbor_sets.size() == points.size()){
     for(uint i=0; i < points.size(); ++i)
-	delete points[i];
-    points.resize(0);
-    points.reserve(expts.size());
-    unsigned int comp_vectors = rememberComponentVectors ? expts.size() : 0;
-    for(uint i=0; i < expts.size(); i++)
-      points.push_back(new dpoint(expts[i], dimensionality, comp_vectors));    
-    initialisePoints();
-    resetDimFactors();
-    currentDimNo = dimensionality;
-    cout << "DistanceMapper::reinitialised with dimNo : " << dimensionality << " and with point # " << points.size() << endl;
+      points[i]->neighbor_indices = nbor_sets[i];
+  }
+  initialisePoints();
+  resetDimFactors();
+  currentDimNo = dimensionality;
+  cout << "DistanceMapper::reinitialised with dimNo : " << dimensionality << " and with point # " << points.size() << endl;
 }
 
 void DistanceMapper::setDim(int dim, int iter, int drt){
@@ -460,6 +501,12 @@ void DistanceMapper::setDim(int dim, int iter, int drt){
     reInitialise();
 }
 
+void DistanceMapper::setIter(int iter)
+{
+  if(iter > 0)
+    iterationNo = iter;
+}
+
 void DistanceMapper::setThreadNumber(unsigned int tno)
 {
   if(!tno || isRunning())
@@ -468,9 +515,60 @@ void DistanceMapper::setThreadNumber(unsigned int tno)
   thread_no = tno;
 }
 
+//// Doesn't work at the moment: moveFactor is set dynamically.. 
 void DistanceMapper::setMoveFactor(float mf)
 {
   moveFactor = mf;
+}
+
+void DistanceMapper::setSubset(unsigned int subset_size)
+{
+  for(unsigned int i=0; i < compare_subsets.size(); ++i)
+    delete []compare_subsets[i];
+  compare_subsets.resize(0);        // though this is actually a bit silly.
+  
+  subset_length = subset_size < points.size() ? subset_size : 0;
+  if(!subset_length){
+    use_subset = false;
+    return;
+  }
+  compare_subsets.resize(distances.size()); // which should always == points.size()
+  // the lazy way to sort stuff, use a multi_map..
+  // seems like it might be better to select a random subset..
+  cout << "RAND_MAX = " << RAND_MAX << "  : " << (subset_length * RAND_MAX) / RAND_MAX << endl; 
+  for(unsigned int i=0; i < distances.size(); ++i){
+    //multimap<float, unsigned int> mmap;
+    set<unsigned int> selection;
+      //    for(unsigned int j=0; j < distances[i].size(); ++j)
+      //mmap.insert(make_pair(distances[i][j], j));
+      //unsigned int count = 0;
+    unsigned int* sub_index = new unsigned int[subset_length];
+    //cout << i << ":";
+    while(selection.size() < subset_length){
+      unsigned long j = rand() % points.size();
+      if(!selection.count(j)){
+	sub_index[ selection.size() ] = j;
+	selection.insert(j);
+	//	cout << "\t" << j;
+      }
+    }
+    //    cout << endl;
+    // for(multimap<float, unsigned int>::iterator it=mmap.begin(); it != mmap.end(); ++it){
+    //   if(it->second != i){
+    // 	sub_index[count] = it->second;
+    // 	++count;
+    //   }
+    //   if(count >= subset_length)
+    // 	break;
+    // }
+    compare_subsets[i] = sub_index;
+  }
+  use_subset = true;
+}
+
+void DistanceMapper::useSubSet(bool useSub)
+{
+  use_subset = useSub;
 }
 
 void DistanceMapper::setInitialPoints(vector<vector<float> > i_points, unsigned int grid_points){
@@ -488,6 +586,36 @@ void DistanceMapper::setInitialPoints(vector<vector<float> > i_points, unsigned 
 void DistanceMapper::setUpdateInterval(unsigned int ui)
 {
   update_interval = ui;
+}
+
+void DistanceMapper::makeTriangles()
+{
+  cout << "make Triangles " << endl;
+  for(unsigned int i=0; i < points.size(); ++i)
+    points[i]->neighbor_indices.clear();
+  pair<float, unsigned int> blank_pair = make_pair(MAXFLOAT, 0);
+  for(unsigned int i=0; i < points.size(); ++i){
+    list< pair<float, unsigned int> > nbors(2, blank_pair);
+    for(unsigned int j=0; j < points.size(); ++j){
+      if(distances[i][j] > nbors.back().first || i == j)
+	continue;
+
+      list< pair<float, unsigned int> >::iterator it = nbors.begin();
+      if(distances[i][j] > nbors.front().first)
+	++it;
+      nbors.insert( it, make_pair(distances[i][j], j) );
+      nbors.pop_back();
+    }
+    if(nbors.size() != 2){
+      cerr << "Make Triangles nbors size is not 2, not sure what's going on here" << endl;
+      exit(1);
+    }
+    points[i]->neighbor_indices.insert( nbors.front().second );
+    points[i]->neighbor_indices.insert( nbors.back().second );
+    points[ nbors.front().second ]->neighbor_indices.insert( nbors.back().second );
+    cout << " linked : " << i << " -> " << nbors.front().second << "," << nbors.back().second << endl;
+  }
+  updateParentPoints();
 }
 
 // makes no copy. will delete or modify during mapping.

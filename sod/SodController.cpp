@@ -191,6 +191,9 @@ void SodController::set_plot_par(f_parameter& par)
   float moveFactor;
   if(par.param("move_factor", moveFactor))
     viewer->setMoveFactor(moveFactor);
+  unsigned int subset_size;
+  if(par.param("subset_size", subset_size))
+    viewer->setSubset(subset_size);
   unsigned int threads;
   if(par.param("threads", threads))
     viewer->setThreadNumber(threads);
@@ -208,6 +211,8 @@ void SodController::set_plot_par(f_parameter& par)
     viewer->setStressRange(stress_min, stress_max);
   if(par.defined("stress_reset"))
     viewer->resetStressRange();
+  if(par.defined("make_triangles"))
+    viewer->makeTriangles();
 }
 
 void SodController::titrate(f_parameter& par)

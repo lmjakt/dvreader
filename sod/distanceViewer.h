@@ -63,7 +63,9 @@ class DistanceViewer : public QWidget
   void svg(QString fname, int w, int h);
   void set_starting_dimensionality(unsigned int dim);
   void setMoveFactor(float mf);
+  void setSubset(unsigned int subset_size);
   void setUpdateInterval(unsigned int ui);
+  void makeTriangles();
   void setThreadNumber(unsigned int tn);
   void setGrid(bool drawGrid);
 

@@ -20,12 +20,16 @@ class VectorAdjustThread : public QThread
 		     unsigned int beg, unsigned int end,
 		     bool useSlowMethod);
   ~VectorAdjustThread();
+  void setCompareSubset(std::vector<unsigned int*>& comp_sub, unsigned int subLength);
   float totalStress();
 
  private:
   void run();
   void runSlow();
+  void runSubsetSlow();
   void runFast();
+  void runSubsetFast();
+
 
   std::vector<dpoint*>& points;
   std::vector<std::vector<float> >& distances;
@@ -37,6 +41,8 @@ class VectorAdjustThread : public QThread
   unsigned int p_size;
   
   float stress;
+  std::vector<unsigned int*> compare_subset;
+  unsigned int subset_length;
 };
 
 #endif

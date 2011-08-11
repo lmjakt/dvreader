@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <iostream>
+#include <fstream>
 
 using namespace std;
 
@@ -28,9 +29,12 @@ PerimeterSplitter::~PerimeterSplitter()
 void PerimeterSplitter::splitPerimeter(Perimeter& per, vector<vector<int> >& splitLines)
 {
   initMask(per);
+  //save_mask_ascii("initial_mask");
   for(unsigned int i=0; i < splitLines.size(); ++i)
     addLineToMask(splitLines[i]);
+  //save_mask_ascii("intermediate_mask");
   finaliseMask();
+  //save_mask_ascii("final_mask");
 }
 
 unsigned int* PerimeterSplitter::perimeterMask(int& mw, int& mh)
@@ -87,7 +91,12 @@ void PerimeterSplitter::initMask(Perimeter& per)
   if(!per.length())
     return;
   // then the inside of the perimeter using within_id (x,y) should be the last point on the perimeter
-  flood_or_mask(x-mask_x, y-mask_y, (outside_id + within_id), within_id, false);
+  for(int y=0; y < maskHeight; ++y){
+    for(int x=0; x < maskWidth; ++x){
+      if(!mask[ x + y * maskWidth ])
+	flood_or_mask(x, y, (outside_id + within_id), within_id, false);
+    }
+  }
 }
 
 // points are in global coordinates..
@@ -148,6 +157,16 @@ void PerimeterSplitter::flood_or_mask(int x, int y, unsigned int forbidden, unsi
   flood_or_mask(x+1, y, forbidden, flood_value, set_value);
   flood_or_mask(x, y-1, forbidden, flood_value, set_value);
   flood_or_mask(x, y+1, forbidden, flood_value, set_value);
+}
+
+void PerimeterSplitter::save_mask_ascii(const char* fname)
+{
+  ofstream out(fname);
+  for(int y=0; y < maskHeight; ++y){
+    for(int x=0; x < maskWidth; ++x)
+      out << x << "\t" << y << "\t" << mask[ x + y * maskWidth] << endl;
+  }
+  out.close();
 }
 
 vector<int> PerimeterSplitter::tracePerimeter(unsigned int p_id)

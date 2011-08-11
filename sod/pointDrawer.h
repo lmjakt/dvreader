@@ -29,6 +29,7 @@
 #include "posInfo.h"
 #include <QWidget>
 #include <QRect>
+#include <QRectF>
 #include <QPoint>
 #include <QImage>
 #include <QColor>
@@ -42,6 +43,7 @@
 class QMenu;
 class QMouseEvent;
 class BackgroundDrawer;
+class QRubberBand;
 
 class PointDrawer : public QWidget
 {
@@ -87,9 +89,11 @@ class PointDrawer : public QWidget
   void mousePressEvent(QMouseEvent* e);
   void mouseMoveEvent(QMouseEvent* e);
   void mouseReleaseEvent(QMouseEvent* e);
+  void mouseDoubleClickEvent(QMouseEvent* e);
   void checkSelected();
 
   void drawPie(QPainter& p, dpoint* point, int x, int y, QString label);
+  void drawConnections(QPainter& p, dpoint* point);
   void drawGridPoint(QPainter& p, dpoint* gpoint);
   void determine_coordinate_scale();
 
@@ -108,8 +112,12 @@ class PointDrawer : public QWidget
   bool itsA;              // stupid if I ever saw something but there you go.. 
   QRect movingRect;    // 0 if nothing moving, otherwise, move it by 
   int movingId;
+  QRect zoomRect;
+  QPoint zoomOrigin;
+  QRubberBand* rubberBand;
   float maxStress;
   PosInfo pos;         // contains dimensions and converters.. 
+  QRectF point_ranges; // the ranges.. 
   float drawScale;     // default to one, but can be set.
   int diameter;                               // how big do we make the circles.. 
   int margin;                                 // how much of a margin do we want.

@@ -28,6 +28,7 @@
 #include <math.h>
 #include <vector>
 #include <QPainter>
+#include <QPalette>
 #include <QPrinter>
 #include <QSvgGenerator>
 #include <QSizeF>
@@ -40,6 +41,7 @@
 #include <QDir>
 #include <QMenu>
 #include <QMouseEvent>
+#include <QRubberBand>
 
 using namespace std;
 
@@ -50,6 +52,12 @@ PointDrawer::PointDrawer(QWidget* parent, const char* name)
   setBackgroundMode(Qt::NoBackground);    // but really should have something to put it there.. hmm
   movingId = -1;
   regions.resize(0);
+  zoomRect.setRect(-1, -1, 0, 0);
+  rubberBand = new QRubberBand(QRubberBand::Rectangle, this);
+  QPalette bandPalette;
+  bandPalette.setBrush(QPalette::Foreground, QBrush(Qt::green));
+  bandPalette.setBrush(QPalette::Base, QBrush(Qt::red));
+  rubberBand->setPalette(bandPalette);
   frameCounter = 0;
   point_plot_type = STRESS;
   diameter = 16;             // diameter for circles representing.. things.. 
@@ -196,6 +204,7 @@ void PointDrawer::setData(vector<dpoint*> p){
     if(points[i]->coordinates[1] < minY){ minY = points[i]->coordinates[1]; }
     if(points[i]->stress > maxStress){ maxStress = points[i]->stress; }
   }
+  point_ranges.setCoords(minX, minY, maxX, maxY);
   pos.setRanges(minX, maxX, minY, maxY);
   // and call update.. !!! hooo hoo yeah....
   update();
@@ -242,6 +251,9 @@ void PointDrawer::drawPicture(QPainter& p)
   if(maxStress > 0){
     stressMultiplier = 254.0 / maxStress;     // not so good as we don't see any reduction in the max stress. 
   }
+  // lets draw connections.. make optional later on..
+  for(unsigned int i=0; i < points.size(); ++i)
+    drawConnections(p, points[i]);
   // draw the forces first so that they are in the background
   if(draw_forces && points.size()){
     QPen attraction(QColor(255, 255, 0), 1);   // yellow
@@ -268,7 +280,8 @@ void PointDrawer::drawPicture(QPainter& p)
       }
     }
   }
-    // lets farm these plot things to some 
+
+  // lets farm these plot things to some 
   if(point_plot_type == STRESS){
     for(uint i=0; i < points.size(); i++){
       if(points[i]->dimNo < 2){
@@ -305,7 +318,7 @@ void PointDrawer::drawPicture(QPainter& p)
 	p.drawText(x-extra, y, diameter+extra*2, diameter, Qt::AlignCenter, numString);
     }
   }
-    if(point_plot_type == LEVELS_PIE){
+  if(point_plot_type == LEVELS_PIE){
     for(uint i=0; i < points.size(); ++i){
       if(points[i]->dimNo < 2){
 	cerr << "??? bugger me backwards, but the coordinates size is less than two for i : " << i << endl;
@@ -333,18 +346,28 @@ void PointDrawer::drawPicture(QPainter& p)
 }
 
 void PointDrawer::mousePressEvent(QMouseEvent* e){
-  //cout << "mouse press event " << endl;
+  // if control key is pressed use it to scale the drawing region
+  // by doing pos.setRange()
+  Qt::KeyboardModifiers km = e->modifiers();
+  if(km & Qt::ControlModifier){
+    zoomOrigin = e->pos();
+    zoomRect = QRect(zoomOrigin, QSize(0, 0));
+    if(!rubberBand)
+      rubberBand = new QRubberBand(QRubberBand::Rectangle, this);
+    rubberBand->setGeometry(zoomRect);
+    rubberBand->show();
+    return;
+  }
+
   // if the click is inside a thingy..
   if(e->button() == Qt::RightButton){
     menu->popup(mapToGlobal(e->pos()));
     return;
   }
   for(uint i=0; i < regions.size(); i++){
-    //cout << "  i: " << i << "  x : " << regions[i].x() << "  y: " << regions[i].y() << endl;
     if(regions[i].contains(e->pos())){
       movingId = i;
       movingRect = regions[i];
-      //cout << "found a moving rectangle" << endl;
       break;
     }
   }
@@ -358,16 +381,16 @@ void PointDrawer::mousePressEvent(QMouseEvent* e){
 }
 
 void PointDrawer::mouseMoveEvent(QMouseEvent* e){
-  //cout << "mouseMoveEvent" << endl;
+  if(zoomRect.x() >= 0){
+    zoomRect = QRect(zoomOrigin, e->pos()).normalized();
+    rubberBand->setGeometry(zoomRect);
+    rubberBand->show();
+  }
+
   if(movingId != -1){
     movingRect.moveBy(e->x() - lastX, e->y() - lastY);
-    //update();
-    //return;
   }
   if(selectPoints.size()){
-    //    QPainter p(this);
-    //    p.setPen(QPen(QColor(255, 255, 255), 1));
-    //    p.drawLine(lastX, lastY, e->x(), e->y());  // not allowed to draw here, has to be in paintEvent
     selectPoints.push_back(e->pos());
   }
   lastX = e->x();
@@ -380,6 +403,16 @@ void PointDrawer::mouseMoveEvent(QMouseEvent* e){
 void PointDrawer::mouseReleaseEvent(QMouseEvent* e){
   // and emit something useful here so the mapper changes the coordinates and tries to update things..
   // do in a couple of different steps.. 
+  if(zoomRect.x() >= 0){
+    // do something useful..
+    float min_x = pos.rx( zoomRect.left() );
+    float max_x = pos.rx( zoomRect.right() );
+    float min_y = pos.ry( zoomRect.top() ); // or other way around ??
+    float max_y = pos.ry( zoomRect.bottom() );
+    pos.setRanges(min_x, max_x, min_y, max_y);
+    zoomRect.setRect(-1, -1, 0, 0);
+    rubberBand->hide();
+  }
   if(movingId != -1){
     //float xMult = ((float)(width() - 2 * margin))/(maxX - minX);
     //float yMult = ((float)(height() - 2 * margin))/(maxY - minY);
@@ -393,6 +426,18 @@ void PointDrawer::mouseReleaseEvent(QMouseEvent* e){
     checkSelected();
   }
   movingId = -1;
+  update();
+}
+
+void PointDrawer::mouseDoubleClickEvent(QMouseEvent* e)
+{
+  // reset the zoom..
+  cout << "mouse double click setting ranges to : "
+       << point_ranges.left() << "->" << point_ranges.right() << "  : "
+       << point_ranges.bottom() << "->" << point_ranges.top() << endl;
+    
+  pos.setRanges(point_ranges.left(), point_ranges.right(),
+		point_ranges.top(), point_ranges.bottom());
   update();
 }
 
@@ -477,6 +522,27 @@ void PointDrawer::drawPie(QPainter& p, dpoint* point, int x, int y, QString labe
   p.setPen(labelPen);
   if(draw_ids)
     p.drawText(x-tbs, y-tbs, tbs*2, tbs*2, Qt::AlignCenter, label);
+  p.restore();
+}
+
+void PointDrawer::drawConnections(QPainter& p, dpoint* point)
+{
+  cout << "DrawConnections size " << point->neighbor_indices.size() << endl;
+  if(!point->neighbor_indices.size())
+    return;
+  p.save();
+  p.setPen(QPen(QColor(40, 40, 175), 1));
+  int x1, x2, y1, y2;
+  x2 = x1 = pos.x(point->coordinates[0]);
+  y2 = y1 = pos.y(point->coordinates[1]);
+  for(set<unsigned int>::iterator it = point->neighbor_indices.begin();
+      it != point->neighbor_indices.end(); ++it){
+    if((*it) < points.size()){
+      x2 = pos.x(points[*it]->coordinates[0]);
+      y2 = pos.y(points[*it]->coordinates[1]);
+      p.drawLine(x1, y1, x2, y2);
+    }
+  }
   p.restore();
 }
 

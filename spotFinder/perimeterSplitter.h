@@ -26,6 +26,7 @@ class PerimeterSplitter {
   void addLineToMask(std::vector<int>& points);
   void finaliseMask();
   void flood_or_mask(int x, int y, unsigned int forbidden, unsigned int flood_value, bool set_value);  // uses local parameters!!!
+  void save_mask_ascii(const char* fname);
   std::vector<int> tracePerimeter(unsigned int p_id);
 };
 
