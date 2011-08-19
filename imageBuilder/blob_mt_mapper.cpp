@@ -271,13 +271,11 @@ vector<float> Blob_mt_mapper::blob_model_correlations(BlobModel* bmodel, vector<
     exit(1);
   }
   int i = 0;
-  float* blob_values = new float[ 2 * m_width * m_height * m_height ];  // 2 * to overcome rounding errors.. 
+  unsigned int blob_values_capacity =  (1+m_width) * (1+m_height) * (1+m_height);
+  float* blob_values = new float[ blob_values_capacity ];  // 2 * to overcome rounding errors.. 
   cout << "Location : " << pos.x << "," << pos.y << "," << pos.z << endl;
   for(vector<blob*>::iterator it=local_blobs.begin(); it != local_blobs.end(); ++it){
-    if(local_blobs.size() != correlations.size()){
-      cerr << "1 exiting local " << local_blobs.size() << "\t" << correlations.size() << endl;
-      exit(1);
-    }
+
     float bx, by, bz;
     blob* b = (*it);
     determineBlobCenter(b, bx, by, bz);  // the center of the blob will be set to these values..
@@ -286,28 +284,26 @@ vector<float> Blob_mt_mapper::blob_model_correlations(BlobModel* bmodel, vector<
     vector<float> xy_offset;
     vector<float> z_offset;
     int x, y, z;
-    if(local_blobs.size() != correlations.size()){
-      cerr << "2 exiting local " << local_blobs.size() << "\t" << correlations.size() << endl;
-      exit(1);
-    }
-    for(uint j=0; j < b->points.size(); ++j){
+
+    for(uint j=0; j < b->points.size() && blob_value_no < blob_values_capacity; ++j){
       toVol(b->points[j], x, y, z);
       // check to make sure that the point is within the model. If so, add it to the 
       // blob_values and increment blob_value_no.
-      if( (int)roundf( e_dist(bx, by, (float)x, (float)y) ) < m_height
+      if( (int)roundf( e_dist(bx, by, (float)x, (float)y) ) <= s_range
 	  &&
 	  (int)roundf( fabs((float)z - bz) ) <= z_radius ){
 	blob_values[blob_value_no] = stack_data[ b->points[j] ];
 	++blob_value_no;
 	z_offset.push_back( (float)z - bz );
 	xy_offset.push_back( e_dist(bx, by, (float)x, (float)y ));
-	//	if(blob_value_no >= (m_width * m_height * m_height))
-	//  cerr << "blob_value_no is getting too large, bugger : " << blob_value_no << " >= " << m_width * m_height * m_height << endl;
+	// if(blob_value_no >= (blob_values_capacity)){
+	//   cerr << "blob_value_no is getting too large, bugger : " << blob_value_no << " >= " << blob_values_capacity << endl;
+	//   cerr << "\txy dist : " << bx << "," << by << " - " << x << "," << y << " = " << e_dist(bx, by, (float)x, (float)y) << endl;
+	//   cerr << "\tz  dist : " << bz << " - " << z << " = " << fabs((float)z - bz) 
+	//        << "\t\ts_range " << s_range << "\tz_radius " << z_radius << "  m_height: " << m_height << "  m_width: " << m_width << endl;
+	//   // exit(1);
+	// }
       }
-    }
-    if(local_blobs.size() != correlations.size()){
-      cerr << "3 exiting local " << local_blobs.size() << "\t" << correlations.size() << endl;
-      exit(1);
     }
     z_normalise(blob_values, blob_value_no);
     cout << "blob_value_no : " << blob_value_no << endl;

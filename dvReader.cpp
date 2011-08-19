@@ -292,7 +292,7 @@ bool DVReader::readDVFile(const char* fName){
     // note that FileSet will crash (through FrameStack) if xyMargin > min(nx, ny) / 2
     // if this should be the case then change xyMargin to 0..
     int minDim = nx > ny ? ny : nx;
-    xyMargin = minDim / 3 > minDim ? xyMargin : 0;  // make 1/3 the mininum, then 1/3 of the image left.
+    xyMargin = minDim / 3 > xyMargin ? xyMargin : 0;  // make 1/3 the mininum, then 1/3 of the image left.
 
     fileSet = new FileSet(waves, (int)nw, maxLevel, xyMargin);
     // and let's have a temporary filestream..

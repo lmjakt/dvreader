@@ -204,7 +204,7 @@ vector<blob_set> BlobMerger::merge()
 
 // Note that the set<blob*> pointed to by blob* needs to include blob* itself
 // for this function to work.
-// 
+// And that in it's present incarnation it doesn't actually work.
 vector<blob_set> BlobMerger::collapseDuplicates(map<blob*, set<blob*> >& blob_links)
 {
   vector<blob_set> bsets;
@@ -220,7 +220,11 @@ vector<blob_set> BlobMerger::collapseDuplicates(map<blob*, set<blob*> >& blob_li
       bs.push( (*it), (*it)->mapper->map_id, (*it)->mapper );
       if( blob_links.count(*it) && sets_identical(nbs, blob_links[ (*it) ]) )
 	  blob_links.erase( (*it) );
+      // if the above isn't true, we need some means of conflict resolution.
+      // unfortunately that is re-iterative in nature, but we want to avoid
+      // re-iteration.
     }
+    
     bsets.push_back(bs);
   }
   return(bsets);
