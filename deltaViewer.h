@@ -217,6 +217,7 @@ class DeltaViewer : public QWidget
   BackgroundWindow* backgroundWindow;   
   ImageBuilderWidget* imageBuilder;
   vector<vector<o_set> > aux_points;   // for quick checks of various functions.
+  float maxLevel;
   //      set<BlobMapperWidget*> blobs;
   
   QString fName;

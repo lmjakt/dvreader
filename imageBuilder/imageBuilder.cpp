@@ -36,7 +36,7 @@
 #include <sstream>
 #include <unistd.h>
 #include <QTextStream>
-#include <QSemaphore>compare_model blobs=a3
+#include <QSemaphore>
 
 #include <QFile>
 #include <QKeyEvent>

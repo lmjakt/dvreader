@@ -77,7 +77,7 @@ n
 const int redrawWait = 5;
 const int maxMag = 20;
 const int minMag = 0;   // not actual magnifications, but just numbers.. 
-const float maxLevel = 4096;    // max for a 12 bit unsigned camera.. (but after deconvolution this changes..)
+const float MAXLEVEL = 4096;    // max for a 12 bit unsigned camera.. (but after deconvolution this changes..)
 
 
 DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const char* ifName, QWidget* parent, const char* name)
@@ -97,6 +97,12 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
   }else{
       fName = ifName;
   }
+  maxLevel = MAXLEVEL;
+  if(opt_commands.count("max"))
+    maxLevel = atof(opt_commands["max"].c_str());
+  if(maxLevel <= 0)
+    maxLevel = MAXLEVEL;  // revert if not reasonable
+
   //  cout << "trying to open file " << ifName << endl;
   reader = new DVReader(ifName, maxLevel, xyMargin);
   reader->printInfo();

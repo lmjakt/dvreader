@@ -59,7 +59,7 @@ int main(int argc, char** argv){
   map<string, string> opt_commands;
   vector<char*> non_options;
   int xyMargin = 32;
-  while( (c = getopt(argc, argv, "-s:b:d:-c:-r:m:")) != -1){
+  while( (c = getopt(argc, argv, "-s:b:d:-c:-r:m:l:")) != -1){
     switch(c){
     case 's':
       opt_commands["find_spots"] = optarg;
@@ -78,6 +78,9 @@ int main(int argc, char** argv){
       break;
     case 'm':
       xyMargin = atoi(optarg);
+      break;
+    case 'l':
+      opt_commands["max"] = optarg;
       break;
     case 1 :
       non_options.push_back(optarg);
