@@ -99,10 +99,10 @@ void OverlapEditor::keyPressEvent(QKeyEvent* event)
   int c = event->key();
   switch(c){
   case Qt::Key_Up:
-    selectedFrame->moveBy(QPoint(0, 1));
+    selectedFrame->moveBy(QPoint(0, -1));
     break;
   case Qt::Key_Down:
-    selectedFrame->moveBy(QPoint(0, -1));
+    selectedFrame->moveBy(QPoint(0, 1));
     break;
   case Qt::Key_Left:
     selectedFrame->moveBy(QPoint(-1, 0));

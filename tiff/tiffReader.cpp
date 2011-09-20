@@ -315,6 +315,23 @@ bool TiffReader::makeFromRGBFloat(float* data, uint wdth, uint hgt){
     return(true);
 }
 
+// throws away the alpha channel at the moment. Quick hack to give 
+// me some images.. 
+bool TiffReader::makeFromRGBA(unsigned char* data, uint wdth, uint hgt){
+    values.resize(3);
+    w = wdth;
+    h = hgt;
+    for(uint i=0; i < values.size(); i++)
+	values[i].resize(w * h * 3);
+    for(uint i=0; i < (w * h); ++i){
+	for(uint j=0; j < 3; ++j){
+	    values[j][i] =  data[4 * i + j];
+	}
+    }
+    // ?? I don't know much else to do ? 
+    return(true);
+}
+
 bool TiffReader::addMerge(TiffReader* tr){
   if(values[0].size() != tr->values[0].size()){
     cout << "Tiff Reader Values are of different sizes.. returning false" << endl;

@@ -45,6 +45,7 @@ class TiffReader {
   TiffReader(TiffReader* tr);      // just copy out the values from this one,, 
   bool readFile(string iFile);     // read the values from file. returns true on success
   bool makeFromRGBFloat(float* data, uint wdth, uint hgt);  // assume RGB values between 0 and 1. 
+  bool makeFromRGBA(unsigned char* data, uint width, uint hgt);  // throws away the alpha channel at the moment..
   bool addMerge(TiffReader* tr);      //does an additive merge.. just adds up the values, .. -keeping below 255 
   vector< vector<unsigned short> > data();
   vector< vector<short> > colours();        // return the data and the colour map. 

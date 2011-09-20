@@ -729,6 +729,17 @@ void ImageBuilder::exportTiff(QString fname)
     return;
   }
   tr.writeOut(fname.toStdString());
+  // Lets make one from the overlay data as well..
+  if(!overlayData)
+    return;
+  TiffReader tr2;
+  if(!tr2.makeFromRGBA(overlayData, data->pwidth(), data->pheight())){
+    warn("Unable to make overlay tiff reader");
+    return;
+  }
+  tr2.addMerge(&tr);
+  QString olFile = QString("ol_") + fname;
+  tr2.writeOut(olFile.toStdString());
 }
 
 bool ImageBuilder::buildShortProjection(unsigned short* p_buffer, unsigned int wi, unsigned int beg, unsigned int end)
