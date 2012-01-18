@@ -105,7 +105,6 @@ bool DVReader::readDVFile(const char* fName){
     }
 
     readInt(in, nsec);
-//    cout << "and nsec is : " << nsec << " sameEndian is : " << sameEndian << endl;
     readInt(in, mode);
     readInt(in, mxst);
     readInt(in, myst);
@@ -114,36 +113,26 @@ bool DVReader::readDVFile(const char* fName){
     readInt(in, my);
     readInt(in, mz);
     
-
-    
     cout << "nx : " << nx << endl
 	 << "ny : " << ny << endl
 	 << "nsec : " << nsec << endl
 	 << "mxst : " << mxst << endl
 	 << "myst : " << myst << endl;
     
-    // temporary for different purposes
-    // cout << "dvReader tellg " << in.tellg() << endl;
     readFloat(in, dx);
     readFloat(in, dy);
     readFloat(in, dz);
     readFloat(in, alpha);
     readFloat(in, beta);
     readFloat(in, gamma);
-    //cout << "\tdx : " << dx << "\tdy : " << dy << " : " << dz << endl;
-    //exit(1);
     
     readInt(in, xaxis);
     readInt(in, yaxis);
     readInt(in, zaxis);
-
-
     
     readFloat(in, min);
     readFloat(in, max);
     readFloat(in, mean);
-
-
     
     // type and nspg are a little bit strange as they appear to be different to the specfication 
     // which specifies nspg, next, dvid after mean, with type appearing much later on 
@@ -151,7 +140,6 @@ bool DVReader::readDVFile(const char* fName){
 
     readShort(in, type);
     readShort(in, nspg);
-    
 
     readInt(in, next);
     readShort(in, dvid);
@@ -275,10 +263,6 @@ bool DVReader::readDVFile(const char* fName){
     // this is a bit ugly, but I believe that this is the only way in which we can do this...
     secNo = nsec/nw;   // the real number of sections..
 
-    //float* floatData = new float[nw * nx * ny];   // an array for each frame containing data 
-
-
-    
     std::ios::pos_type secSize = (pSize * nx * ny);  // the number of bytes per image..
     std::ios::pos_type imBegin = headerSize + (std::ios::pos_type)next;  // next = n extended.. 
     

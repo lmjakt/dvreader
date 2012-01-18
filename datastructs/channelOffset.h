@@ -28,6 +28,10 @@ class ChannelOffset {
   int y(){ return(yo); }
   int z(){ return(zo); }
   int w(){ return(wl); }
+
+  ChannelOffset operator -(const ChannelOffset& b){
+    return( ChannelOffset(wl-b.wl, xo-b.xo, yo-b.yo, zo-b.zo) );
+  }
 };
 
 #endif

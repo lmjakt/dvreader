@@ -95,7 +95,8 @@ bool FileSet::addFrame(string fname, ifstream* in, std::ios::pos_type framePos,
     fileName[fname.length()] = 0;
     memcpy((void*)fileName, (void*)fname.c_str(), fname.length());
   }
-  if(*fileName != *fname.c_str()){
+  //if(*fileName != *fname.c_str()){
+  if(string(fileName) != fname){
     cerr << "FileSet::addFrame fileName has changed, exiting due to memory corruption : " << fileName << " --> " << fname << endl;
     exit(1);
   }
@@ -135,6 +136,7 @@ bool FileSet::addFrame(string fname, ifstream* in, std::ios::pos_type framePos,
       exit(1);
     }
     fstack = new FrameStack(wave_lengths, wave_no, newStream, maxIntensity, xyMargin);   // in which case we should not delete or change the ifstream around.. 
+    frame_order.push_back(fstack);
   }else{
     fstack = frames[x_pos][y_pos];
   }

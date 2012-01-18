@@ -41,15 +41,19 @@ using namespace std;
 
 int main(int argc, char** argv){
   // some of the recursive functions require a bigger stack.
-  // rlimit stack_limit;
-  // getrlimit(RLIMIT_STACK, &stack_limit);
-  // cout << "Current stack " << stack_limit.rlim_cur << "  : " << stack_limit.rlim_max << endl;
-  // stack_limit.rlim_cur *= 8;
+  struct rlimit stack_limit;
+  if(getrlimit(RLIMIT_STACK, &stack_limit)){
+    cerr << "Unable to obtain stack_limit exit" << endl;
+    exit(1);
+  }
+  cout << "Current stack " << stack_limit.rlim_cur << "  : " << stack_limit.rlim_max << endl;
+  stack_limit.rlim_cur *= 16;
+  cout << "And limit set to " << stack_limit.rlim_cur << " : " << stack_limit.rlim_max << endl;
 
-  // if(setrlimit(RLIMIT_STACK, &stack_limit)){
-  //   cerr << "Unable to increase stack limit to : " << stack_limit.rlim_cur << endl;
-  //   exit(1);
-  // }
+  if(setrlimit(RLIMIT_STACK, &stack_limit)){
+    cerr << "Unable to increase stack limit to : " << stack_limit.rlim_cur << endl;
+    exit(1);
+  }
 
   // the above seems to cause a segmentation fault. consider using ulimit -s
   // don't know why, but crash happens with no stack comment.. ??

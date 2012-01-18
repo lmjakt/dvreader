@@ -22,6 +22,7 @@ class GLImage;
 class DistChooser;
 class TabWidget;
 class ImStack;
+class Dir_K_Cluster;
 class Blob_mt_mapper;
 class QSemaphore;
 class BlobModel;
@@ -106,6 +107,7 @@ class ImageBuilder : public QObject
   std::vector<DistChooser*> distributions; // specific functions update
   std::map<unsigned int, float> bg_spectrum;  // the expected spectral response of the backg'''''''round.
   std::map<QString, ImStack*> imageStacks;    // can be assigned by functions, 
+  std::map<QString, Dir_K_Cluster*> voxel_clusters;  // directional k means clusters to extract transcript signals directly from voxels
   std::multimap<ImStack*, Blob_mt_mapper*> mtMappers; // should be deleted if the ImStack is deleted.
   std::map<QString, std::vector<Blob_mt_mapper*> > mapper_collections; 
   ////////  I need to find some reasonable way of making sure that mapper_blob_set entries are erased
@@ -186,10 +188,14 @@ class ImageBuilder : public QObject
   void read_commands_from_file(f_parameter& par);
   void build_fprojection(f_parameter& par); // usets readToFloat instead of readToShort
   void build_fgprojection(f_parameter& par);  // builds a projection from a blurred stack.
+  void makeImStack(f_parameter& par);
+  void clusterVoxels(f_parameter& par);  
   void setPanelBias(f_parameter& par);
   void setFrameBackgroundPars(f_parameter& par);
   void addSlice(f_parameter& par);
-  void blurStack(f_parameter& par);
+  void blurStack(f_parameter& par);   // 3 d blur. Only a single channel is blurred at at time
+  void blurStack_2d(f_parameter& par); // does 2 dimensional blurs for each layer for each channel specified. Always modifies the specified stack
+  void stack_mult_z_nbor(f_parameter& par); // multiply adjacent sections of stack.
   void deBlurStack(f_parameter& par);
   void subStack(f_parameter& par);
   void subStackBackground(f_parameter& par);
@@ -232,6 +238,8 @@ class ImageBuilder : public QObject
   void read_cells_from_file(f_parameter& par);
   void makeMaskMaker();
   void list_objects(f_parameter& par);       // list object, use parameters to change listing. 
+
+  
 
   void setImageCenter(f_parameter& par);
 

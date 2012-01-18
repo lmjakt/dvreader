@@ -9,6 +9,7 @@ typedef unsigned int uint;
 // all of these return an image with margins of radius. (Hence radius needs to be not too big)
 // This is especially true for the 3d function, where depth, may often be quite shallow.
 float* gaussian_blur_2d(float* image, unsigned int w, unsigned int h, unsigned int radius);
+// 2_d wraps 1_d, remove at some point.
 float* gaussian_blur_1d(float* image, unsigned int w, unsigned int h, unsigned int radius);
 float* gaussian_blur_3d(float* image, unsigned int w, unsigned int h, unsigned int d, unsigned int radius);
 

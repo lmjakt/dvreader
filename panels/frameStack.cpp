@@ -675,6 +675,9 @@ bool FrameStack::readToRGB(float* dest, int xpos, int ypos,
   bool foundOverlap = false;
   // check if it overlaps with the border positions..
   for(unsigned int i=0; i < chinfo.size(); ++i){
+    unsigned int corrected_slice = slice_no + offsets[i].z();
+    if(corrected_slice >= sections.size())
+      continue;
     if(globalToLocal(xpos + offsets[i].x(), ypos + offsets[i].y(), dest_width, dest_height, dest_x, 
 		     source_x, dest_y, source_y, subWidth, subHeight)){
       if(raw){

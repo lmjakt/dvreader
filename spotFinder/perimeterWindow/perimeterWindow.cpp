@@ -375,6 +375,16 @@ void PerimeterWindow::drawBackground(){
     if(!fileSet->readToRGB(plotterBackground, origin_x, origin_y, (uint)perimeter_w, (uint)perimeter_h, (uint)sliceNo, cinfo))
       cerr << "PerimeterWindow::drawBackground unable to read in background data from fileSet" << endl;
     
+    // cout << "plotterTextureSize: " << plotterTextureSize << endl;
+
+    // for(int y=0; y < perimeter_h; ++y){
+    //   cout << y;
+    //   for(int x=0; x < perimeter_w; ++x){
+    // 	cout << "  " << plotterBackground[ y * perimeter_h + x ];
+    //   }
+    //   cout << endl;
+    // }
+    
 //     if(deltaViewer->readToRGB(plotterBackground, origin_x, origin_y, (uint)perimeter_w, (uint)perimeter_h, (uint)sliceNo)){
 // 	cout << "drawBackground successfully read in the data .." << endl;
 //     }else{

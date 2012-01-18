@@ -16,34 +16,38 @@ using namespace std;
 
 float* gaussian_blur_2d(float* image, unsigned int w, unsigned int h, unsigned int radius)
 {
-  float* g_sq = gaussian_square(radius);
-  float* b_image = new float[w * h];
-  memset((void*)b_image, 0, sizeof(float) * w * h);
-  // The easiest options, which I'll do for now, suggest leaving
-  // the edges empty. We can maybe fix this later, but for now let's
-  // be stupid.
-  unsigned int d = 1 + 2 * radius;
-  float* dest;
-  float* gsq_source;
-  float* source; 
-  for(uint y=0; y < h - d; ++y){
-    dest = b_image + (y + radius) * w + radius;
-    for(uint x=0; x < w - d; ++x){
-      gsq_source = g_sq;
-      for(uint dy=0; dy < d; ++dy){
-	source = image + (dy + y) * w + x;
-	for(uint dx=0; dx < d; ++dx){
-	  *dest += *source * *gsq_source;
-	  ++source;
-	  ++gsq_source;
-	}
-      }
-      ++dest;
-    }
-  }
-  delete []g_sq;
-  return(b_image);
+  return(gaussian_blur_1d(image, w, h, radius));
 }
+	 
+// {
+//   float* g_sq = gaussian_square(radius);
+//   float* b_image = new float[w * h];
+//   memset((void*)b_image, 0, sizeof(float) * w * h);
+//   // The easiest options, which I'll do for now, suggest leaving
+//   // the edges empty. We can maybe fix this later, but for now let's
+//   // be stupid.
+//   unsigned int d = 1 + 2 * radius;
+//   float* dest;
+//   float* gsq_source;
+//   float* source; 
+//   for(uint y=0; y < h - d; ++y){
+//     dest = b_image + (y + radius) * w + radius;
+//     for(uint x=0; x < w - d; ++x){
+//       gsq_source = g_sq;
+//       for(uint dy=0; dy < d; ++dy){
+// 	source = image + (dy + y) * w + x;
+// 	for(uint dx=0; dx < d; ++dx){
+// 	  *dest += *source * *gsq_source;
+// 	  ++source;
+// 	  ++gsq_source;
+// 	}
+//       }
+//       ++dest;
+//     }
+//   }
+//   delete []g_sq;
+//   return(b_image);
+// }
 
 float* gaussian_blur_1d(float* image, unsigned int w, unsigned int h, unsigned int radius)
 {

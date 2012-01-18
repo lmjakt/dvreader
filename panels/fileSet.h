@@ -178,6 +178,7 @@ class FileSet {
     void setLookupTables(std::vector<channel_info>& ch_info);
 
     std::map<float, std::map<float, FrameStack*> > frames;      // since this is inconvenient to access I'll have an accessor function
+    std::vector<FrameStack*> frame_order;   // merely for keeping track of the order. (Important for bleaching compensation)
     std::map<ulong, FrameStack*> frameIds;
     IdMap* framePosMap;
     std::set<fluorInfo> flInfo;        // the various file sets and things.. 

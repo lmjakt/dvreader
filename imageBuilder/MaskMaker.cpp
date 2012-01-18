@@ -140,15 +140,15 @@ vector<QPoint> MaskMaker::getPerimeter(int& id, QString& source, bool global)
 
 void MaskMaker::startSegment(QPoint p, bool global)
 {
-  cout << "start : " << p.x() << "," << p.y() << " --> ";
+  //  cout << "start : " << p.x() << "," << p.y() << " --> ";
   if(global)
     globalToLocal(p);
   if(checkPoint(p)){
-    cout << p.x() << "," << p.y();
+    //cout << p.x() << "," << p.y();
     currentSegment.push_back(p);
     currentSegmentPoints.push_back(p);
   }
-  cout << endl;
+  //  cout << endl;
 }
 
 void MaskMaker::addSegmentPoint(QPoint p, bool global)
@@ -157,15 +157,15 @@ void MaskMaker::addSegmentPoint(QPoint p, bool global)
     startSegment(p, global);
     return;
   }
-  cout << "add  : " << p.x() << "," << p.y() << " --> ";
+  //cout << "add  : " << p.x() << "," << p.y() << " --> ";
   if(global)
     globalToLocal(p);
-  cout << p.x() << "," << p.y() << endl;
+  //cout << p.x() << "," << p.y() << endl;
   if(!checkPoint(p)){
     return;
   }
   QPoint p1 = currentSegmentPoints.back();
-  cout << "\t\tp1 : " << p1.x() << "," << p1.y() << endl;
+  //cout << "\t\tp1 : " << p1.x() << "," << p1.y() << endl;
   vector<QPoint> points = drawLine(p1, p, maskPicture, true);
   currentSegmentPoints.insert(currentSegmentPoints.end(), points.begin(), points.end());
   currentSegment.push_back(p);
@@ -173,12 +173,12 @@ void MaskMaker::addSegmentPoint(QPoint p, bool global)
 
 void MaskMaker::endSegment(QPoint p, bool global)
 {
-  cout << "end : " << p.x() << "," << p.y() << "  --> ";
+  //cout << "end : " << p.x() << "," << p.y() << "  --> ";
   if(!currentSegmentPoints.size())
     return;
   if(global)
     globalToLocal(p);
-  cout << p.x() << "," << p.y() << endl; 
+  //  cout << p.x() << "," << p.y() << endl; 
   if(checkPoint(p)){
     vector<QPoint> points = drawLine(currentSegmentPoints.back(), p, maskPicture, true);
     currentSegmentPoints.insert(currentSegmentPoints.end(), points.begin(), points.end());
@@ -301,7 +301,7 @@ void MaskMaker::drawPoints(vector<QPoint>& points, unsigned char* m)
 // and this will be used for the mask and also the drawing.. 
 bool MaskMaker::checkSegment(vector<QPoint>& points)
 {
-  cout << "checkSegment points.size() : " << points.size() << endl;
+  //  cout << "checkSegment points.size() : " << points.size() << endl;
   int end, begin;
   end = begin = -1;
   for(uint i=0; i < points.size(); ++i){
@@ -324,7 +324,7 @@ bool MaskMaker::checkSegment(vector<QPoint>& points)
   }
   if(begin >= end)
     return(false);
-  cout << "checkSegment " << begin << " -> " << end << endl;
+  //cout << "checkSegment " << begin << " -> " << end << endl;
   vector<QPoint> okPoints;
   unsigned int per_beg, per_end;
   if(!perimeterIndexAt(points[begin], per_beg) || !perimeterIndexAt(points[end], per_end)){
@@ -380,7 +380,7 @@ void MaskMaker::checkSegmentDirection(vector<QPoint>& points)
     float my = fpoints[i-1].x() > 0 ? -1 : 1;
     cwise_sum += (mx * dx) + (my * dy);
   }
-  cout << "CheckSegmentDirection cwise_sum : " << cwise_sum << endl;
+  //cout << "CheckSegmentDirection cwise_sum : " << cwise_sum << endl;
   if(cwise_sum > 0)
     return;
   // we need to reverse the points vector
@@ -392,7 +392,7 @@ void MaskMaker::checkSegmentDirection(vector<QPoint>& points)
 
 void MaskMaker::mergeSegments()
 {
-  cout << "Merging the segments" << endl;
+  //cout << "Merging the segments" << endl;
   // start at the first position of the first border Segment and trace the positions.
   if(!borderSegments.size())
     return;

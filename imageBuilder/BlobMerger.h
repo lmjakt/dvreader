@@ -33,10 +33,10 @@ class BlobMerger {
   float maxBlobDistance; // set to the maximum distance in the r-cube
 
   void initOffsets();
-  std::vector<int> adjustOffsets(unsigned int map_id);
+  std::vector<int> adjustOffsets(ChannelOffset& ch_off);
   void initMaps();
   void initMap(Blob_mt_mapper* mapper, blob** map);
-  std::vector<blob*> getNeighborBlobs(unsigned int map_id, int p);
+  std::vector<blob*> getNeighborBlobs(unsigned int map_id, int p, ChannelOffset& ch_off);
   bool isComplete(std::vector<blob*> bv);
   std::vector<blob_set> merge();
   std::vector<blob_set> collapseDuplicates(std::map<blob*, std::set<blob*> >& blob_links);

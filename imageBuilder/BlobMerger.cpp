@@ -59,15 +59,15 @@ void BlobMerger::initOffsets()
 }
 
 
-vector<int> BlobMerger::adjustOffsets(unsigned int map_id)
+vector<int> BlobMerger::adjustOffsets(ChannelOffset& ch_off)
 {
-  if(map_id >= mappers.size())
-    return(offsets);
+  //if(map_id >= mappers.size())
+  //  return(offsets);
   vector<int> adjusted(offsets.size());
   for(unsigned int i=0; i < offsets.size(); ++i){
     adjusted[i] = offsets[i] + 
-      (channelOffsets[map_id].z() * pos.w * pos.h) + 
-      (channelOffsets[map_id].y() * pos.w) + channelOffsets[map_id].x();
+      (ch_off.z() * pos.w * pos.h) + 
+      (ch_off.y() * pos.w) + ch_off.x();
   }
   return(adjusted);
 }
@@ -100,14 +100,14 @@ void BlobMerger::initMap(Blob_mt_mapper* mapper, blob** map)
  
 // rewrite this so that it gives only the closest or the strongest blob
 // more than one neighbour makes no sense
-vector<blob*> BlobMerger::getNeighborBlobs(unsigned int map_id, int p)
+vector<blob*> BlobMerger::getNeighborBlobs(unsigned int map_id, int p, ChannelOffset& ch_off)
 {
   vector<blob*> nb;
   float dist = 2 * offset_dists[0]; // this assumes that offsets start from -r,-r,-r
   if(map_id >= maps.size())
     return(nb);
   int size = pos.w * pos.h * pos.d;
-  vector<int> adjustedOffsets = adjustOffsets(map_id);
+  vector<int> adjustedOffsets = adjustOffsets(ch_off);
   for(unsigned int i=0; i < adjustedOffsets.size(); ++i){
     int o = adjustedOffsets[i] + p;
     if(o < 0 || o >= size)
@@ -129,22 +129,22 @@ vector<blob*> BlobMerger::getNeighborBlobs(unsigned int map_id, int p)
   return(nb);
 }
 
-bool BlobMerger::isComplete(vector<blob*> bv)
-{
-  set<blob*> b;
-  b.insert(bv.begin(), bv.end());
-  for(set<blob*>::iterator it=b.begin(); it != b.end(); ++it){
-    int pos = (*it)->peakPos;
-    for(unsigned int i=0; i < maps.size(); ++i){
-      vector<blob*> nb = getNeighborBlobs(i, pos);
-      for(unsigned int j=0; j < nb.size(); ++j){
-	if(!b.count(nb[j]))
-	  return(false);
-      }
-    }
-  }
-  return(true);
-}
+// bool BlobMerger::isComplete(vector<blob*> bv)
+// {
+//   set<blob*> b;
+//   b.insert(bv.begin(), bv.end());
+//   for(set<blob*>::iterator it=b.begin(); it != b.end(); ++it){
+//     int pos = (*it)->peakPos;
+//     for(unsigned int i=0; i < maps.size(); ++i){
+//       vector<blob*> nb = getNeighborBlobs(i, pos);
+//       for(unsigned int j=0; j < nb.size(); ++j){
+// 	if(!b.count(nb[j]))
+// 	  return(false);
+//       }
+//     }
+//   }
+//   return(true);
+// }
 
 vector<blob_set> BlobMerger::merge()
 {
@@ -155,7 +155,8 @@ vector<blob_set> BlobMerger::merge()
       set<blob*> links;
       for(unsigned j=0; j < mappers.size(); ++j){
  	if(i != j){
- 	  vector<blob*> nb = getNeighborBlobs(j, (*it).second->peakPos);
+	  ChannelOffset ch_off( channelOffsets[i] - channelOffsets[j] );
+ 	  vector<blob*> nb = getNeighborBlobs(j, (*it).second->peakPos, ch_off);
 	  links.insert(nb.begin(), nb.end());
 	}
       }

@@ -204,7 +204,8 @@ void PerimeterPlotter::initializeGL(){
     glClearColor(0.0, 0.0, 0.0, 0.0);
     glShadeModel(GL_FLAT);
     glEnable(GL_DEPTH_TEST);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);  // note if we use RGBA or we use floats we shouldn't need to call this.. (but for now the example.._)
+
+    //    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);  // note if we use RGBA or we use floats we shouldn't need to call this.. (but for now the example.._)
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -257,11 +258,17 @@ void PerimeterPlotter::paintEvent(QPaintEvent* e){
     // and here we do the gl painting stuff.. 
     int margin = 40;
     int z = 0;
+    // CONFUSION WARNING
+    // I don't know why the below works. The stuff further down used to work.
+    // But now it seems that I have a window from -1 -> 1 or something like
+    // that. (Hence scale by the 2.0 / (xscale / width)
+    glTranslatef(-1, -1, 0);
+    glScalef(2.0 * xScale / width(), 2.0 * yScale / height(), 1.0);
 
-    // need to set the pen or not ?? 
-    glScalef(xScale, -yScale, 1.0);
-    glTranslatef(0.0, ((float)-height())/yScale, 0.0);
-
+    //************ This is the stuff that worked. stuff above this is experimental.
+    //glScalef(xScale, -yScale, 1.0);
+    //glTranslatef(0.0, ((float)-height())/yScale, 0.0);
+    //***************
     ///////////////////////////
 
 
@@ -271,10 +278,12 @@ void PerimeterPlotter::paintEvent(QPaintEvent* e){
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
     glBindTexture(GL_TEXTURE_2D, texture);
     glBegin(GL_QUADS);
+
     glTexCoord2f(0,0); glVertex3i(0, 0, z-1);
     glTexCoord2f(0,1); glVertex3i(0, textureSize, z-1);
     glTexCoord2f(1,1); glVertex3i(textureSize, textureSize, z-1);
     glTexCoord2f(1,0); glVertex3i(textureSize, 0, z-1);
+
     glEnd();
     glPopAttrib();
 
@@ -380,6 +389,17 @@ void PerimeterPlotter::setBackground(float* data, unsigned int w, unsigned int h
 //    memset((void*)bg, 0, textureSize * textureSize * 3 * sizeof(float));
 
     makeCurrent();
+
+    //below is just for testing purposes.. 
+    // for(int y=0; y < h; ++y){
+    //   //cout << y << "  ";
+    //   for(int x=0; x < w; ++x){
+    // 	float r = (!(y % 20)) || (!(x % 20)) ? 0.5 : 0.0;
+    // 	//cout << "  " << r;
+    // 	foreground[ 3 * (y * textureSize + x) ] = r;
+    //   }
+    //   //      cout << endl;
+    // }
 
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, textureSize, textureSize, GL_RGB, GL_FLOAT, background);

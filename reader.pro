@@ -1,6 +1,6 @@
 # change debug to release and recompile when working
 TEMPLATE        = app
-CONFIG          += qt opengl release thread
+CONFIG          += qt opengl debug thread
 QT		+= qt3support 
 CONFIG          += console
 LIBS		+= -lrt
@@ -131,6 +131,7 @@ HEADERS		= \
                 imageBuilder/BlobMerger.h \
                 imageBuilder/BlobSetPlotter.h \
                 imageBuilder/CellParCollector.h \
+		imageBuilder/dir_k_cluster.h \
 		util/matrix.h \
                 util/c_array.h
 SOURCES		= \
@@ -251,6 +252,7 @@ SOURCES		= \
                 imageBuilder/BlobMerger.cpp \
                 imageBuilder/BlobSetPlotter.cpp \
                 imageBuilder/CellParCollector.cpp \
+		imageBuilder/dir_k_cluster.cpp \
 		util/matrix.cpp \
                 util/c_array.cpp \
 		globalVariables.cpp \

@@ -4,6 +4,7 @@
 #include "opengl/glImage.h"
 #include "centerFinder.h"
 #include "imStack.h"
+#include "dir_k_cluster.h"
 #include "blob_mt_mapper.h"
 #include "CellOutlines.h"
 #include "CellCollection.h"
@@ -90,10 +91,13 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   general_functions["set_panel_bias"] = &ImageBuilder::setPanelBias;
   general_functions["set_frame_bgpar"] = &ImageBuilder::setFrameBackgroundPars;
   general_functions["find_center"] = &ImageBuilder::findCenter;
+  general_functions["make_stack"] = &ImageBuilder::makeImStack;
+  general_functions["cluster_voxels"] = &ImageBuilder::clusterVoxels;
   general_functions["f_project"] = &ImageBuilder::build_fprojection;
   general_functions["fg_project"] = &ImageBuilder::build_fgprojection;
   general_functions["add_slice"] = &ImageBuilder::addSlice;
   general_functions["blur_stack"] = &ImageBuilder::blurStack;
+  general_functions["z_mult_stack"] = &ImageBuilder::stack_mult_z_nbor;
   general_functions["deblur_stack"] = &ImageBuilder::deBlurStack;
   general_functions["sub_stack"] = &ImageBuilder::subStack;
   general_functions["stack_bgsub"] = &ImageBuilder::subStackBackground;
@@ -413,7 +417,7 @@ void ImageBuilder::build_fgprojection(f_parameter& par)
 {
   unsigned int wi;
   if(!par.param("wi", wi)){
-    cerr << "ImageBuilder::build_fgprojection need to specify wave indes (wi)" << endl;
+    cerr << "ImageBuilder::build_fgprojection need to specify wave index (wi)" << endl;
     return;
   }
   if(wi > channels.size()){
@@ -509,6 +513,104 @@ void ImageBuilder::build_fgprojection(f_parameter& par)
     delete []bl_stack;
   }
   setRGBImage(rgbData, data->pwidth(), data->pheight());
+}
+
+void ImageBuilder::makeImStack(f_parameter& par)
+{
+  QString error;
+  QTextStream qts(&error);
+  // Need to specify:
+  // 1. wave_indices (wi). Comma separated indices
+  // 2. x, y, z positions
+  // 3. width, height, depth
+  // 4. a boolean indicating whether to use cmap (use_cmap) or not.. 
+  // 5. a name of the image stack.
+  //    which will be stored in the imageStacks map
+  // then simply use the FileSet::imageStack(...) function.
+  
+  QString stackName;
+  int x, y, z;
+  unsigned int w, h, d; // these all have to be specified no defaults
+  std::vector<unsigned int> wi;
+  if(!par.param("stack", stackName) || !stackName.length())
+    qts << "Please specify a stack name for the new stack\n";
+  if(!par.param("x", x) || !par.param("y", y) || !par.param("z", z))
+    qts << "Please specify position of stack x=.. y=.. z=..\n";
+  if(!par.param("w", w) || !par.param("h", h) || !par.param("d", d))
+    qts << "Please specify dimensions of stack w=.. h=.. d=..\n";
+  if(!par.param("wi", ',', wi))
+    qts << "Please specify the wave indices to use\n";
+  if(error.length()){
+    warn(error);
+    return;
+  }
+  bool use_cmap = true;
+  par.param("cmap", use_cmap);
+  ImStack* stack = data->imageStack(wi, x, y, z, w, h, d, use_cmap);
+  
+  if(!stack){
+    warn("Error: data->imageStack() returned NULL stack");
+    return;
+  }
+  string text_file;
+  if(par.param("export_text", text_file))
+    stack->exportAscii(text_file);
+  if(imageStacks.count(stackName))
+    delete imageStacks[stackName];
+  imageStacks[stackName] = stack;
+  qts << "Successfully created image stack (" << stackName << ") with " << stack->ch() << " channels";
+  warn(error);  // though not an error at this point.
+}
+
+void ImageBuilder::clusterVoxels(f_parameter& par)
+{
+  QString error;
+  QTextStream qts(&error);
+  // Specify
+  // 1. an Image stack from which to cluster voxels based on their spectral curves
+  // 2. the number of clusters to obtain..
+  // 3. the number of iterations to run.
+  // 4. Optionally the name of the cluster object
+  QString stackName;
+  unsigned int k, n;
+  if(!par.param("stack", stackName) || !imageStacks.count(stackName))
+    qts << "Please specify an existing image stack : stack=..\n" ;
+  if(!par.param("k", k) || !k)
+    qts << "Specify the number of clusters as a non-negative number k=..\n";
+  if(!par.param("n", n) || !n)
+    qts << "Specify the number of iterations to run the cluster process for n=..\n";
+  if(error.length()){
+    warn(error);
+    return;
+  }
+  // the image stack needs to have more than one channel..
+  if(imageStacks[stackName]->ch() < 2){
+    warn("The specified image stack has 0 or 1 channels, cannot cluster by direction");
+    return;
+  }
+  QString clusterName = stackName;
+  par.param("cluster", clusterName);
+  if(voxel_clusters.count(clusterName))
+    delete voxel_clusters[ clusterName ];
+
+  Dir_K_Cluster* clusterObject = new Dir_K_Cluster( imageStacks[ stackName ] );
+  voxel_clusters[ clusterName ] = clusterObject;
+  // need some way of deleting..
+  clusterObject->cluster(k, n);
+  std::vector<std::vector<float> > centers = clusterObject->clusterCenters();
+  for(unsigned int i=0; i < centers.size(); ++i){
+    cout << i;
+    for(unsigned int j=0; j < centers[i].size(); ++j)
+      cout << "\t" << centers[i][j];
+    cout << endl;
+  }
+  // Export the normalised stack..
+  string ascii_file;
+  if(par.param("export_text", ascii_file)){
+    ImStack* data = clusterObject->vector_data();
+    data->exportAscii(ascii_file);
+  }
+
 }
 
 bool ImageBuilder::addBackground(unsigned int wi, unsigned int slice, color_map cm)
@@ -1749,6 +1851,79 @@ void ImageBuilder::blurStack(f_parameter& par)
   updateStacks(blurStack, newStack, true);
 }
 
+// seems like a imStack* getStack(f_paramter& par) function would be useful, 
+void ImageBuilder::stack_mult_z_nbor(f_parameter& par)
+{
+  QString stackName;
+  if(!par.param("stack", stackName) || !imageStacks.count(stackName)){
+    cerr << "ImageBuilder::blurStack stack not specified or unknown : " << stackName.toAscii().constData() << endl;
+    return;
+  }
+  QString newStackName;
+  if(!par.param("m_stack", newStackName)){
+    warn("Please specify the name of the new multiplied stack m_stack=..");
+    return;
+  }
+  ImStack* imStack = imageStacks[stackName];
+  unsigned int wi=0;
+  par.param("wi", wi);
+  float* stack = imStack->stack(wi);
+  if(!stack){
+    warn("ImageBuilder::stack_mult_z_nbor wave index specified is probably too large");
+    return;
+  }
+  unsigned long s_size = imStack->w() * imStack->h() * imStack->d();
+  if(!s_size){
+    warn("Specifed image Stack appears to have null dimensions");
+    return;
+  }
+  float* nStack = new float[ s_size ];
+  memset((void*)nStack, 0, sizeof(float) * s_size);
+  unsigned int s_area = imStack->w() * imStack->h();
+  float* dst = nStack + s_area;  // first and last slices are set to 0.
+  float* src_p = stack;
+  float* src_c = stack + s_area;
+  float* src_a = stack + (s_area * 2);
+  float* src_end = stack + s_size;
+  while(src_a < src_end){
+    *(dst++) = *(src_p++) * *(src_c++) * *(src_a++);
+  }
+  channel_info c_info = imStack->cinfo(wi);
+  ImStack* newStack = new ImStack(nStack, c_info, imStack->xp(), imStack->yp(), imStack->zp(),
+				  imStack->w(), imStack->h(), imStack->d());
+  updateStacks(newStackName, newStack, true);
+}  
+
+void ImageBuilder::blurStack_2d(f_parameter& par)
+{
+  warn("ImageBuilder::blurStack_2d has been put on the backshelf for now");
+  return;
+  QString stackName;
+  if(!par.param("stack", stackName) || !imageStacks.count(stackName)){
+    warn("blurStack_2d no stack=.. specified or unknown stack");
+    return;
+  }
+  ImStack* stack = imageStacks[stackName];
+  std::vector<unsigned int> stack_channels;
+  for(unsigned int i=0; i < stack->ch(); ++i)  // default to blurring all channels
+    stack_channels.push_back(i);
+  if(par.param("ch", ',', stack_channels)){
+    for(unsigned int i=0; i < stack_channels.size(); ++i){
+      if(stack_channels[i] >= stack->ch()){
+	warn("blurStack_2d stack_channel too large");
+	return;
+      }
+    }
+  }
+  unsigned int radius = 4;
+  par.param("r", radius);
+  if(!radius){
+    warn("blurStack_2d illegal (0) radius specified");
+    return;
+  }
+  
+}
+
 void ImageBuilder::deBlurStack(f_parameter& par)
 {
   QString stackName;
@@ -2797,16 +2972,20 @@ void ImageBuilder::mergeBlobs(f_parameter& par)
   vector<int> offsets;
   if(par.param("offsets", ',', offsets)){
     if(offsets.size() == mapperNames.size() * 3){
-      for(unsigned int i=0; i < offsets.size(); i += 3)
-	offsetMap.insert(make_pair(mapperNames[i/3], 
-				    ChannelOffset(i, offsets[i], offsets[i+1], offsets[i+2])));
+      for(unsigned int i=0; i < offsets.size(); i += 3){
+	ChannelOffset co(i, offsets[i], offsets[i+1], offsets[i+2]);
+	offsetMap[ mapperNames[i/3] ] = co;
+	cout << "inserting into offsetMap key: " << mapperNames[i/3].ascii() << " : "
+	     << i << " : " << offsets[i] << "," << offsets[i+1] << "," << offsets[i+2] << endl;
+	cout << "   and co : " << co.x() << "," << co.y() << "," << co.z() << endl;
+      }
     }else{
       warn("channel offsets must be specified for each channel offsets=x1,y1,z1,x2,y2,etc\n");
     }
   }
   unsigned int radius = 1;
   par.param("r", radius);
-      
+  
   vector<vector<Blob_mt_mapper*> > mappers;
   vector<QString> used_mapperNames;
   vector<ChannelOffset> ch_offsets;
@@ -2814,6 +2993,8 @@ void ImageBuilder::mergeBlobs(f_parameter& par)
     if(mapper_collections.count(mapperNames[i])){
       mappers.push_back(mapper_collections[mapperNames[i]]);
       ch_offsets.push_back(offsetMap[mapperNames[i]]);
+      cout << "Pushing back ch_offsets name : " << mapperNames[i].ascii() << " :: " << offsetMap[mapperNames[i]].x() 
+	   << "," << offsetMap[mapperNames[i]].y() << "," << offsetMap[mapperNames[i]].z() << endl;
       used_mapperNames.push_back(mapperNames[i]);  // remove these from mapper_collections if successful.. 
     }else{
       warn("mergeBlobs unknown mapper collection name");
@@ -3028,6 +3209,8 @@ void ImageBuilder::project_blob_sets(f_parameter& par)
   setBigOverlay(overlayData, 0, 0, data->pwidth(), data->pheight());
 }
 
+// I think ids refers to cell ids rather than
+// blob_set_ids
 void ImageBuilder::project_blob_ids(f_parameter& par)
 {
   QString blobName;  //
@@ -3355,7 +3538,7 @@ void ImageBuilder::modifyCells(f_parameter& par)
   bool clear = true;
   par.param("clear", clear);
   if(!par.param("cells", mapName))
-    qts << "Specify map name : map=..\n";
+    qts << "Specify map name : cells=..\n";
   if(mapName.length() && ( !cellCollections.count(mapName)) )
     //  if(mapName.length() && ( !cellIdMasks.count(mapName) || !cellCollections.count(mapName)) )
     qts << "Unknown cell map (cellIdMasks) or cell collection (cellCollections) : " << mapName << "\n";

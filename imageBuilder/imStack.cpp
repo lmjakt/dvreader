@@ -2,6 +2,8 @@
 #include "../dataStructs.h"
 #include <sstream>
 #include <string.h>
+#include <fstream>
+
 
 using namespace std;
 
@@ -11,7 +13,8 @@ ImStack::ImStack(float** data, vector<channel_info>& ch_info, int x, int y, int 
 
   channels = ch_info;
   for(uint i=0; i < channels.size(); ++i)
-    imData.push_back( data[i * w * h * d] );
+    imData.push_back( data[i] );
+  //    imData.push_back( data[i * w * h * d] );
   xo = x; yo = y; zo = z;
   width = w; height = h; depth = d;
 }
@@ -78,7 +81,7 @@ stack_info ImStack::info()
   return(sinfo);
 }
 
-void ImStack::addChannel(float* data, channel_info& ch_info)
+void ImStack::addChannel(float* data, channel_info ch_info)
 {
   imData.push_back(data);
   channels.push_back(ch_info);
@@ -90,6 +93,31 @@ bool ImStack::setData(float* data, unsigned int ch)
     return(false);
   delete imData[ch];
   imData[ch] = data;
+  return(true);
+}
+
+bool ImStack::exportAscii(string f_name)
+{
+  ofstream out(f_name.c_str());
+  if(!out)
+    return(false);
+  out << "z\ty\tx";
+  for(unsigned int i=0; i < channels.size(); ++i){
+    out << "\t" << channels[i].finfo.excitation << "-" << channels[i].finfo.emission;
+  }
+  out << "\n";
+  for(unsigned int z=0; z < depth; ++z){
+    for(unsigned int y=0; y < height; ++y){
+      for(unsigned int x=0; x < width; ++x){
+	out << z << "\t" << y << "\t" << x;
+	for(unsigned int c=0; c < imData.size(); ++c){
+	  out << "\t" << imData[c][ z * width * height + y * width + x];
+	}
+	out << "\n";
+      }
+    }
+  }
+  out.close();
   return(true);
 }
 

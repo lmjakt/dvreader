@@ -20,8 +20,9 @@ class ImStack
   ~ImStack();
 
   stack_info info();
-  void addChannel(float* data, channel_info& ch_info);
+  void addChannel(float* data, channel_info ch_info);
   bool setData(float* data, unsigned int ch);
+  bool exportAscii(std::string f_name);
   std::string description();
   bool subtract(ImStack* b, unsigned int ch, unsigned int b_ch, float mult, bool allowNeg, int xoff=0, int yoff=0, int zoff=0);
   float* stack(unsigned int ch);
