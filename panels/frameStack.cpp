@@ -754,7 +754,6 @@ bool FrameStack::mip_projection(float* dest, int xpos, int ypos, unsigned int de
 bool FrameStack::readToFloatPro(float* dest, unsigned int xb, unsigned int iwidth, unsigned int yb, 
 				unsigned int iheight, unsigned int wave)
 {
-    cout << "readToFloatPro " << xb << ", " << yb << " :  " << iwidth << ", " << iheight << endl;
     if(!projection){
       cout << "no projection so calling finalise" << endl;
 	finalise(maxIntensity);

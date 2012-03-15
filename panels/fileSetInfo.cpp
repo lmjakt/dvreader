@@ -55,11 +55,10 @@ void writeInt(ofstream& out, unsigned int value){
 FileSetInfo::FileSetInfo(const char* fname){
     stackNo = 0;
     fileName = fname;
-    cout << "FileSetInfo::FileSetInfo reading infrom file : " << fname << endl;
     ok = true;
     ifstream in(fname);
     if(!in){
-	cout << "Unable to read file info from file so returning with ok set to false" << endl;
+	cerr << "Unable to read file info from file so returning with ok set to false" << endl;
 	ok = false;
 	return;
     }
@@ -76,10 +75,10 @@ FileSetInfo::FileSetInfo(const char* fname){
     readInt(in, width);
     readInt(in, height);
     
-    cout << "magic : " << magic << endl;
-    cout << "\tstackNo " << stackNo << "\n"
-	 << "\twaveNo " << waveNo << "\n"
-	 << "\twidth x height " << width << " x " << height << endl;
+    // cout << "magic : " << magic << endl;
+    // cout << "\tstackNo " << stackNo << "\n"
+    // 	 << "\twaveNo " << waveNo << "\n"
+    // 	 << "\twidth x height " << width << " x " << height << endl;
 
     if(width * height > (uint)maxPixelNo){
 	cerr << "dimensions of stacks are larger than max allowed size : " << width << " x " << height << endl;
@@ -96,7 +95,6 @@ FileSetInfo::FileSetInfo(const char* fname){
     waveLengths.resize(waveNo);
     for(uint i=0; i < waveLengths.size(); ++i){
 	readInt(in, waveLengths[i]);
-	cout << "read wavelength : " << waveLengths[i] << endl;
     }
     
     // then read
@@ -114,7 +112,7 @@ FileSetInfo::FileSetInfo(const char* fname){
 	readInt(in, finfo->width);
 	readInt(in, finfo->height);
 	readInt(in, finfo->waveNo);   // this is merely to check it against the wave number given above..
-	cout << i << "\tRead in frameinfo at position : " << finfo->xp << ", " << finfo->yp << endl;
+	//	cout << i << "\tRead in frameinfo at position : " << finfo->xp << ", " << finfo->yp << endl;
 	// although this is an unsigned int.. hmm. 
 	if(finfo->waveNo != waveLengths.size()){
 	    cerr << "FileSetInfo::FileSetInfo waveNo != waveLengths.size() " << waveNo << " : " << waveLengths.size() << endl;

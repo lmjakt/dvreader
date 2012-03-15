@@ -78,9 +78,9 @@ void mt_rgb_lookup::toRGB_direct()
 
 void mt_rgb_lookup::toRGB_contrib()
 {
-  cout << "toRGB_contrib source : " << source_x << "," << source_y << " : " << source_w
-       << "\tdest : " << dst_x << "," << dst_y << " : " << dst_w
-       << "\tread : " << r_width << "," << r_height << endl;
+  //cout << "toRGB_contrib source : " << source_x << "," << source_y << " : " << source_w
+  //  << "\tdest : " << dst_x << "," << dst_y << " : " << dst_w
+  //   << "\tread : " << r_width << "," << r_height << endl;
   for(unsigned int dy=0; dy < r_height; ++dy){
     unsigned short* s = src + source_x + (source_y + dy) * source_w;
     float* cm = contribMap + source_x + (source_y + dy) * source_w; // this isn't actually true at the moment

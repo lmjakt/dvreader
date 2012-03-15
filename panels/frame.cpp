@@ -325,7 +325,7 @@ bool Frame::readToRGB_s(float* dest, unsigned int source_x, unsigned int source_
   }
   // if simple conversion use lookup table..
   if(convertFunction == &Frame::convert_s){
-    cout << "Calling lookup_table->addToRGB : " << excitationWavelength << " --> " << emissionWavelength << endl;
+    //    cout << "Calling lookup_table->addToRGB : " << excitationWavelength << " --> " << emissionWavelength << endl;
     lookup_table->addToRGB_f(buffer, source_x, 0, pWidth,
 			     dest, dest_x, dest_y, dest_w,
 			     width, height, contribMap + source_y * pWidth); // we always read full lines.. 

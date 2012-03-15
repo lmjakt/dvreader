@@ -155,9 +155,6 @@ void OverlapEditor::makeRects(FileSetInfo* fsi){
       //						       (*it).second->width, (*it).second->height);
       //panel_pos.insert(make_pair( rect, a_pos( (*it).second->xp, (*it).second->yp) ));
       panels[(*ot).first][(*it).first] = rect;
-      cout << "added new rect at : " << (*it).second->xp << "," << (*it).second->yp
-	   << "  : " << (*it).second->width << "," << (*it).second->height << endl;
     }
   }
-  cout << "\n\n\n\n" << endl;
 }

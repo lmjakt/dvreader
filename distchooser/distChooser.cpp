@@ -47,7 +47,6 @@ using namespace std;
 DistChooser::DistChooser(string sName, int ds, QWidget* parent, const char* name)
   : QWidget(parent, name)
 {
-  cout << "constructing distchooser " << endl;
   divs = ds;
   statisticName = sName;
   rangesChanged = false;
@@ -85,12 +84,10 @@ DistChooser::DistChooser(string sName, int ds, QWidget* parent, const char* name
   menu->insertItem("Paste Ranges", this, SIGNAL(pasteRanges()) );
   menu->insertItem("Save Ranges", this, SIGNAL(saveRanges()));
   menu->insertItem("Read Ranges", this, SIGNAL(readRangesFromFile()) );
-  cout << "done constructing distchooser " << endl;
 }
 
 
 DistChooser::~DistChooser(){
-  cout << "deleting dist chooser " << endl;
   // do nothing 
 }
 

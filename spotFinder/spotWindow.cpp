@@ -193,9 +193,9 @@ void SpotWindow::setChannels(vector<QString> Channels){
     // make sure that we have enough norm_data ..
     norm_values.resize(Channels.size());
 
-    cout << "\t\t\tSpotWindow setChannels begin channelWidgets size : " << channelWidgets.size() << "\tChannels size : " << Channels.size() << endl;
+    //    cout << "\t\t\tSpotWindow setChannels begin channelWidgets size : " << channelWidgets.size() << "\tChannels size : " << Channels.size() << endl;
     for(uint i=channelWidgets.size(); i < Channels.size(); i++){
-	cout << "\t\t\t" << i << endl;
+      //	cout << "\t\t\t" << i << endl;
 	channelWidgets.push_back(new ChannelWidget(i, Channels[i], QColor(255, 255, 255), this));
 	channelBox->addWidget(channelWidgets.back());
 	connect(channelWidgets.back(), SIGNAL(newPeakValue(int, float)), this, SLOT(newPeakValue(int, float)) );
@@ -209,15 +209,15 @@ void SpotWindow::setChannels(vector<QString> Channels){
 		this, SLOT(findAllSpots3D(int, int, float, float, float, int, int, int, int, float, bool)) );
 	channelWidgets.back()->show();
     }
-    cout << "\t\t\tcalling set channels on modelwidget" << endl;
+    //    cout << "\t\t\tcalling set channels on modelwidget" << endl;
     modelWidget->setChannels(Channels);
-    cout << "\t\t\tcalling setChannels on nucleus widget " << endl;
+    //    cout << "\t\t\tcalling setChannels on nucleus widget " << endl;
     nucleusWidget->setChannels(Channels);
     contrastWidget->setChannels(Channels);
     blobMapperWidget->setChannels(Channels);
     setWidget->setChannels(Channels);
     blurWidget->setChannels(Channels);
-    cout << "\t\t\tstuff OK " << endl;
+    //    cout << "\t\t\tstuff OK " << endl;
     cavityBallWidget->setChannels(Channels);
 }
 
@@ -254,13 +254,13 @@ void SpotWindow::setNormalisations(vector<float*> areas, int width, int height){
 // that's pretty much all to begin with.. 
     
 void SpotWindow::newPeakValue(int id, float pv){
-    cout << "splotwindow new peak value " << id << "\t" << pv << endl;
+  //    cout << "splotwindow new peak value " << id << "\t" << pv << endl;
     xPlot->setMinPeakValue((unsigned int)id, pv);
     yPlot->setMinPeakValue((unsigned int)id, pv);
 }
 
 void SpotWindow::newMaxEdgeValue(int id, float ev){
-    cout << "spotwindow new max edge value " << ev << endl;
+  //    cout << "spotwindow new max edge value " << ev << endl;
     xPlot->setMaxEdgeValue((unsigned int)id, ev);
     yPlot->setMaxEdgeValue((unsigned int)id, ev);
 }
@@ -272,19 +272,19 @@ void SpotWindow::newScaleFactor(int id, float sf){
 
 void SpotWindow::findSpots(int id, int wsize, float minPeakValue, float maxEdgeValue, float minCorrelation, int r, int g, int b){
     // and send a message to the powers that be..
-    cout << "SpotWindow::findSpots called " << endl;
+  //    cout << "SpotWindow::findSpots called " << endl;
     emit findLocalMaxima(id, wsize/2, minPeakValue, maxEdgeValue);
 }
 
 void SpotWindow::findAllSpots(int id, int wsize, float minPeakValue, float maxEdgeValue, float minCorrelation, int r, int g, int b, int K, float bgm, bool exportFile){
     // and send a message to the powers that be..
-    cout << "SpotWindow::findSpots called " << endl;
+  //    cout << "SpotWindow::findSpots called " << endl;
     emit findAllLocalMaxima(id, wsize/2, minPeakValue, maxEdgeValue, K, bgm, exportFile);
 }
 
 void SpotWindow::findAllSpots3D(int id, int wsize, float minPeakValue, float maxEdgeValue, float minCorrelation, int r, int g, int b, int K, float bgm, bool exportFile){
     // and send a message to the powers that be..
-    cout << "SpotWindow::findSpots called " << endl;
+  //    cout << "SpotWindow::findSpots called " << endl;
     emit findAllLocalMaxima3D(id, wsize/2, minPeakValue, maxEdgeValue, K, bgm, exportFile);
 }
 
@@ -373,7 +373,7 @@ void SpotWindow::readSpotParameters(string p_file){
 
 void SpotWindow::setPeaks(map<int, linearPeaks> Peaks){
     linePeaks = Peaks;
-    cout << "setting new peak information .. " << endl;
+    //    cout << "setting new peak information .. " << endl;
 //    for(map<int, linearPeaks>::iterator it = Peaks.begin(); it != Peaks.end(); it++){
 //	cout << "\t" << (*it).first << "\t" << (*it).second.xPeaks.size() << "\t" << (*it).second.yPeaks.size() << endl;
 //    }

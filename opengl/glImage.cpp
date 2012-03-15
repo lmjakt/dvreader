@@ -47,6 +47,8 @@ using namespace std;
   Create a GLImage widget
 */
 
+// Note there are two constructors. One ought to call the other, but at the moment this doesn't
+// happen; for debugging make sure to check which constructor is used.
 GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texSize, GLfloat aspRatio, QWidget* parent, const char* name )
   : QGLWidget( parent, name )
 {
@@ -80,6 +82,7 @@ GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texWidth,
     : QGLWidget( parent, name )
 {
     setMouseTracking(true);
+    viewingState = VIEW;
     xo = yo = 0;
     buttonPressed = Qt::NoButton;
     xscale = yscale = 1;
@@ -660,27 +663,27 @@ void GLImage::initializeGL()
   // // use GL_BYTE as the internal storage, then 4 * byte for RGBA
   unsigned char* test_overlay_image = new unsigned char[textureWidth * textureHeight * 4];
   memset((void*)test_overlay_image, 0, sizeof(unsigned char) * 4 * textureWidth * textureHeight);
-  // and then make a circle or something .. 
-  for(int r=50; r < 75; ++r){
-    for(int dy=-r; dy <= r; ++dy){
-      int dx = (int)sqrt( (float)( (r * r) - (dy * dy) ) );
-      int y = (textureHeight / 2) + dy;
-      int x1 = (textureWidth / 2) - dx;
-      int x2 = (textureWidth / 2) + dx;
-      int off1 = 4 * (y * textureWidth + x1);
-      int off2 = 4 * (y * textureWidth + x2);
+  // // and then make a circle or something .. 
+  // for(int r=50; r < 75; ++r){
+  //   for(int dy=-r; dy <= r; ++dy){
+  //     int dx = (int)sqrt( (float)( (r * r) - (dy * dy) ) );
+  //     int y = (textureHeight / 2) + dy;
+  //     int x1 = (textureWidth / 2) - dx;
+  //     int x2 = (textureWidth / 2) + dx;
+  //     int off1 = 4 * (y * textureWidth + x1);
+  //     int off2 = 4 * (y * textureWidth + x2);
       
-      test_overlay_image[ off1 ] = 255;
-      test_overlay_image[ off1 + 1] = 255;
-      test_overlay_image[ off1 + 2] = 255;
-      test_overlay_image[ off1 + 3] = 125;
+  //     test_overlay_image[ off1 ] = 255;
+  //     test_overlay_image[ off1 + 1] = 255;
+  //     test_overlay_image[ off1 + 2] = 255;
+  //     test_overlay_image[ off1 + 3] = 125;
       
-      test_overlay_image[ off2 ] = 125;
-      test_overlay_image[ off2 + 1] = 125;
-      test_overlay_image[ off2 + 2] = 125;
-      test_overlay_image[ off2 + 3] = 50;
-    }
-  }
+  //     test_overlay_image[ off2 ] = 125;
+  //     test_overlay_image[ off2 + 1] = 125;
+  //     test_overlay_image[ off2 + 2] = 125;
+  //     test_overlay_image[ off2 + 3] = 50;
+  //   }
+  // }
   
     
   if(overlay_textures)

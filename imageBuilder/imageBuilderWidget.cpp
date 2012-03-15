@@ -89,14 +89,6 @@ void ImageBuilderWidget::setGreyImage(float* image, int w, int h, bool destroy_s
     rgbImage[ i * 3 + 1] = image[i] / max;
     rgbImage[ i * 3 + 2] = image[i] / max;
   }
-  for(int y=0; y < h; ++ y){
-    cout << y << ":";
-    for(int x=0; x < w; ++x){
-      cout << "\t" << image[ y * w + x ];
-    }
-    cout << endl;
-  }
-  cout << "max : " << max << endl;
   builder->setRGBImage(rgbImage, w, h);
   delete []rgbImage;
   if(destroy_source)
@@ -130,7 +122,6 @@ void ImageBuilderWidget::initialise(){
   // builder directory should be the home_dir/Imagebuilder
   // where home_dir is the application home. However, if home_dir 
   // is not given we have to mak
-  cout << "dvreader_home is : " << dvreader_home() << endl;
   if(!dvreader_home()){
     cerr << "dvreader_home is nothing" << endl;
     exit(1);

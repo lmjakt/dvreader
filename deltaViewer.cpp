@@ -658,9 +658,7 @@ void DeltaViewer::setWaveColors(){
 	colormap.insert(make_pair(wl, color_map(r, g, b)));
     }
     // but don't update image.. as this is used mostly only for the init..
-    cout << "setWaveColors blobManager is : " << blobManager << endl;
     setLinePlotterColors();
-    cout << "setWaveColors blobManager is : " << blobManager << endl;
     paintProjection();
 }
 
@@ -981,7 +979,6 @@ void DeltaViewer::paintProjection(){
     // 	return;
     // }
   
-  cout << "paint Projection 1 blobManager: " << blobManager << endl;
 
   vector<color_map> cv;
   for(map<int, color_map>::iterator it = colormap.begin(); it != colormap.end(); it++){
@@ -995,7 +992,6 @@ void DeltaViewer::paintProjection(){
   int colCounter = 0;
   
   //    int textureCounter = 0;
-  cout << "paint  Projection 2 blobManager: " << blobManager << endl;
   for(int yb = completeArea.py; yb < completeArea.py + completeArea.ph; yb += textureSize){
     colCounter = 0;
     
@@ -1004,7 +1000,6 @@ void DeltaViewer::paintProjection(){
       fileSet->mip_projection(data, xb, yb, textureSize, textureSize, maxLevel, biases, scales, cv);
       
       paintPeaks(data, xb, yb, textureSize, textureSize);
-      cout << "paint Projection 3 blobManager : " << blobManager << endl;
       paintBlobs(data, xb, yb, 0, textureSize, textureSize, true);
       paintParameterData(data, xb, yb, textureSize, textureSize);
       paintNuclei(data, xb, yb, textureSize, textureSize);
@@ -1124,14 +1119,13 @@ void DeltaViewer::paintPeaks(float* area, int px, int py, int w, int h){
 
 //    int total_width = fileSet->pwidth();
 //    int total_height = fileSet->pheight();
-    cout << "painting Peaks .. " << endl;
 
     map<int, SpotsWidget*>::iterator it;
     for(it = spotsWidgets.begin(); it != spotsWidgets.end(); it++){
 	// first check if this is a NO_REP type,
 	SpotsWidget* sw = (*it).second;
 	if(sw->dropType() == NO_REP){
-	    cout << "Drop type is NO_REP so ignoring" << endl;
+	  //	    cout << "Drop type is NO_REP so ignoring" << endl;
 	    continue;
 	}
 	// then work out the bias, scale and colors that I want to use..
@@ -1199,8 +1193,6 @@ void DeltaViewer::paintPeaks(float* area, int px, int py, int w, int h){
 }
 
 void DeltaViewer::paintBlobs(float* area, int xo, int yo, int z, int w, int h, bool isProjection){
-  cout << "blobManger is : " << endl;
-  cout << "\t::" << blobManager << endl;
     if(!blobManager)
 	return;
     set<BlobMapperWidget*> blobs = blobManager->blobMapperWidgets();
@@ -1452,7 +1444,7 @@ void DeltaViewer::blur(std::set<uint> channels, int r, double sigma, double orde
     // and then for each channel that we have get the data from the file sets,, not sure if I remember how to do this, but..
     float* buffer = new float[w * h];
     for(set<uint>::iterator it=channels.begin(); it != channels.end(); it++){
-	cout << "Getting values for channeld : " << (*it) << endl;
+      //	cout << "Getting values for channeld : " << (*it) << endl;
 	memset((void*)buffer, 0, sizeof(float) * w * h); // just in case not all of it gets used..
 	fileSet->readToFloatPro(buffer, 0, w, 0, h, (*it));
 	// and then increment the values by the values in this one..
@@ -1462,7 +1454,7 @@ void DeltaViewer::blur(std::set<uint> channels, int r, double sigma, double orde
 	for(uint i=0; i < (w * h); ++i){
 	    values[i] += buffer[i]; // I wonder if there is a faster way of doing this ?
 	}
-	cout << "values incremented" << endl;
+	//	cout << "values incremented" << endl;
     }
     // and this point we have a data set that we wish to blur. It seems that maybe we should put the blur functionality into the 
     // imageAnalyser object, -certainly seems more appropriate than here.. 
@@ -1488,7 +1480,7 @@ void DeltaViewer::blur(std::set<uint> channels, int r, double sigma, double orde
 }
 
 void DeltaViewer::paintNuclei(float* area, int px, int py, int w, int h){
-    cout << "paint Nuclei" << endl;
+  //    cout << "paint Nuclei" << endl;
     map<ColorChooser*, vector<Nucleus> >::iterator it;
     for(it = nuclearModels.begin(); it != nuclearModels.end(); it++){
 	float r, g, b;
@@ -1518,7 +1510,7 @@ void DeltaViewer::paintNuclei(float* area, int px, int py, int w, int h){
 }
 	
 void DeltaViewer::paintParameterData(float* area, int px, int py, int w, int h){
-    cout << "Paint ParamterData .." << endl;
+  //    cout << "Paint ParamterData .." << endl;
     map<ParameterChooser*, parameterData>::iterator it;
     for(it = parameterSets.begin(); it != parameterSets.end(); it++){
 	// read values from paramter sets.. 
@@ -1533,8 +1525,8 @@ void DeltaViewer::paintParameterData(float* area, int px, int py, int w, int h){
 	int dMaxY = pd.yOrigin + pd.height;
 	
 	pc->color(&r, &g, &b);
-	cout << "\tpaintParameterData : r, g, b : " << r << "," << g << "," << b << "  scale : " << scale << "  bias : " << bias 
-	     << "  minValue " << pd.minValue << "  maxValue : " << pd.maxValue  << endl;
+	//	cout << "\tpaintParameterData : r, g, b : " << r << "," << g << "," << b << "  scale : " << scale << "  bias : " << bias 
+	//   << "  minValue " << pd.minValue << "  maxValue : " << pd.maxValue  << endl;
 	if(r + g + b > 0){
 	    //    if(pd.xOrigin <= px && pd.xOrigin + pd.width >= px + w && pd.yOrigin <= py && pd.yOrigin + pd.height >= py + h){
 	    // this is cheap test as it says don't bother to deal with partial overlaps.. maybe we can deal with that later on..
@@ -1609,7 +1601,7 @@ void DeltaViewer::showOverlapEditor(){
 void DeltaViewer::newStackSelected(float x, float y){
   if(!olapEditor)
     return;
-  cout << "Deltaviewer new Stack selected at " << x << "," << y << endl;
+  //  cout << "Deltaviewer new Stack selected at " << x << "," << y << endl;
   olapEditor->setBorderImages( fileSet->borderInformation(x, y) );
 }
 
@@ -1621,7 +1613,7 @@ void DeltaViewer::adjustStackPosition(float x, float y, QPoint p){
 }
 
 void DeltaViewer::updateFileSetInfo(){
-  cout << "Update File set info trying to do something useful" << endl;
+  //  cout << "Update File set info trying to do something useful" << endl;
   if(!fileSet->updateFileSetInfo())
     cerr << "Unable to update file Set info" << endl;
 }
@@ -1634,7 +1626,7 @@ void DeltaViewer::setSliceNo(int n){
 }
 
 void DeltaViewer::increment_x_z_slice(int delta){
-    cout << "DeltaViewer::increment_x_z_slice  function currently unavailalbe, please code it up" << endl;
+    cerr << "DeltaViewer::increment_x_z_slice  function currently unavailalbe, please code it up" << endl;
     delta = delta;
 //     yPosition += delta;
 //     cout << "setting yPosition to : " << yPosition << endl;
@@ -1665,9 +1657,9 @@ void DeltaViewer::setSpotsUseProjection(bool useProjection){
 // }
 
 void DeltaViewer::setSlices(int xpos, int ypos){
-    cout << "DeltaViewer::setSlices .. this function is currently unsupported in panel reading stuff" << endl;
-    cout << "Ok, I should here be setting the data for the slices and perhaps redrawing them,, but " << endl;
-    cout << "xpos is : " << xpos << "  and ypos is " << ypos << endl;
+    cerr << "DeltaViewer::setSlices .. this function is currently unsupported in panel reading stuff" << endl;
+    cerr << "Ok, I should here be setting the data for the slices and perhaps redrawing them,, but " << endl;
+    cerr << "xpos is : " << xpos << "  and ypos is " << ypos << endl;
 //     x_zView->setImage(reader->x_zSlice(ypos), reader->width(), reader->sliceNo());
 //     if(!x_zView->isVisible()){
 // 	x_zView->show();
@@ -1717,7 +1709,7 @@ void DeltaViewer::plotLines(){   // use xposition and yposition..
 }
 
 void DeltaViewer::displaySlices(){
-    cout << "DeltaViewer::displaySlices this function is currently unsupported .. " << endl;
+    cerr << "DeltaViewer::displaySlices this function is currently unsupported .. " << endl;
 //     cout << "display Slices " << endl;
 //     x_zView->setImage(reader->x_zSlice(yPosition), reader->width(), reader->sliceNo());
 //     cout << "Images set " << endl;
@@ -1880,7 +1872,7 @@ void DeltaViewer::changeRanges(float mn, float mx){
     float min = choosers[i]->tMin();
     float max = choosers[i]->tMax();
     float Max = choosers[i]->vMax();  // which isn't actually necessarily true, but..
-    cout << endl << "Max : " << Max << "\tnew min : " << min << "  max : " << max << endl;
+    //    cout << endl << "Max : " << Max << "\tnew min : " << min << "  max : " << max << endl;
 
     float scaleFactor = 1.0 / (max - min);
     //    float scaleFactor = Max / (max - min);
@@ -1888,7 +1880,7 @@ void DeltaViewer::changeRanges(float mn, float mx){
     float biasFactor = -scaleFactor * (min);
     bFactors[i] = biasFactor;
     sFactors[i] = scaleFactor;
-    cout << "setting scale to : " << scaleFactor << "  bias : " << biasFactor << endl << endl;
+    //    cout << "setting scale to : " << scaleFactor << "  bias : " << biasFactor << endl << endl;
   }
   biases = bFactors;
   scales = sFactors;
@@ -1965,8 +1957,8 @@ bool DeltaViewer::setVisible(int& x, int& y, int& width, int& height)
 
 vector<channel_info> DeltaViewer::collect_channel_info(){
   vector<channel_info> chinfo;
-  cout << "DeltaViewer::collect_channel_info() size of colorChoosers : " << colorChoosers.size() << endl;
-  cout << "size of scales : " << scales.size() << endl;
+  //  cout << "DeltaViewer::collect_channel_info() size of colorChoosers : " << colorChoosers.size() << endl;
+  //  cout << "size of scales : " << scales.size() << endl;
   for(uint i=0; i < colorChoosers.size(); ++i){
     if(i >= scales.size() || i >= biases.size()){
       cerr << "DeltaViewer::setImage colorChoosers.size is larger than scales.size or biases.size()" << endl;
@@ -1974,13 +1966,13 @@ vector<channel_info> DeltaViewer::collect_channel_info(){
     }
     float r, g, b;
     colorChoosers[i]->color(&r, &g, &b);
-    cout << i << " color : " << r << "," << g << "," << b << endl;
+    //    cout << i << " color : " << r << "," << g << "," << b << endl;
     //      chinfo.push_back(channel_info( color_map(r, g, b), maxLevel, biases[i], scales[i],
     //				     useComponents->isChecked(), colorChoosers[i]->subtractColor()) );
     chinfo.push_back(channel_info(i, color_map(r, g, b), maxLevel, biases[i], scales[i],
 				   colorChoosers[i]->includeInMerger(), colorChoosers[i]->subtractColor()) );
     chinfo.back().finfo = fileSet->channelInfo(i);
-    cout << "pushed back" << endl;
+    //    cout << "pushed back" << endl;
   }
   return(chinfo);
 }
@@ -2051,7 +2043,7 @@ void DeltaViewer::setRanges(QString text){
       id = word.latin1();
       ts >> dMin >> dMax >> tMin >> tMax;   // should work,, ? 
       word = ts.readLine();   // just gets rid of the extra endl.
-      cout << "id : " << id << " dmin: " << dMin << " dmax: "<< dMax << " tmax: " << tMax << " tmin: " << tMin << endl;
+      //      cout << "id : " << id << " dmin: " << dMin << " dmax: "<< dMax << " tmax: " << tMax << " tmin: " << tMin << endl;
       // and now try to find a distchooser with the appropriate id..
       for(uint i=0; i < choosers.size(); i++){
 	  if(choosers[i]->statname() == id){
@@ -2063,7 +2055,7 @@ void DeltaViewer::setRanges(QString text){
 }  
 
 vector<color_map> DeltaViewer::readColors(string fname){
-  cout << "DeltaViewer::readColors filename : " << fname << endl;
+  //  cout << "DeltaViewer::readColors filename : " << fname << endl;
   ifstream in(fname.c_str());
   vector<color_map> cm;
   if(!in)
@@ -2075,7 +2067,7 @@ vector<color_map> DeltaViewer::readColors(string fname){
 }
 
 void DeltaViewer::pasteRanges(){
-    cout << "paste Ranges function " << endl;
+  //    cout << "paste Ranges function " << endl;
     QClipboard* cb = QApplication::clipboard();
     QString text = cb->text(QClipboard::Clipboard);
     setRanges(text);
@@ -2092,7 +2084,7 @@ void DeltaViewer::stopTimer(){
 }
 
 void DeltaViewer::findLocalMaxima(int wl, int radius, float minPeakValue, float maxEdgeValue){
-    cout << "DeltaViewer::findLocalMaxima currently being redesigned" << endl;
+    cerr << "DeltaViewer::findLocalMaxima currently being redesigned" << endl;
     wl = radius = 0; minPeakValue = maxEdgeValue = 0;//     cout << "DeltaViewer::findLocalMaxima " << endl;
 //     peaks.erase(wl);
 //     peaks.insert(make_pair(wl, reader->findLocalMaxima(wl, radius, minPeakValue, maxEdgeValue)));
@@ -2182,7 +2174,7 @@ void DeltaViewer::findAllLocalMaxima(int wl, int radius, float minPeakValue, flo
 }
 
 void DeltaViewer::recalculateSpotVolumes(){
-    cout << "DeltaViewer::recalculateSpotVolumes currently commented out" << endl;
+    cerr << "DeltaViewer::recalculateSpotVolumes currently commented out" << endl;
 
 //     reader->recalculateSpotVolumes();
 //     map<int, DistChooser*>::iterator it;
@@ -2246,11 +2238,8 @@ void DeltaViewer::findContrasts(int wi, float minValue){
     labelString.setNum(fileSet->channel(wi));
     labelString.append(" Contrast");
     ParameterChooser* chooser = new ParameterChooser(contrastData, labelString, wi, fileSet->channel(wi), QColor(255, 255, 0), this);
-    cout << "findContrasts first param chooser created" << endl;
     connect(chooser, SIGNAL(colorChanged(int, float, float, float)), this, SLOT(paramDataColorChanged(int, float, float, float)) );
-    cout << "first chooser connected" << endl;
     connect(chooser, SIGNAL(newRanges(float, float)), this, SLOT(paramDataRangeChanged(float, float)) );
-    cout << "first chooser second connection" << endl;
     parameterSets.insert(make_pair(chooser, contrastData));
     colorBox->addWidget(chooser);
     chooser->show();

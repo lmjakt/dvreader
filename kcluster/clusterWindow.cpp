@@ -104,7 +104,6 @@ void ClusterWindow::generateColors(int l){
 	    }
 	}
     }
-    cout << "total of : " << colors.size() << " colors generated" << endl;
 }
 
 void ClusterWindow::setClusters(KClusterProcess* clusterPr){

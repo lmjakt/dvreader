@@ -128,7 +128,7 @@ bool FileSet::addFrame(string fname, ifstream* in, std::ios::pos_type framePos,
   
   if(!getStack(x_pos, y_pos)){
     stackIsNew = true;
-    cerr << "no stack found for frame counter  "  << ifstreamCounter << endl;
+    //    cerr << "no stack found for frame counter  "  << ifstreamCounter << endl;
     ifstream* newStream = new ifstream(fname.c_str());
     ifstreamCounter++;
     if(!(*newStream)){
@@ -464,14 +464,16 @@ bool FileSet::setChannelOffsets(vector<ChannelOffset> offsets){
 }
 
 void FileSet::adjustStackBorders(){
-  cout << "\n\n\n\nADJUST STACK BORDERS \n\n\n" << endl;
+  cout << "\nADJUST STACK BORDERS " << endl;
   for(map<float, map<float, FrameStack*> >::iterator ot=frames.begin();
       ot != frames.end(); ++ot){
     for(map<float, FrameStack*>::iterator it = (*ot).second.begin();
 	it != (*ot).second.end(); ++it){
+      cout << ".";
       (*it).second->setBorders();
     }
   }
+  cout << endl;
   setPosMap();
 }
 
@@ -569,7 +571,6 @@ bool FileSet::mip_projection(float* dest, int xpos, int ypos, unsigned int dest_
       }
     }
   }
-  cerr << "FileSet::mip_projection buffer read to from " << counter << " filestacks" << endl;
   return(counter > 0);   // which is nicer than saying return counter.. because...
 }
 
