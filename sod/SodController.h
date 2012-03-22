@@ -43,6 +43,7 @@ class SodController : public QWidget
   // functions taking a f_parameter
   void read_distances(f_parameter& par);
   void read_positions(f_parameter& par);
+  void read_annotation(f_parameter& par);
   void set_plot_par(f_parameter& par);
   void titrate(f_parameter& par);
   void make_gaussian_background(f_parameter& par);
@@ -52,7 +53,7 @@ class SodController : public QWidget
 
   // and some useful functions
   void warn(QString message);
-  node_set read_node_set(QString fileName);
+  node_set read_node_set(QString fileName, bool has_col_header=FALSE);
 
 };
 

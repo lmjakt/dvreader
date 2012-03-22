@@ -1,0 +1,31 @@
+With certain Nvidia drivers and cards, dimSqueezer may segfault during the mapping process.
+
+This seems to be related to a bug in the Nvidia driver that has been observed with a range of
+applications. A backtrace of the resulting core dump gave the following:
+
+Program terminated with signal 11, Segmentation fault.
+#0  0x00007ff0c8171a08 in _nv007tls () from /usr/lib64/tls/libnvidia-tls.so.290.10
+(gdb) bt
+#0  0x00007ff0c8171a08 in _nv007tls () from /usr/lib64/tls/libnvidia-tls.so.290.10
+#1  0x00007ff0c8e82ca3 in __nptl_deallocate_tsd () from /lib64/libpthread.so.0
+#2  0x00007ff0c8e82f13 in start_thread () from /lib64/libpthread.so.0
+#3  0x00007ff0c844f10d in clone () from /lib64/libc.so.6
+
+
+Doing:
+
+export __GL_SINGLE_THREADED=1
+
+seems to cure this problem, but that might cause other issues elsewhere.
+
+Hopefully this will be sorted.
+
+Maybe I can implement some sort of wrapper script to start the application. Hmm
+
+############ SOLVED #################
+
+This issue has been solved by updating the Nvidia driver to the latest version.
+Note that the one in the openSUSE 12.1 repository has this problem, and I had to
+do a manual install. This is not difficult, but it's important to remember that
+the reinstall needs to be carried out after each upgrade of the system.
+

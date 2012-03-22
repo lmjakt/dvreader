@@ -27,6 +27,7 @@
 
 #include "distanceMapper.h"
 #include "posInfo.h"
+#include "Annotation.h"
 #include <QWidget>
 #include <QRect>
 #include <QRectF>
@@ -51,7 +52,7 @@ class PointDrawer : public QWidget
 
     public :
   enum PointPlotType {
-    STRESS, LEVELS_PIE
+    STRESS, LEVELS_PIE, ANNOT
   };
 
   PointDrawer(QWidget* parent=0, const char* name=0);     // it just draws things.. so no need.. 
@@ -66,6 +67,8 @@ class PointDrawer : public QWidget
   void setPointPlotType(PointPlotType ppt);
   void setPointDiameter(unsigned int d);
   void setPlotScale(float s);
+  void setAnnotation(Annotation annot);
+  void plotAnnotationField(QString field);
 
   void postscript(QString fname, float w, float h); // in points. No resolution specified.
   void svg(QString fname, int w, int h);
@@ -92,6 +95,7 @@ class PointDrawer : public QWidget
   void mouseDoubleClickEvent(QMouseEvent* e);
   void checkSelected();
 
+  void drawPoint(QPainter& p, dpoint* point, int x, int y, QColor color);
   void drawPie(QPainter& p, dpoint* point, int x, int y, QString label);
   void drawConnections(QPainter& p, dpoint* point);
   void drawGridPoint(QPainter& p, dpoint* gpoint);
@@ -124,6 +128,8 @@ class PointDrawer : public QWidget
   bool draw_forces;
   bool draw_ids;
   PointPlotType point_plot_type;
+  Annotation annotation;
+  QString annotation_field;
   std::vector<QColor> defaultColors;
   float coord_sum_max;
   float coord_radius_factor;  // used to scale the radius on the basis of coord_sum 

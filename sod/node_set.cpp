@@ -10,6 +10,17 @@ node_set::node_set()
 node_set::node_set(std::vector<QString> labels, std::vector<std::vector<float> > nodes)
   : labels(labels), nodes(nodes), dimensions(0)
 {
+  init();
+}
+
+node_set::node_set(std::vector<QString> labels, std::vector<std::vector<float> > nodes, std::vector<QString> col_labels)
+  : labels(labels), nodes(nodes), col_labels(col_labels), dimensions(0)
+{
+  init();
+}
+
+void node_set::init()
+{
   // make sure that the vector sizes are ok..
   if(nodes.size() != labels.size()){
     nodes.resize(0);
@@ -18,6 +29,8 @@ node_set::node_set(std::vector<QString> labels, std::vector<std::vector<float> >
   }
   if(!nodes.size()) return;
   dimensions = nodes[0].size();
+  if(col_labels.size() != dimensions)
+    col_labels.resize(0);
   for(unsigned int i=0; i < nodes.size(); ++i){
     if(nodes[i].size() != dimensions){
       dimensions = 0;
@@ -70,6 +83,11 @@ std::vector<QString> node_set::Labels()
   return(labels);
 }
 
+std::vector<QString> node_set::Col_labels()
+{
+  return(col_labels);
+}
+
 bool node_set::push_node(QString label, std::vector<float> v)
 {
   if(!nodes.size())
@@ -89,3 +107,10 @@ bool node_set::set_node(unsigned int n, std::vector<float> v)
   return(true);
 }
 
+bool node_set::set_col_header(std::vector<QString>& ch)
+{
+  if(ch.size() != dimensions)
+    return(false);
+  col_labels = ch;
+  return(true);
+}

@@ -183,6 +183,13 @@ void DistanceViewer::setPositions(vector<vector<float> > p, unsigned int grid_po
   mapper->setInitialPoints(positions, grid_points);
 }
 
+void DistanceViewer::setAnnotation(Annotation annot){
+  if(annot.n_size() == distances.size()){
+    annotation = annot;
+    drawer->setAnnotation(annot);
+  }
+}
+
 void DistanceViewer::setDrawInterval(unsigned int di)
 {
   draw_interval = di;
@@ -211,6 +218,11 @@ void DistanceViewer::setPlotScale(float scale)
 void DistanceViewer::setPointDiameter(int d)
 {
   drawer->setPointDiameter(d);
+}
+
+void DistanceViewer::plotByAnnotationField(QString field)
+{
+  drawer->plotAnnotationField(field);
 }
 
 void DistanceViewer::set_simple_gaussian_background(std::vector<unsigned int> dims,

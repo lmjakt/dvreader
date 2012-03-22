@@ -132,6 +132,21 @@ void PointDrawer::setPlotScale(float s)
   update();
 }
 
+void PointDrawer::setAnnotation(Annotation annot)
+{
+  if(annot.n_size() == points.size())
+    annotation = annot;
+}
+
+void PointDrawer::plotAnnotationField(QString field)
+{
+  if(annotation.has_column(field)){
+    point_plot_type = ANNOT;
+    annotation_field = field;
+    update();
+  }
+}
+
 // w and h in points.
 void PointDrawer::postscript(QString fname, float w, float h)
 {
@@ -281,58 +296,29 @@ void PointDrawer::drawPicture(QPainter& p)
     }
   }
 
-  // lets farm these plot things to some 
-  if(point_plot_type == STRESS){
-    for(uint i=0; i < points.size(); i++){
-      if(points[i]->dimNo < 2){
-	cerr << "??? bugger me backwards, but the coordinates size is less than two for i : " << i << endl;
-	continue;
-      }
-      int x = pos.x(points[i]->coordinates[0]) - (diameter / 2);
-      int y = pos.y(points[i]->coordinates[1]) - (diameter / 2);
-      
-      int r = (int)(points[i]->stress * stressMultiplier);
-      int g = 255 - r;
-      int b = 0;
-      
-      if(selectedA.count(i)){
-	r = 0;
-	g = 75;
-	b = 255;
-      }
-      if(selectedB.count(i)){
-	r = 200;
-	g = 0;
-	b = 200;
-      }
-      p.setPen(Qt::NoPen);  // later maybe we'll take something from here.. 
-      p.setBrush(QColor(r, g, b));
-      p.drawEllipse(x, y, diameter, diameter);
-      regions[i].setRect(x, y, diameter, diameter);
-      
-      // draw the number of the thing..
-      p.setPen(labelPen);
-      numString.setNum(points[i]->index);
-      int extra = 10;
-      if(draw_ids)
-	p.drawText(x-extra, y, diameter+extra*2, diameter, Qt::AlignCenter, numString);
-    }
-  }
-  if(point_plot_type == LEVELS_PIE){
-    for(uint i=0; i < points.size(); ++i){
-      if(points[i]->dimNo < 2){
-	cerr << "??? bugger me backwards, but the coordinates size is less than two for i : " << i << endl;
-	continue;
-      }
-      int x = pos.x(points[i]->coordinates[0]);
-      int y = pos.y(points[i]->coordinates[1]);
-      QString label;
-      label.setNum(points[i]->index);
+  // do point by point instead.
+  QString label;
+  for(uint i=0; i < points.size(); ++i){
+    if(points[i]->dimNo < 2)
+      continue;
+    int x = pos.x(points[i]->coordinates[0]);
+    int y = pos.y(points[i]->coordinates[1]);
+    label.setNum(points[i]->index);
+    regions[i].setRect(x-diameter/2, y-diameter/2, diameter, diameter);
+    if(point_plot_type == LEVELS_PIE){
       drawPie(p, points[i], x, y, label);
-      regions[i].setRect(x-diameter/2, y-diameter/2, diameter, diameter);
+      continue;
     }
+    QColor p_color(75, 75, 75);
+    if(point_plot_type == STRESS){
+      int r = (int)(points[i]->stress * stressMultiplier);
+      p_color = QColor( r, 255-r, 0 );
+    }
+    if(point_plot_type == ANNOT)
+      p_color = annotation.node_color(i, annotation_field);
+    
+    drawPoint(p, points[i], x, y, p_color);
   }
-  // change the if to something reasonable at some point
   if(gridPoints.size()){
     p.setPen(labelPen);
     for(unsigned int i=0; i < gridPoints.size(); ++i)
@@ -485,9 +471,26 @@ void PointDrawer::checkSelected(){
   // and return ..
 }
 
+void PointDrawer::drawPoint(QPainter& p, dpoint* point, int x, int y, QColor color)
+{
+  p.save();
+  p.setPen(Qt::NoPen);
+  p.setBrush(color);
+  p.drawEllipse(x, y, diameter, diameter);
+  if(draw_ids){
+    int extra = 20;
+    p.setPen(labelPen);
+    QString numString;
+    numString.setNum(point->index);
+    p.drawText( x-extra, y, diameter+extra*2, diameter, Qt::AlignCenter, numString);
+  }
+  p.restore();
+}
+
 void PointDrawer::drawPie(QPainter& p, dpoint* point, int x, int y, QString label)
 {
   p.save();
+
   int radius = diameter / 2;
   int tbs = 50;
   p.setPen(Qt::NoPen);
@@ -527,7 +530,7 @@ void PointDrawer::drawPie(QPainter& p, dpoint* point, int x, int y, QString labe
 
 void PointDrawer::drawConnections(QPainter& p, dpoint* point)
 {
-  cout << "DrawConnections size " << point->neighbor_indices.size() << endl;
+  //cout << "DrawConnections size " << point->neighbor_indices.size() << endl;
   if(!point->neighbor_indices.size())
     return;
   p.save();

@@ -1,6 +1,7 @@
 #include "SodController.h"
 #include "distanceViewer.h"
 #include "pointDrawer.h"
+#include "Annotation.h"
 #include "../customWidgets/clineEdit.h"
 #include <QPlainTextEdit>
 #include <QVBoxLayout>
@@ -30,6 +31,7 @@ SodController::SodController(QWidget* parent)
   // and the set of general functions
   general_functions["read_distances"] = &SodController::read_distances;
   general_functions["read_positions"] = &SodController::read_positions;
+  general_functions["read_annotation"] = &SodController::read_annotation;
   general_functions["set_plot_par"] = &SodController::set_plot_par;
   general_functions["titrate"] = &SodController::titrate;
   general_functions["gaussian_bg"] = &SodController::make_gaussian_background;
@@ -134,9 +136,9 @@ void SodController::read_positions(f_parameter& par)
   QString pos_name;
   unsigned int grid_points = 0;
   if(!par.param("file", filename))
-    qts << "read_distances: no distance file specified\n";
+    qts << "read_positions: no position file specified (file=..)\n";
   if(!par.param("pos", pos_name) || pos_name.isEmpty())
-    qts << "specify a name for the position set\n";
+    qts << "specify a name for the position set (pos=..)\n";
   if(error.length()){
     warn(error);
     return;
@@ -157,10 +159,43 @@ void SodController::read_positions(f_parameter& par)
   }
 }
 
+void SodController::read_annotation(f_parameter& par)
+{
+  QString error;
+  QTextStream qts(&error);
+  QString filename;
+  QString dist_name;
+  if(!par.param("file", filename))
+    qts << "read_annotation: no file specified, (file=..)\n";
+  if(!par.param("dist", dist_name))
+    qts << "read_annotation: no dist mapper specified (dist=..)\n";
+  if(!distanceViewers.count(dist_name))
+    qts << "read_annotation: unknown dist mapper: " << dist_name << "\n";
+  if(error.length()){
+    warn(error);
+    return;
+  }
+  node_set ns = read_node_set(filename, true);
+  if(!ns.n_size()){
+    warn("read_annotation obtained empty node_set");
+    return;
+  }
+  if(!distances.count(dist_name)){
+    warn("read_annotation: unknown distance set");
+    return;
+  }
+  if(distances[dist_name].n_size() != ns.n_size() ){
+    warn("read_annotation: specified node set has a different size to the annotation node_set");
+    return;
+  }
+  Annotation annot(ns);
+  distanceViewers[dist_name]->setAnnotation(annot);
+}
+
 void SodController::set_plot_par(f_parameter& par)
 {
   if(par.defined("help")){
-    warn("set_plot_par viewer=vname [ plot_type=stress|pie diameter=i forces=bool scale=f move_factor=f threads=i interval=ms ids=bool");
+    warn("set_plot_par viewer=vname [ type=stress|pie diameter=i field=fname forces=bool scale=f move_factor=f threads=i interval=ms ids=bool ]");
     return;
   }
   QString dviewer;
@@ -176,9 +211,13 @@ void SodController::set_plot_par(f_parameter& par)
   QString plot_type;
   if(par.param("type", plot_type)){
     PointDrawer::PointPlotType ppt = PointDrawer::STRESS;
-    if(plot_type == "pie") ppt = PointDrawer::LEVELS_PIE;
+    if(plot_type == "pie") 
+      ppt = PointDrawer::LEVELS_PIE;
     viewer->setPointPlotType(ppt);
   }
+  QString annotation_field;
+  if(par.param("field", annotation_field))
+    viewer->plotByAnnotationField(annotation_field);
   int diameter;
   if(par.param("diameter", diameter))
     viewer->setPointDiameter(diameter);
@@ -403,12 +442,13 @@ void SodController::warn(QString message)
   output->appendPlainText(message);
 }
 
-// The file should contain n rows and n+1 columns.
+// The file should contain rows and columns (more than 2).
 // The first column identifies the node and the
 // following columns contain it's coordinates. (These
 // can indicate all against all distances as well as
 // spatial coordinates)..
-node_set SodController::read_node_set(QString fileName)
+// All columns except the first should contain values that can be assigned as floats
+node_set SodController::read_node_set(QString fileName, bool has_col_header)
 {
   node_set ns;
   QString error;
@@ -422,6 +462,14 @@ node_set SodController::read_node_set(QString fileName)
   QTextStream in(&file);
   QString line;
   bool ok;
+  /// A little bit messy, but what the hell..
+  std::vector<QString> col_header;
+  if(has_col_header){
+    line = in.readLine();
+    QStringList words = line.split(QRegExp("\\s+"), QString::SkipEmptyParts);
+    for(int i=0; i < words.size(); ++i)
+      col_header.push_back(words[i]);
+  }
   while(!in.atEnd()){
     line = in.readLine();
     QStringList words = line.split(QRegExp("\\s+"), QString::SkipEmptyParts);
@@ -439,6 +487,10 @@ node_set SodController::read_node_set(QString fileName)
     }
     if(!ns.push_node(label, coords))
       warn("read_node_set failed to push node");
+  }
+  if(has_col_header){
+    if(!ns.set_col_header(col_header))
+      warn("read_node_set failed to set column header");
   }
   return(ns);
 }

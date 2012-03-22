@@ -1,6 +1,6 @@
 # change debug to release and recompile when working
 TEMPLATE        = app
-CONFIG          += qt opengl release thread
+CONFIG          += qt opengl debug thread
 QT		+= qt3support svg
 CONFIG          += console
 HEADERS         = \
@@ -12,6 +12,7 @@ HEADERS         = \
                 stressPlotter.h \
                 BackgroundDrawer.h \
                 node_set.h \
+		Annotation.h \
                 posInfo.h \
                 ../customWidgets/clineEdit.h \
                 ../imageBuilder/f_parameter.h
@@ -24,6 +25,7 @@ SOURCES         = \
                 stressPlotter.cpp \
                 BackgroundDrawer.cpp \
                 node_set.cpp \
+		Annotation.cpp \
                 ../imageBuilder/f_parameter.cpp \
                 main.cpp
 TARGET          = dimSqueezer

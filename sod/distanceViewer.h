@@ -28,6 +28,7 @@
 #include "distanceMapper.h"
 #include "pointDrawer.h"
 #include "stressPlotter.h"
+#include "Annotation.h"
 #include "../dataStructs.h"
 //#include "../som/somProcess.h"
 //#include "../som/somDrawer.h"
@@ -51,12 +52,14 @@ class DistanceViewer : public QWidget
   ~DistanceViewer();
   
   void setPositions(std::vector<std::vector<float> > p, unsigned int grid_points=0);
+  void setAnnotation(Annotation annot);
   void setDrawInterval(unsigned int di);
   void setPointPlotType(PointDrawer::PointPlotType ppt);
   void drawForces(bool b);
   void drawIds(bool b);
   void setPlotScale(float scale);
   void setPointDiameter(int d);
+  void plotByAnnotationField(QString field);
   void set_simple_gaussian_background(std::vector<unsigned int> dims,
 				      unsigned char* color_matrix, float var);
   void postscript(QString fname, float w, float h, bool stress=false);
@@ -100,6 +103,7 @@ class DistanceViewer : public QWidget
   std::vector<std::vector<float> > positions;  // an optional vector of the original n-dimensional points.
                                                // can be used to set initial points as well to change the
                                                // the display of the points.
+  Annotation annotation;
   std::vector<int> experiments;                 // might as well keep a copy in here.. it's easy enough.. 
   QMutex pointMutex;                       // lock this to access the points above.. 
   QMutex somMutex;

@@ -5,7 +5,7 @@ class PosInfo;
 struct dpoint;
 
 #include <vector>
-
+#include <stdlib.h>
 
 class BackgroundDrawer
 {
