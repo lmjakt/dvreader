@@ -5,6 +5,7 @@
 #include <QColor>
 #include <vector>
 #include <map>
+#include <set>
 #include "node_set.h"
 
 class Annotation {
@@ -13,6 +14,7 @@ class Annotation {
   Annotation(node_set ns);
 
   QColor node_color(unsigned int n, QString ch);
+  bool filter(unsigned int n, QString ch, std::set<float> fv);
   unsigned int n_size();
   bool has_column(QString ch);
 

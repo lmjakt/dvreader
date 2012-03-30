@@ -213,11 +213,20 @@ void SodController::set_plot_par(f_parameter& par)
     PointDrawer::PointPlotType ppt = PointDrawer::STRESS;
     if(plot_type == "pie") 
       ppt = PointDrawer::LEVELS_PIE;
+    if(plot_type == "dots")
+      ppt = PointDrawer::DOTS;
     viewer->setPointPlotType(ppt);
   }
   QString annotation_field;
   if(par.param("field", annotation_field))
     viewer->plotByAnnotationField(annotation_field);
+  QString filter_field;
+  std::set<float> filter_values;
+  bool filter_inverse=true;
+  if(par.param("filter_field", filter_field) && par.param("filter_values", ',', filter_values)){
+    par.param("filter_inverse", filter_inverse);
+    viewer->setPointFilter(filter_field, filter_values, filter_inverse);
+  }
   int diameter;
   if(par.param("diameter", diameter))
     viewer->setPointDiameter(diameter);

@@ -26,6 +26,14 @@ QColor Annotation::node_color(unsigned int n, QString ch)
   return( color_maps[ci][v] );
 }
 
+// returns true if the point matches the values in fv
+bool Annotation::filter(unsigned int n, QString ch, std::set<float> fv)
+{
+  if(n >= annotation.n_size() || !column_map.count(ch))
+    return(false);
+  return( fv.count( annotation.value(n, column_map[ch]) ) );
+}
+
 unsigned int Annotation::n_size()
 {
   return(annotation.n_size());

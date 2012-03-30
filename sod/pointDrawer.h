@@ -39,6 +39,7 @@
 #include <vector>
 #include <set>
 #include <QPen>
+#include <QPoint>
 
 //using namespace std;
 class QMenu;
@@ -52,7 +53,7 @@ class PointDrawer : public QWidget
 
     public :
   enum PointPlotType {
-    STRESS, LEVELS_PIE, ANNOT
+    STRESS, LEVELS_PIE, ANNOT, DOTS
   };
 
   PointDrawer(QWidget* parent=0, const char* name=0);     // it just draws things.. so no need.. 
@@ -69,6 +70,7 @@ class PointDrawer : public QWidget
   void setPlotScale(float s);
   void setAnnotation(Annotation annot);
   void plotAnnotationField(QString field);
+  void setPointFilter(QString filter_field, std::set<float> filter_values, bool filter_inverse);
 
   void postscript(QString fname, float w, float h); // in points. No resolution specified.
   void svg(QString fname, int w, int h);
@@ -97,9 +99,13 @@ class PointDrawer : public QWidget
 
   void drawPoint(QPainter& p, dpoint* point, int x, int y, QColor color);
   void drawPie(QPainter& p, dpoint* point, int x, int y, QString label);
+  std::vector<QPoint> makeDiskOffsets();
+  void drawDots(QPainter& p, dpoint* point, int x, int y, std::vector<QPoint>& offsets);
   void drawConnections(QPainter& p, dpoint* point);
   void drawGridPoint(QPainter& p, dpoint* gpoint);
   void determine_coordinate_scale();
+
+  bool filterPoint(unsigned int i);
 
   // optional background
   QImage bg_image;
@@ -130,6 +136,11 @@ class PointDrawer : public QWidget
   PointPlotType point_plot_type;
   Annotation annotation;
   QString annotation_field;
+  /// the below values would be better to pack into some sort of struct.
+  QString annotation_filter_field;
+  std::set<float> annotation_filter_values;
+  bool annotation_filter_inverse;
+
   std::vector<QColor> defaultColors;
   float coord_sum_max;
   float coord_radius_factor;  // used to scale the radius on the basis of coord_sum 

@@ -33,6 +33,7 @@ class f_parameter {
   bool param(QString par, QChar sep, std::set<unsigned int>& ints);
   bool param(QString par, QChar sep, std::vector<unsigned int>& ints);
   bool param(QString par, QChar sep, std::vector<float>& floats);
+  bool param(QString par, QChar sep, std::set<float>& floats);
   bool param(QString par, QChar sep, std::vector<QString>& words);
   bool param(QString par, std::vector<QColor>& colors);  // hard-coded separators, tries to get colours as r,g,b;r,g,b;yellow, etc.. 
 

@@ -213,6 +213,22 @@ bool f_parameter::param(QString par, QChar sep, vector<float>& floats)
   return(false);
 }
 
+bool f_parameter::param(QString par, QChar sep, set<float>& floats)
+{
+  if(!parameters.count(par))
+    return(false);
+  vector<QString> words = vecArgument(parameters[par], sep);
+  bool ok;
+  float f;
+  for(unsigned int i=0; i < words.size(); ++i){
+    f = words[i].toFloat(&ok);
+    if(ok)
+      floats.insert(f);
+  }
+  if(floats.size())
+    return(true);
+  return(false);
+}
 
 bool f_parameter::param(QString par, QChar sep, vector<QString>& words)
 {

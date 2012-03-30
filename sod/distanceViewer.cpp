@@ -225,6 +225,11 @@ void DistanceViewer::plotByAnnotationField(QString field)
   drawer->plotAnnotationField(field);
 }
 
+void DistanceViewer::setPointFilter(QString filter_field, std::set<float> filter_values, bool filter_inverse)
+{
+  drawer->setPointFilter(filter_field, filter_values, filter_inverse);
+}
+
 void DistanceViewer::set_simple_gaussian_background(std::vector<unsigned int> dims,
 						    unsigned char* color_matrix, float var)
 {

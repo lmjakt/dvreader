@@ -27,6 +27,7 @@
 #include "BackgroundDrawer.h"
 #include <math.h>
 #include <vector>
+#include <stdlib.h>
 #include <QPainter>
 #include <QPalette>
 #include <QPrinter>
@@ -145,6 +146,14 @@ void PointDrawer::plotAnnotationField(QString field)
     annotation_field = field;
     update();
   }
+}
+
+void PointDrawer::setPointFilter(QString filter_field, std::set<float> filter_values, bool filter_inverse)
+{
+  annotation_filter_field = filter_field;
+  annotation_filter_values = filter_values;
+  annotation_filter_inverse = filter_inverse;
+  update();
 }
 
 // w and h in points.
@@ -296,10 +305,16 @@ void PointDrawer::drawPicture(QPainter& p)
     }
   }
 
+  // if DOTS we need to prepare an offsets..
+  std::vector<QPoint> dot_offsets;
+  if(point_plot_type == DOTS)
+    dot_offsets = makeDiskOffsets();
   // do point by point instead.
   QString label;
   for(uint i=0; i < points.size(); ++i){
     if(points[i]->dimNo < 2)
+      continue;
+    if(filterPoint(i))
       continue;
     int x = pos.x(points[i]->coordinates[0]);
     int y = pos.y(points[i]->coordinates[1]);
@@ -307,6 +322,10 @@ void PointDrawer::drawPicture(QPainter& p)
     regions[i].setRect(x-diameter/2, y-diameter/2, diameter, diameter);
     if(point_plot_type == LEVELS_PIE){
       drawPie(p, points[i], x, y, label);
+      continue;
+    }
+    if(point_plot_type == DOTS){
+      drawDots(p, points[i], x, y, dot_offsets);
       continue;
     }
     QColor p_color(75, 75, 75);
@@ -528,6 +547,56 @@ void PointDrawer::drawPie(QPainter& p, dpoint* point, int x, int y, QString labe
   p.restore();
 }
 
+// make point offsets suitable for plotting..
+std::vector<QPoint> PointDrawer::makeDiskOffsets()
+{
+  std::vector<QPoint> cpoints;
+  double min_distance = 4; // minimum distance between points.
+  double r = (double)diameter / 2.0;
+  for(double ri=min_distance; ri < r; ri += min_distance){
+    double angle_increment = 2 * asin(min_distance/(2*ri));
+    for(double angle = -M_PI; angle < M_PI; angle += angle_increment)
+      cpoints.push_back( QPoint(round(ri * cos(angle)), round(ri * sin(angle))) );
+  }
+  return(cpoints);
+}
+
+void PointDrawer::drawDots(QPainter& p, dpoint* point, int x, int y, std::vector<QPoint>& offsets)
+{
+  p.save();
+
+  // work out how many dots to draw
+  float coord_sum = 0;
+  for(uint i=0; i < point->position.size(); ++i)
+    coord_sum += point->position[i];
+  uint draw_length = offsets.size();
+  if(coord_sum_max)
+    draw_length = (int)( (float)draw_length * coord_sum / coord_sum_max );
+  draw_length = draw_length > offsets.size() ? offsets.size() : draw_length;
+  draw_length = !draw_length ? 1 : draw_length;
+  // this is a pretty ugly way of getting proportional drawing..
+  std::vector<QColor> colors;
+  unsigned int col_length = 100;
+  for(unsigned int i=0; i < point->position.size(); ++i){
+    cout << "\t" << point->position[i];
+    unsigned int c = uint(float(col_length) * point->position[i] / coord_sum);
+    cout << " : " << c;
+    for(uint j=0; j < c; ++j)
+      colors.push_back(defaultColors[ i % defaultColors.size() ]);
+  }
+  cout << endl;
+  if(!colors.size())
+    colors.push_back(QColor(255, 255, 255));
+
+  QPoint cp(x, y);  
+  std::cout << "drawDots " << coord_sum << " : " << coord_sum_max << "  colors.size(): " << colors.size() << endl;
+  for(uint i=0; i < draw_length; ++i){
+    p.setPen(QPen(colors[ rand() % colors.size() ], 2)); // we should call srand somewhere.. but.. 
+    p.drawPoint(cp + offsets[i]);
+  }
+  p.restore();
+}
+
 void PointDrawer::drawConnections(QPainter& p, dpoint* point)
 {
   //cout << "DrawConnections size " << point->neighbor_indices.size() << endl;
@@ -594,6 +663,19 @@ void PointDrawer::determine_coordinate_scale()
   float rf = float(diameter)/2.0;
   coord_radius_factor = coord_sum_max / (rf * rf);
   coord_radius_factor = sqrt(coord_radius_factor);
+}
+
+// to filter is to remove something. Hence if the criteria fit
+// we return true. (i.e. don't draw it).
+// unless annotation_filter_inverse is false.
+bool PointDrawer::filterPoint(unsigned int i)
+{
+  if(!annotation_filter_values.size() ||  annotation.n_size() != points.size() )
+    return(false); // i.e. don't filter it.
+  bool f = annotation.filter(i, annotation_filter_field, annotation_filter_values);
+  if(annotation_filter_inverse)
+    f = !f;
+  return(f);
 }
 
 void PointDrawer::compareCellTypes(){
