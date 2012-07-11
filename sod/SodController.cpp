@@ -410,9 +410,9 @@ void SodController::postscript(f_parameter& par)
   if(!par.param("fname", fname))
     qts << "Specify postscript output file name fname=...\n";
   if(!par.param("w", w))
-    qts << "Specify width of plot w=..\n";
+    qts << "Specify width (in points) of plot w=..\n";
   if(!par.param("h", h))
-    qts << "Specify height of plot h=..\n";
+    qts << "Specify height (in points) of plot h=..\n";
   if(error.length()){
     warn(error);
     return;

@@ -21,12 +21,16 @@ class OverlapEditor : public QWidget
   void setInfo(FileSetInfo* fsetInfo, float scale);
   QPoint offSet(float x, float y);
   void setOffset(float x, float y, QPoint p);
-  
+
+  public slots:
+  void externalKey(QKeyEvent* event);
+
  signals:
   void r_delta_y(int);
   void r_delta_x(int);
   void newFrameSelected(float, float);
   void offSetChanged(QPoint);
+  void requestAdjustment();
 
  protected:
   void mousePressEvent(QMouseEvent* mouseEvent);

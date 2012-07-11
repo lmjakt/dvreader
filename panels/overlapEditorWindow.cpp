@@ -38,10 +38,17 @@ OverlapEditorWindow::OverlapEditorWindow(QWidget* parent)
   topImage = new GLImage(t_big, t_small, tex_width, tex_height, 1.0, this);
   bottomImage = new GLImage(t_big, t_small, tex_width, tex_height, 1.0, this);
 
+  // send key events to the overlapEditor
+  connect(leftImage, SIGNAL(keyPressed(QKeyEvent*)), oEdit, SLOT(externalKey(QKeyEvent*)) );
+  connect(rightImage, SIGNAL(keyPressed(QKeyEvent*)), oEdit, SLOT(externalKey(QKeyEvent*)) );
+  connect(topImage, SIGNAL(keyPressed(QKeyEvent*)), oEdit, SLOT(externalKey(QKeyEvent*)) );
+  connect(bottomImage, SIGNAL(keyPressed(QKeyEvent*)), oEdit, SLOT(externalKey(QKeyEvent*)) );
+
   borderImage = 0;
 
   QPushButton* adjustButton = new QPushButton("Adjust Position", this);
   connect(adjustButton, SIGNAL(clicked()), this, SLOT(requestAdjustment()));
+  connect(oEdit, SIGNAL(requestAdjustment()), this, SLOT(requestAdjustment()) );
 
   QPushButton* updateButton = new QPushButton("Save Changes", this);
   connect(updateButton, SIGNAL(clicked()), this, SIGNAL(updateFileSetInfo()) );

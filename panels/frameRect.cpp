@@ -46,7 +46,7 @@ void FrameRect::paint(QPainter* painter, int h, float scale)
 		 frame->width, frame->height);
   }else{
     rect.setRect(offSet.x() + frame->xp,
-		 h/scale-(frame->yp + frame->height - offSet.y()),
+		 h/scale-(frame->yp + frame->height + offSet.y()),
 		 frame->width, frame->height);
   }
 

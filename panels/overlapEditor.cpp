@@ -48,6 +48,10 @@ void OverlapEditor::setOffset(float x, float y, QPoint p){
   }
 }
 
+void OverlapEditor::externalKey(QKeyEvent* e)
+{
+  keyPressEvent(e);
+}
 
 void OverlapEditor::mousePressEvent(QMouseEvent* e)
 {
@@ -97,24 +101,47 @@ void OverlapEditor::keyPressEvent(QKeyEvent* event)
   if(!selectedFrame)
     return;
   int c = event->key();
+  bool moved = false;
   switch(c){
   case Qt::Key_Up:
     selectedFrame->moveBy(QPoint(0, -1));
+    moved = true;
+    break;
+  case Qt::Key_W:
+    selectedFrame->moveBy(QPoint(0, -1));
+    moved = true;
     break;
   case Qt::Key_Down:
     selectedFrame->moveBy(QPoint(0, 1));
+    moved = true;
+    break;
+  case Qt::Key_S:
+    selectedFrame->moveBy(QPoint(0, 1));
+    moved = true;
     break;
   case Qt::Key_Left:
     selectedFrame->moveBy(QPoint(-1, 0));
+    moved = true;
+    break;
+  case Qt::Key_A:
+    selectedFrame->moveBy(QPoint(-1, 0));
+    moved = true;
     break;
   case Qt::Key_Right:
     selectedFrame->moveBy(QPoint(1, 0));
+    moved = true;
+    break;
+  case Qt::Key_D:
+    selectedFrame->moveBy(QPoint(1,0));
+    moved = true;
+    break;
+  case Qt::Key_Space:
+    emit requestAdjustment();
     break;
   default:
     ;
   }
-  if(c == Qt::Key_Up || c == Qt::Key_Down 
-     || c == Qt::Key_Left || c == Qt::Key_Right){
+  if(moved){
     update();
     emit offSetChanged(selectedFrame->offset());
   }
