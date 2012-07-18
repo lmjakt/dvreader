@@ -55,6 +55,9 @@ class GLImage : public QGLWidget
     GLImage(unsigned int width, unsigned int height, unsigned int texWidth,  unsigned int texHeight,
 	    GLfloat aspRatio=1.0, QWidget* parent=0, const char* name=0 );
     ~GLImage();
+    void currentMousePos(int& x, int& y);
+    int currentMouseX();
+    int currentMouseY();
     enum ViewState { VIEW, DRAW };
 
 public slots:
@@ -121,6 +124,7 @@ private:
     GLfloat xscale, yscale;
     int lastX, lastY;
     Qt::MouseButton buttonPressed;
+    int currentX, currentY;  // the current mouse position on the image (rather than the widget position).
 
     GLfloat xCross, yCross;   // draw a cross at these position if something is true..
     bool drawCross;           // 

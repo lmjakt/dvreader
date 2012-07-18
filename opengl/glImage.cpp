@@ -69,6 +69,7 @@ GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texSize, 
   xCross = yCross = 0.0;
   drawCross = false;
   showOverlay=false;
+  currentX = currentY = 0;
   // width and height are used to work out the backgroundHeight and backgroundWidth...
   // In fact it seems that backgroundWidth and imageWidth are never different from textureWidth
   // and I should remove them.
@@ -111,9 +112,20 @@ GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texWidth,
 GLImage::~GLImage()
 {
     makeCurrent();
- 
 }
 
+void GLImage::currentMousePos(int& x, int& y){
+  x = currentX;
+  y = currentY;
+}
+
+int GLImage::currentMouseX(){
+  return(currentX);
+}
+
+int GLImage::currentMouseY(){
+  return(currentY);
+}
 
 void GLImage::setImage(float* data, int x, int y, int col, int row){
     // first check that the data will fit and that we have an appropriate texture..
@@ -400,6 +412,9 @@ void GLImage::mousePressEvent(QMouseEvent* e){
 void GLImage::mouseMoveEvent(QMouseEvent* e){
   int px, py;
   transformPos(e->x(), e->y(), px, py, false);
+
+  currentX = px;
+  currentY = py;
 
   if(viewingState != VIEW){
     emit mouseMoved(QPoint(px, py), buttonPressed);

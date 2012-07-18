@@ -776,6 +776,10 @@ void DeltaViewer::setImage(int slice){
       glViewer->setBigImage(data, x, y, w, h);
       delete []data;
       glViewer->updateGL();
+      if((xPosition || yPosition) && spotWindow->isVisible()){
+	plotLines();
+      }
+      newMousePosition(glViewer->currentMouseX(), glViewer->currentMouseY());
       return; 
     }
 
@@ -826,9 +830,13 @@ void DeltaViewer::setImage(int slice){
     }
     
     // and update the lines if we have set them.. 
-    if(xPosition || yPosition){
+    if((xPosition || yPosition) && spotWindow->isVisible()){
 	plotLines();
     }
+    // calling newMousePosition slows things down much more than it should do
+    // because of the way imageAnalyser caches data. Should get the numbers when
+    // getting the data, but that's a bit of trouble.
+    newMousePosition(glViewer->currentMouseX(), glViewer->currentMouseY());
 }
 
 void DeltaViewer::paintCoverage(float maxCount){
