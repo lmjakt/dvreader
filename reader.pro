@@ -1,9 +1,10 @@
 # change debug to release and recompile when working
 TEMPLATE        = app
-CONFIG          += qt opengl release thread
+CONFIG          += qt opengl debug thread
 QT		+= qt3support 
 CONFIG          += console
-LIBS		+= -lrt
+LIBS		+= -lrt -lOpenCL
+INCLUDEPATH     += /usr/local/cuda/include
 HEADERS		= \
 		dvReader.h \
 		deltaViewer.h \
@@ -133,7 +134,9 @@ HEADERS		= \
                 imageBuilder/CellParCollector.h \
 		imageBuilder/dir_k_cluster.h \
 		util/matrix.h \
-                util/c_array.h
+                util/c_array.h \
+                open_cl/MIPf_cl.h \
+                open_cl/clError.h
 SOURCES		= \
 		dvReader.cpp \
 		deltaViewer.cpp \
@@ -256,6 +259,8 @@ SOURCES		= \
 		util/matrix.cpp \
                 util/c_array.cpp \
 		globalVariables.cpp \
+                open_cl/MIPf_cl.cpp \
+                open_cl/clError.cpp \
 		main.cpp
 TARGET		= reader
 

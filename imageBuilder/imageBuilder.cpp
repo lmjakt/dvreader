@@ -31,6 +31,8 @@
 //#include "../spotFinder/spotMapper/nearestNeighborMapper.h"
 #include "../spotFinder/spotMapper/NNMapper2.h"  
 
+#include "../open_cl/MIPf_cl.h"
+
 #include <string.h>
 #include <iostream>
 #include <stdlib.h>
@@ -107,6 +109,9 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   general_functions["stack_xz"] = &ImageBuilder::stack_xzSlice;
   general_functions["stack_yz"] = &ImageBuilder::stack_yzSlice;
   general_functions["stack_project"] = &ImageBuilder::stack_project;
+
+  general_functions["stack_project_cl"] = &ImageBuilder::stack_project_cl;
+
   general_functions["set_stack_par"] = &ImageBuilder::setStackPar;
   general_functions["map_blobs"] = &ImageBuilder::stack_map_blobs;
   general_functions["train_models"] = &ImageBuilder::trainBlobSetModels;
@@ -485,15 +490,15 @@ void ImageBuilder::build_fgprojection(f_parameter& par)
     return;
   }
 
-  unsigned int blur_repeat = 1;
-  par.param("brep", blur_repeat);
+  //  unsigned int blur_repeat = 1;
+  //  par.param("brep", blur_repeat);
   float* bl_stack = stack;
   if(radius){
-    for(uint i=0; i < blur_repeat; ++i){
-      bl_stack = gaussian_blur_3d(stack, w, h, d, radius);
-      delete []stack;
-      stack = bl_stack;
-    }
+    //for(uint i=0; i < blur_repeat; ++i){
+    bl_stack = gaussian_blur_3d(stack, w, h, d, radius);
+    delete []stack;
+    stack = bl_stack;
+    //}
     if(!bl_stack){
       cerr << "ImageBuilder::fg_projection failed to blur stack" << endl;
       delete []stack;
@@ -2296,6 +2301,45 @@ void ImageBuilder::stack_project(f_parameter& par)
   }
   setRGBImage(rgbData, data->pwidth(), data->pheight());
   delete []projection;
+}
+
+void ImageBuilder::stack_project_cl(f_parameter& par)
+{
+  QString errorMessage;
+  QTextStream error(&errorMessage);
+  QString stackName("");
+  if(!par.param("stack", stackName))
+    error << "specify the name of the stack: stack=..\n";
+  if(!imageStacks.count(stackName))
+    error << "Unknown stack \n";
+  if(errorMessage.length()){
+    warn(errorMessage);
+    return;
+  }
+  // otherwise, just make an object and .. get a new projection
+  cout << "Creating an open cl projector" << endl;
+  MIPf_cl projector;
+  cout << "Calling projectStack on the projector" << endl;
+  ImStack* projection = projector.projectStack( imageStacks[ stackName ] );
+  uint rep = 0;
+  par.param("repeat", rep);
+  for(uint i=0; i < rep; ++i){
+    delete projection;
+    cout << "calling projectStack" << endl;
+    projection = projector.projectStack( imageStacks[ stackName ] );
+    cout << "\t\tRETURNED" << endl;
+  }
+
+  // clear the image data..
+  memset((void*)rgbData, 0, sizeof(float) * data->pwidth() * data->pheight() * 3);
+  for(uint i=0; i < projection->ch(); ++i){
+    channel_info cinfo = projection->cinfo(i);
+    toRGB(projection->stack(i), rgbData, cinfo, projection->w() * projection->h(),
+	  projection->xp(), projection->yp(), projection->w(), projection->h(), false);
+  }
+  setRGBImage(rgbData, data->pwidth(), data->pheight());
+  delete projection;
+  cout << "End of project function" << endl;
 }
 
 void ImageBuilder::setStackPar(f_parameter& par)

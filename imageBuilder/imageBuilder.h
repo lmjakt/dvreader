@@ -205,6 +205,7 @@ class ImageBuilder : public QObject
   void stack_xzSlice(f_parameter& par);
   void stack_yzSlice(f_parameter& par);
   void stack_project(f_parameter& par);
+  void stack_project_cl(f_parameter& par);  // experimental. use open_cl to project the stack.
   void setStackPar(f_parameter& par);
   //  void stackSlice(f_parameter& par);
   void stack_map_blobs(f_parameter& par);  // a testing function. to see if the mt_blob_mapper works.. 

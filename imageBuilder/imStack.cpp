@@ -253,6 +253,11 @@ channel_info ImStack::cinfo(unsigned int ch)
   return(c);
 }
 
+std::vector<channel_info> ImStack::c_info()
+{
+  return(channels);
+}
+
 bool ImStack::set_sandb(unsigned int wi, float scale, float bias)
 {
   if(wi >= channels.size())

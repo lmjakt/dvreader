@@ -34,6 +34,7 @@ class ImStack
   float* yz_slice(unsigned int ch, unsigned int xpos, int& slice_width, int& slice_height);  // uses local parameters
 
   channel_info cinfo(unsigned int ch);
+  std::vector<channel_info> c_info();
   bool set_sandb(unsigned int wi, float scale, float bias);
   unsigned int ch();
   void pos(int& x, int& y, int& z);
