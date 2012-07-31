@@ -2318,15 +2318,23 @@ void ImageBuilder::stack_project_cl(f_parameter& par)
   }
   // otherwise, just make an object and .. get a new projection
   cout << "Creating an open cl projector" << endl;
-  MIPf_cl projector;
+  MIPf_cl* projector = new MIPf_cl();
+  unsigned int local_item_size = 0;
+  if(par.param("local_item_size", local_item_size))
+    projector->set_local_item_size(local_item_size);
+  
   cout << "Calling projectStack on the projector" << endl;
-  ImStack* projection = projector.projectStack( imageStacks[ stackName ] );
+  ImStack* projection = projector->projectStack( imageStacks[ stackName ] );
+  if(!projection){
+    delete projector;
+    return;
+  }
   uint rep = 0;
   par.param("repeat", rep);
   for(uint i=0; i < rep; ++i){
     delete projection;
     cout << "calling projectStack" << endl;
-    projection = projector.projectStack( imageStacks[ stackName ] );
+    projection = projector->projectStack( imageStacks[ stackName ] );
     cout << "\t\tRETURNED" << endl;
   }
 
@@ -2339,6 +2347,7 @@ void ImageBuilder::stack_project_cl(f_parameter& par)
   }
   setRGBImage(rgbData, data->pwidth(), data->pheight());
   delete projection;
+  delete projector;
   cout << "End of project function" << endl;
 }
 

@@ -1,6 +1,6 @@
 # change debug to release and recompile when working
 TEMPLATE        = app
-CONFIG          += qt opengl debug thread
+CONFIG          += qt opengl release thread
 QT		+= qt3support 
 CONFIG          += console
 LIBS		+= -lrt -lOpenCL
@@ -135,6 +135,7 @@ HEADERS		= \
 		imageBuilder/dir_k_cluster.h \
 		util/matrix.h \
                 util/c_array.h \
+                open_cl/oCL_base.h \
                 open_cl/MIPf_cl.h \
                 open_cl/clError.h
 SOURCES		= \
@@ -259,6 +260,7 @@ SOURCES		= \
 		util/matrix.cpp \
                 util/c_array.cpp \
 		globalVariables.cpp \
+                open_cl/oCL_base.cpp \
                 open_cl/MIPf_cl.cpp \
                 open_cl/clError.cpp \
 		main.cpp
