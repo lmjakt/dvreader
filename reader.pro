@@ -1,6 +1,6 @@
 # change debug to release and recompile when working
 TEMPLATE        = app
-CONFIG          += qt opengl release thread
+CONFIG          += qt opengl debug thread
 QT		+= qt3support 
 CONFIG          += console
 LIBS		+= -lrt -lOpenCL
@@ -137,6 +137,7 @@ HEADERS		= \
                 util/c_array.h \
                 open_cl/oCL_base.h \
                 open_cl/MIPf_cl.h \
+                open_cl/ImExpand_cl.h \
                 open_cl/clError.h
 SOURCES		= \
 		dvReader.cpp \
@@ -262,6 +263,7 @@ SOURCES		= \
 		globalVariables.cpp \
                 open_cl/oCL_base.cpp \
                 open_cl/MIPf_cl.cpp \
+                open_cl/ImExpand_cl.cpp \
                 open_cl/clError.cpp \
 		main.cpp
 TARGET		= reader

@@ -7,7 +7,7 @@
 
 class OCL_base {
  public:
-  OCL_base(const char* kernel_source, bool compile_source=true);
+  OCL_base(const char* kernel_source, const char* kernel_name, bool compile_source=true);
   ~OCL_base();
 
   void set_local_item_size(size_t li_size);
@@ -28,7 +28,7 @@ class OCL_base {
   size_t local_item_size;
   
   // and some functions
-  void init_kernel(const char* kernel_source, bool compile_source);   // read and compile the kernel
+  void init_kernel(const char* kernel_source, const char* kernel_name, bool compile_source);   // read and compile the kernel
 
 };
 

@@ -11,7 +11,7 @@ class ImStack
  public:
   ImStack(float** data, std::vector<channel_info>& ch_info, int x, int y, int z, 
 	  unsigned int w, unsigned int h, unsigned int d);
-  ImStack(float* data, channel_info& ch_info, int x, int y, int z, 
+  ImStack(float* data, channel_info ch_info, int x, int y, int z, 
 	  unsigned int w, unsigned int h, unsigned int d);
   ImStack(std::vector<float*>& data, std::vector<channel_info>& ch_info, int x, int y, int z, 
 	  unsigned int w, unsigned int h, unsigned int d);
@@ -35,6 +35,7 @@ class ImStack
 
   channel_info cinfo(unsigned int ch);
   std::vector<channel_info> c_info();
+  bool setChannelInfo(channel_info ch, unsigned int wi);
   bool set_sandb(unsigned int wi, float scale, float bias);
   unsigned int ch();
   void pos(int& x, int& y, int& z);

@@ -6,9 +6,10 @@
 #include <vector>
 
 const char* const kernel_source = "/home/martin/cellular/dvreader/mainline/open_cl/vector_f_mip_kernel.cl";
+const char* const kernel_name = "vector_f_mip";
 
 MIPf_cl::MIPf_cl()
-  : OCL_base(kernel_source, true)
+  : OCL_base(kernel_source, kernel_name, true)
 {
   // setup is handled by the parent class
 }

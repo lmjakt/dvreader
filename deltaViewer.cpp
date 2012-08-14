@@ -165,6 +165,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
   connect(glViewer, SIGNAL(lastImage()), this, SLOT(lastImage()) );
   connect(glViewer, SIGNAL(newLine(int, int, int, int)), this, SLOT(newLine(int, int, int, int)) );
   glViewer->show();   // which is very simple interface, nothing in particular there.. 
+  glViewer->raise();
 
   projection = new GLImage(texColNo, texRowNo, textureSize);   
   projection->resize(textureSize, textureSize);         // which is just the simple thing to do.. 
@@ -172,6 +173,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
   p_name.append(" Projection");
   projection->setCaption(p_name);
   projection->show();
+  projection->raise();
 
   // a thingy for plotting stuff...
   spotWindow = new SpotWindow(fileSet->pwidth(), fileSet->pheight(), fileSet->sectionNo());
@@ -371,7 +373,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
   if(opt_commands.count("colorFile"))
     colorSet = readColors(opt_commands["colorFile"]);
   
-  for(uint i=0; i < fileSet->channelNo(); i++){
+  for(int i=0; i < fileSet->channelNo(); i++){
     colormap.insert(make_pair(fileSet->channel(i), colorSet[i % colorSet.size()]));  // the default..
   }
 
@@ -382,7 +384,7 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
   connect(channelOffsets, SIGNAL(clicked(int)), this, SLOT(channelOffsetIdChanged(int)) );
   // make one DistChooser for each channel ..
   vector<QColor> channelColors;
-  for(unsigned int i=0; i < fileSet->channelNo(); i++){
+  for(int i=0; i < fileSet->channelNo(); i++){
     ostringstream ss;
     ostringstream s2;
     fluorInfo finfo = fileSet->channelInfo(i);
@@ -603,8 +605,9 @@ DeltaViewer::DeltaViewer(map<string, string> opt_commands, int xyMargin, const c
   setImage(currentSliceNo);
 
   glViewer->show();
-  projection->show();
+  projection->show();  // this has already been called somewhere above.
 
+  raise();  // ?
   //  Temporary, remove along with includes of background and cavityBall
   // ImageData* idata = new ImageData(fileSet, 1);
   // map<o_set, CavityBall*> cavityMap; 

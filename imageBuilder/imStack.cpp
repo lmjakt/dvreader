@@ -19,7 +19,7 @@ ImStack::ImStack(float** data, vector<channel_info>& ch_info, int x, int y, int 
   width = w; height = h; depth = d;
 }
 
-ImStack::ImStack(float* data, channel_info& ch_info, int x, int y, int z, 
+ImStack::ImStack(float* data, channel_info ch_info, int x, int y, int z, 
 		 unsigned int w, unsigned int h, unsigned int d){
   channels.push_back(ch_info);
   imData.push_back(data);
@@ -256,6 +256,14 @@ channel_info ImStack::cinfo(unsigned int ch)
 std::vector<channel_info> ImStack::c_info()
 {
   return(channels);
+}
+
+bool ImStack::setChannelInfo(channel_info ch, unsigned int wi)
+{
+  if(wi >= channels.size())
+    return(false);
+  channels[wi] = ch;
+  return(true);
 }
 
 bool ImStack::set_sandb(unsigned int wi, float scale, float bias)

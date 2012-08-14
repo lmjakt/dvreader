@@ -32,6 +32,7 @@
 #include "../spotFinder/spotMapper/NNMapper2.h"  
 
 #include "../open_cl/MIPf_cl.h"
+#include "../open_cl/ImExpand_cl.h"
 
 #include <string.h>
 #include <iostream>
@@ -111,6 +112,7 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   general_functions["stack_project"] = &ImageBuilder::stack_project;
 
   general_functions["stack_project_cl"] = &ImageBuilder::stack_project_cl;
+  general_functions["stack_expand_cl"] = &ImageBuilder::stack_expand_cl;
 
   general_functions["set_stack_par"] = &ImageBuilder::setStackPar;
   general_functions["map_blobs"] = &ImageBuilder::stack_map_blobs;
@@ -535,14 +537,24 @@ void ImageBuilder::makeImStack(f_parameter& par)
   
   QString stackName;
   int x, y, z;
+  x = y = z = 0;
   unsigned int w, h, d; // these all have to be specified no defaults
+  w = (uint)data->pwidth();
+  h = (uint)data->pheight();
+  d = (uint)data->sectionNo();  // reasonable defaults.
   std::vector<unsigned int> wi;
   if(!par.param("stack", stackName) || !stackName.length())
     qts << "Please specify a stack name for the new stack\n";
-  if(!par.param("x", x) || !par.param("y", y) || !par.param("z", z))
-    qts << "Please specify position of stack x=.. y=.. z=..\n";
-  if(!par.param("w", w) || !par.param("h", h) || !par.param("d", d))
-    qts << "Please specify dimensions of stack w=.. h=.. d=..\n";
+  // if(!par.param("x", x) || !par.param("y", y) || !par.param("z", z))
+  //   qts << "Please specify position of stack x=.. y=.. z=..\n";
+  // if(!par.param("w", w) || !par.param("h", h) || !par.param("d", d))
+  //   qts << "Please specify dimensions of stack w=.. h=.. d=..\n";
+  par.param("x", x);
+  par.param("y", y);
+  par.param("z", z);
+  par.param("w", w);
+  par.param("h", h);
+  par.param("d", d);   // optional, but not sanity checked. // should be done somewhere
   if(!par.param("wi", ',', wi))
     qts << "Please specify the wave indices to use\n";
   if(error.length()){
@@ -557,6 +569,13 @@ void ImageBuilder::makeImStack(f_parameter& par)
     warn("Error: data->imageStack() returned NULL stack");
     return;
   }
+  // stack is supposed to get some channel info from data, but this isn't necessarily the
+  // same as the current ones used here, so
+  for(uint i=0; i < wi.size(); ++i){
+    if(wi[i] < channels.size())
+      stack->setChannelInfo(channels[wi[i]], i);
+  }
+
   string text_file;
   if(par.param("export_text", text_file))
     stack->exportAscii(text_file);
@@ -565,6 +584,7 @@ void ImageBuilder::makeImStack(f_parameter& par)
   imageStacks[stackName] = stack;
   qts << "Successfully created image stack (" << stackName << ") with " << stack->ch() << " channels";
   warn(error);  // though not an error at this point.
+  displayStack(stack); // displays the whole stack.
 }
 
 void ImageBuilder::clusterVoxels(f_parameter& par)
@@ -1139,6 +1159,17 @@ void ImageBuilder::toRGB(float* fb, float* rgb, channel_info& ci, unsigned long 
   }
 }
 
+bool ImageBuilder::clearRGBSubRect(float* fb, uint fw, uint fh, uint cx, uint cy, 
+				uint c_width, uint c_height)
+{
+  if( cx >= fw || cy >= fh )
+    return(false);
+  c_width = (cx + c_width) <= fw ? c_width : (fw - cx);
+  c_height = (cy + c_height) <= fh ? c_height : (fh - cy);
+  for(uint y=cy; y < (cy + c_height); ++y)
+    memset((void*)(fb + 3*(y*fw + cx)), 0, sizeof(float) * 3 * c_width);
+  return(true);
+}
 
 void ImageBuilder::setRGBImage(float* img, unsigned int width, unsigned int height)
 {
@@ -2349,6 +2380,42 @@ void ImageBuilder::stack_project_cl(f_parameter& par)
   delete projection;
   delete projector;
   cout << "End of project function" << endl;
+}
+
+void ImageBuilder::stack_expand_cl(f_parameter& par)
+{
+  QString errorMessage;
+  QTextStream error(&errorMessage);
+  QString stackName("");
+  if(!par.param("stack", stackName))
+    error << "specify the name of the stack: stack=..\n";
+  if(!imageStacks.count(stackName))
+    error << "Unknown stack \n";
+  unsigned int exp_factor=2;
+  par.param("exp_factor", exp_factor);
+  if(exp_factor < 2 || exp_factor > 10)
+    error << "exp_factor is either too big or too small, consider what you're doing\n";
+  if(errorMessage.length()){
+    warn(errorMessage);
+    return;
+  }
+  float sigma = 1.0;
+  par.param("sigma", sigma);
+  ImExpand_cl expander;
+  unsigned int local_item_size = 0;
+  if(par.param("local_item_size", local_item_size))
+    expander.set_local_item_size(local_item_size);
+  ImStack* expanded = expander.expandStack(imageStacks[stackName], exp_factor, sigma);
+  displayStack(expanded);  // defaults to central position
+  QString saveStackName;
+  par.param("save", saveStackName);
+  if(!stackName.length()){
+    delete expanded;
+  }else{
+    if(imageStacks.count(saveStackName))
+      delete imageStacks[saveStackName];
+    imageStacks[saveStackName] = expanded;
+  }
 }
 
 void ImageBuilder::setStackPar(f_parameter& par)
@@ -3748,6 +3815,33 @@ void ImageBuilder::setImageCenter(f_parameter& par)
     return;
   }
   image->setPosition(x, y);
+}
+
+void ImageBuilder::displayStack(ImStack* stack, int z_pos, bool z_is_local, bool clear){
+  if(!stack)
+    return;
+  
+  // strictly speaking z_pos can be negative, as it can be a global position.
+  // but if local it must be positive and less than stack->d(). z_pos defaults to -1
+  if(z_is_local && z_pos < 0)
+    z_pos = stack->d() / 2;   // i.e. default to the middle section of the stack
+
+  // if z_pos is global, then convert to local position and sanity check
+  z_pos = z_is_local ? z_pos : (z_pos - stack->zp());
+  if(z_pos >= (int)stack->d() || z_pos < 0)
+    z_pos = stack->d() / 2;
+
+  // a local clear
+  if(clear)
+    clearRGBSubRect(rgbData, data->pwidth(), data->pheight(), stack->xp(), stack->yp(),
+		    stack->w(), stack->h());
+      
+  for(uint i=0; i < stack->ch(); ++i){
+    channel_info cinfo = stack->cinfo(i);
+    toRGB(stack->l_image(i, z_pos), rgbData, cinfo, stack->w() * stack->h(),
+	  stack->xp(), stack->yp(), stack->w(), stack->h(), false);
+  }
+  setRGBImage(rgbData, data->pwidth(), data->pheight());
 }
 
 void ImageBuilder::overlayPoints(vector<int> points, unsigned char r, unsigned char g, unsigned char b, unsigned char a){

@@ -3,7 +3,7 @@
 #include <iostream>
 #include <fstream>
 
-OCL_base::OCL_base(const char* kernel_source, bool compile_source)
+OCL_base::OCL_base(const char* kernel_source, const char* kernel_name, bool compile_source)
 {
   platform_id = NULL;
   device_id = NULL;
@@ -17,7 +17,7 @@ OCL_base::OCL_base(const char* kernel_source, bool compile_source)
   
   local_item_size = 128;
 
-  init_kernel(kernel_source, compile_source);
+  init_kernel(kernel_source, kernel_name, compile_source);
 }
 
 OCL_base::~OCL_base()
@@ -68,7 +68,7 @@ void OCL_base::device_properties()
 	    << "Local memory     : " << local_mem_size << std::endl;
 }
 
-void OCL_base::init_kernel(const char* kernel_source, bool compile_source)
+void OCL_base::init_kernel(const char* kernel_source, const char* kernel_name, bool compile_source)
 {
   if(!compile_source){
     std::cerr << "Binary sources not supported yet" << std::endl;
@@ -122,7 +122,20 @@ void OCL_base::init_kernel(const char* kernel_source, bool compile_source)
   clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
   report_error_pf("clBuildProgram", ret);
 
-  kernel = clCreateKernel(program, "vector_f_mip", &ret);
+  char* build_log = NULL;
+  size_t log_size = 0;
+  ret = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, build_log, &log_size);
+  report_error_pf("clGetProgramBuildInfo", ret);
+  build_log = new char[log_size+1];
+  ret = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, log_size, build_log, NULL);
+  report_error_pf("clGetProgramBuildInfo", ret);
+  
+  if(log_size){
+    std::cerr << "clBuildProgram Error encountered:\n" << build_log;
+  }
+  delete build_log;
+
+  kernel = clCreateKernel(program, kernel_name, &ret);
   report_error_pf("clCreateKernel", ret);
   
   delete []kernel_buffer;

@@ -147,6 +147,7 @@ class ImageBuilder : public QObject
   void toRGB(unsigned short* sb, float* rgb, channel_info& ci, unsigned long l);
   void toRGB(float* fb, float* rgb, channel_info& ci, unsigned int long l);
   void toRGB(float* fb, float* rgb, channel_info& ci, unsigned long l, int x_off, int y_off, int width, int height, bool clear=false);
+  bool clearRGBSubRect(float* fb, uint fw, uint fh, uint cx, uint cy, uint c_width, uint c_height);
   unsigned short* background(unsigned int wi, unsigned int slice, bool& ok);
   unsigned short* background(unsigned short* sb, unsigned int w, unsigned int h, backgroundPars& bgp);
   // hack to overcome mismatched APIs. bugger
@@ -206,6 +207,7 @@ class ImageBuilder : public QObject
   void stack_yzSlice(f_parameter& par);
   void stack_project(f_parameter& par);
   void stack_project_cl(f_parameter& par);  // experimental. use open_cl to project the stack.
+  void stack_expand_cl(f_parameter& par);
   void setStackPar(f_parameter& par);
   //  void stackSlice(f_parameter& par);
   void stack_map_blobs(f_parameter& par);  // a testing function. to see if the mt_blob_mapper works.. 
@@ -245,6 +247,7 @@ class ImageBuilder : public QObject
   void setImageCenter(f_parameter& par);
 
   // These can be used by any of the above
+  void displayStack(ImStack* stack, int z_pos=-1, bool z_is_local=true, bool clear=true);
   void overlayPoints(std::vector<int> points, unsigned char r, unsigned char g, unsigned char b, unsigned char a);
   void overlayCellMask(unsigned short* mask, unsigned short border_increment, 
 		       int xoff, int yoff, unsigned int width, unsigned int height,
