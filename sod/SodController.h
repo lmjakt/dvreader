@@ -47,9 +47,13 @@ class SodController : public QWidget
   void set_plot_par(f_parameter& par);
   void titrate(f_parameter& par);
   void make_gaussian_background(f_parameter& par);
+
+  void export_points(f_parameter& par);
+  void export_positions(f_parameter& par);
   void postscript(f_parameter& par);
   void svg(f_parameter& par);
   void drawGrid(f_parameter& par);
+
 
   // and some useful functions
   void warn(QString message);

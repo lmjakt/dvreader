@@ -35,6 +35,8 @@ SodController::SodController(QWidget* parent)
   general_functions["set_plot_par"] = &SodController::set_plot_par;
   general_functions["titrate"] = &SodController::titrate;
   general_functions["gaussian_bg"] = &SodController::make_gaussian_background;
+  general_functions["export_points"] = &SodController::export_points;
+  general_functions["export_positions"] = &SodController::export_positions;
   general_functions["postscript"] = &SodController::postscript;
   general_functions["draw_grid"] = &SodController::drawGrid;
 }
@@ -388,6 +390,49 @@ void SodController::make_gaussian_background(f_parameter& par)
   }
   // then make a function in the viewer..
   distanceViewers[dviewer]->set_simple_gaussian_background(dims, color_matrix, var);
+}
+
+void SodController::export_points(f_parameter& par)
+{
+  QString dviewer;
+  if(!par.param("viewer", dviewer)){
+    warn("Specify viewer to be used viewer=(..)");
+    return;
+  }
+  if(!distanceViewers.count(dviewer)){
+    warn("Unknown viewer specified");
+    return;
+  }
+  DistanceViewer* viewer = distanceViewers[dviewer];  
+  QString fileName;
+  if(!par.param("file", fileName)){
+    warn("Specify file name file=...");
+    return;
+  }
+  if(!viewer->export_points(fileName))
+    warn("Failed to export points!!");
+
+}
+
+void SodController::export_positions(f_parameter& par)
+{
+  QString dviewer;
+  if(!par.param("viewer", dviewer)){
+    warn("Specify viewer to be used viewer=(..)");
+    return;
+  }
+  if(!distanceViewers.count(dviewer)){
+    warn("Unknown viewer specified");
+    return;
+  }
+  DistanceViewer* viewer = distanceViewers[dviewer];  
+  QString fileName;
+  if(!par.param("file", fileName)){
+    warn("Specify file name file=...");
+    return;
+  }
+  if(!viewer->export_positions(fileName))
+    warn("Failed to export points!!");
 }
 
 void SodController::postscript(f_parameter& par)

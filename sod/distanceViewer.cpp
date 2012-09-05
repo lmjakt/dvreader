@@ -32,6 +32,8 @@
 #include <vector>
 #include <QPushButton>
 #include <QLabel>
+#include <QFile>
+#include <QTextStream>
 #include <iostream>
 #ifdef Q_OS_MACX
 #include <limits.h>
@@ -234,6 +236,38 @@ void DistanceViewer::set_simple_gaussian_background(std::vector<unsigned int> di
 						    unsigned char* color_matrix, float var)
 {
   drawer->set_simple_gaussian_background(dims, color_matrix, var);
+}
+
+bool DistanceViewer::export_points(QString fname)
+{
+  QFile ofile(fname);
+  if(!ofile.open(QIODevice::WriteOnly))
+    return(false);
+  QTextStream out(&ofile);
+  for(uint i=0; i < localPoints.size(); ++i){
+    out << i;
+    for(uint j=0; j < localPoints[i]->dimNo; ++j)
+      out << "\t" << localPoints[i]->coordinates[j];
+    out << "\n";
+  }
+  ofile.close();
+  return(true);
+}
+
+bool DistanceViewer::export_positions(QString fname)
+{
+  QFile ofile(fname);
+  if(!ofile.open(QIODevice::WriteOnly))
+    return(false);
+  QTextStream out(&ofile);
+  for(uint i=0; i < positions.size(); ++i){
+    out << i;
+    for(uint j=0; j < positions[i].size(); ++j)
+      out << "\t" << positions[i][j];
+    out << "\n";
+  }
+  ofile.close();
+  return(true);
 }
 
 void DistanceViewer::postscript(QString fname, float w, float h, bool stress)

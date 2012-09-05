@@ -79,14 +79,14 @@ PointDrawer::PointDrawer(QWidget* parent, const char* name)
   bg_drawer = 0;
   
   defaultColors.push_back(QColor("green"));
-  defaultColors.push_back(QColor("blue"));
   defaultColors.push_back(QColor("cyan"));
   defaultColors.push_back(QColor("red"));
-  defaultColors.push_back(QColor("yellow"));
   defaultColors.push_back(QColor("magenta"));
-  defaultColors.push_back(QColor("white"));
+  defaultColors.push_back(QColor("yellow"));
   defaultColors.push_back(QColor("pink"));
+  defaultColors.push_back(QColor("blue"));
   defaultColors.push_back(QColor("brown"));
+  defaultColors.push_back(QColor("grey"));
 }
 
 PointDrawer::~PointDrawer(){
