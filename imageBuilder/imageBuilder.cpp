@@ -22,6 +22,7 @@
 #include "../image/blobModel.h"
 #include "../image/imageAnalyser.h"
 #include "../panels/stack_stats.h"
+#include "../panels/borderInformation.h"
 #include "../linGraph/linePlotter.h"
 #include "BlobSetPlotter.h"
 #include "../linGraph/distPlotter.h"    
@@ -143,6 +144,13 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   general_functions["read_cells"] = &ImageBuilder::read_cells_from_file;
   general_functions["draw_model"] = &ImageBuilder::draw_blob_model;
   general_functions["list"] = &ImageBuilder::list_objects;
+  general_functions["report_parameter"] = &ImageBuilder::report_parameter;
+  general_functions["set_bleach_counts"] = &ImageBuilder::set_bleach_counts;
+  general_functions["bleach_count_p"] = &ImageBuilder::bleach_count_p;
+  general_functions["bleach_count_map"] = &ImageBuilder::bleach_count_map;
+  general_functions["plot_blob_bleach_count"] = &ImageBuilder::plot_blob_bleach_count;
+  general_functions["plot_bleaching"] = &ImageBuilder::plot_bleaching;
+
   general_functions["setCenter"] = &ImageBuilder::setImageCenter;
   //general_functions["p_mean"] = &ImageBuilder::p_mean_panel;  // may be useful to do things like blurring.
 
@@ -1247,12 +1255,36 @@ void ImageBuilder::setBigImage(float* img, int source_x, int source_y, int width
   image->updateGL();
 }
 
+
 void ImageBuilder::setBigOverlay(unsigned char* img, int source_x, int source_y, int width, int height)
 {
   if(!image->isVisible())
     image->show();
   image->setBigOverlay(img, source_x, source_y, width, height);
   image->updateGL();
+}
+
+// makes an rgba char image (as that is what image expects)
+// and sends this off to image thingy. returns the rgba uchar
+// overlay image
+unsigned char* ImageBuilder::setBigGrayOverlay(float* img, int source_x, int source_y, 
+				     int width, int height, unsigned char alpha, float scale)
+{
+  if(!width || !height || !img)
+    return(0);
+  if(!image->isVisible())
+    image->show();
+  int l = width * height;
+  unsigned char* olay = new unsigned char[4 * l];
+  unsigned char* ol_ptr = olay;
+  for(int i=0; i < l; ++i){
+    memset((void*)ol_ptr, (unsigned char)(img[i] * scale), 3);
+    ol_ptr[3] = alpha;
+    ol_ptr += 4;
+  }
+  image->setBigOverlay(olay, source_x, source_y, width, height);
+  image->updateGL();
+  return(olay);
 }
 
 void ImageBuilder::pipe_slice(std::vector<p_parameter> pars, unsigned int wi, bool reset_rgb){
@@ -2086,7 +2118,7 @@ void ImageBuilder::subStackBackground(f_parameter& par)
     for(int y=0; y < (int)stack->h(); ++y){
       float* dest = data + y * stack->w(); 
       for(int x=0; x < (int)stack->w(); ++x){
-	if(zp == 20 && y == 400 && !(x % 50))class ImageAnalyser;
+	//if(zp == 20 && y == 400 && !(x % 50));
 	
 	//	cout << zp << "," << y << "," << x << " dest " << *dest << "  bg " << tdb.bg(x,y) << " = " << (*dest) - tdb.bg(x,y) << endl;
 	(*dest) -= tdb.bg(x,y);
@@ -3805,6 +3837,229 @@ void ImageBuilder::list_objects(f_parameter& par)
       os << (*it).first.toAscii().constData() << "\n";
   }
   emit displayMessage(os.str().c_str());
+}
+
+// report some stuff.. 
+void ImageBuilder::report_parameter(f_parameter& par)
+{
+  QString message;
+  QTextStream qts(&message);
+  if(par.defined("location")){
+    qts << "Position: " << data->xpos() << "," << data->ypos()
+	    << "  :" << data->width() << "," << data->height() << "\n";
+  }
+  warn(message);
+}
+
+void ImageBuilder::set_bleach_counts(f_parameter& par)
+{
+  int xo = 0;
+  int yo = 0;
+  float radius;
+  if(!par.param("r", radius)){
+    warn("please specify the radius in multiples of the min radius");
+    return;
+  }
+  par.param("xo", xo);
+  par.param("yo", yo);
+  data->set_bleach_counts(radius, xo, yo);
+}
+
+void ImageBuilder::bleach_count_p(f_parameter& par)
+{
+  int x, y;
+  QString message;
+  QTextStream qts(&message);
+  if(!par.param("x", x))
+    qts << "specify x\n";
+  if(!par.param("y", y))
+    qts << "specify y";
+  if(message.length()){
+    warn(message);
+    return;
+  }
+  unsigned int count = data->bleach_count_p(x, y);
+  qts << "Bleach count " << x << "," << y << " --> " << count;
+  warn(message);
+}
+
+void ImageBuilder::bleach_count_map(f_parameter& par)
+{
+  float max_count;
+  float* bleach_map = data->bleachCountsMap_f(max_count, true);
+  if(!bleach_map)
+    return;
+  // max -> 1.0 need to scale to 255
+  float scale = 255;
+  unsigned char alpha = 125;
+  par.param("scale", scale);
+  par.param("alpha", alpha);
+  unsigned char* counts_overlay = setBigGrayOverlay(bleach_map, 0, 0, data->pwidth(), data->pheight(), alpha, scale);
+  // and delete..
+  delete []bleach_map;
+  delete []counts_overlay;
+}
+
+void ImageBuilder::plot_blob_bleach_count(f_parameter& par)
+{
+  if(par.defined("help")){
+    warn("plot_blob_bleach_count blobs=bname");
+    return;
+  }
+  QString error;
+  QTextStream qts(&error);
+  QString par_name = "peak";
+  QString bname;
+  if(!par.param("blobs", bname))
+    qts << "No blob mapper collection specified\n";
+  if(bname.length() && !mapper_collections.count(bname))
+    qts << "Unknown mapper collection\n";
+  if(error.length()){
+    warn(error);
+    return;
+  }
+  par.param("par", par_name);
+  vector<float> bleach_counts;
+  vector<float> y_values;
+  vector<Blob_mt_mapper*>& mappers = mapper_collections[bname];
+  
+  if(!imageAnalyser)
+    imageAnalyser = new ImageAnalyser(data);
+
+  for(vector<Blob_mt_mapper*>::iterator it=mappers.begin(); it != mappers.end(); ++it){
+    vector<blob*> blobs = (*it)->rblobs();
+    int blob_x, blob_y, blob_z;
+    unsigned int mapper_channel = (*it)->channel();
+    float signal;
+    for(unsigned int i=0; i < blobs.size(); ++i){
+      if(!(*it)->blob_peak_pos(blobs[i], blob_x, blob_y, blob_z))
+	continue;
+      if(par_name == "peak"){
+	if(!(imageAnalyser->point(signal, blob_x, blob_y, blob_z, mapper_channel)))
+	  continue;
+      }else{
+	// the below gives background corrected values, though
+	signal = getBlobParameter(blobs[i], par_name );
+      }
+      y_values.push_back( signal );
+      bleach_counts.push_back((float) (blob_z + data->bleach_count_p(blob_x, blob_y)) );
+    }
+  }
+  // and do the plot.
+  QString plot_identifier = "bleach_blob";
+  if(!scatterPlotters.count(plot_identifier))
+    scatterPlotters[plot_identifier] = new ScatterPlotter();
+
+  // Begin misplaced code // 
+  // for some analysis. This code really shouldn't go here, but, this and some following the below ends up here
+  map<float, vector<float> > y_by_x;
+  for(uint i=0; i < y_values.size(); ++i)
+    y_by_x[ bleach_counts[i] ].push_back( y_values[i] );
+  vector<float> bleach_levels;
+  vector<float> mean_y_values;
+  for(map<float, vector<float> >::iterator it=y_by_x.begin(); it != y_by_x.end(); ++it){
+    float mean = 0;
+    for(uint i=0; i < (*it).second.size(); ++i)
+      mean += (*it).second[i];
+    mean /= (float)(*it).second.size();
+    bleach_levels.push_back((*it).first);
+    mean_y_values.push_back(mean);
+  }
+  vector<vector<float> > x_l;
+  vector<vector<float> > y_l;
+  x_l.push_back(bleach_counts);
+  x_l.push_back(bleach_levels);
+  y_l.push_back(y_values);
+  y_l.push_back(mean_y_values);
+  ////// END of misplaced code ////////
+
+  scatterPlotters[plot_identifier]->setData(x_l, y_l);
+  scatterPlotters[plot_identifier]->show();
+}
+
+// plots ratios of signal vs. bleach_count for overlapping
+// regions. Note that there may be 0 counts for bleaching.
+// which makes the plot a bit problematic. Hence exports the
+// numbers as text for analysis with R or similar.
+void ImageBuilder::plot_bleaching(f_parameter& par)
+{
+  QString error;
+  QTextStream qts(&error);
+  if(par.defined("help")){
+      qts << "plot_bleaching wi=channel fname=filename";
+      warn(error);
+      return;
+  }
+  uint wi = 0;
+  if(!par.param("wi", wi))
+    qts << "Please define the channel: wi=..";
+  QString filename;
+  par.param("fname", filename);
+
+  std::vector<BorderArea*> borders = data->borderAreas();
+  if(!borders.size()){
+    warn("Unable to obtain border areas");
+    return;
+  }
+  if(wi >= borders[0]->wave_no)
+    qts << "The specified channel is too large, max: " << borders[0]->wave_no -1;
+  if(error.length()){
+    warn(error);
+    for(uint i=0; i < borders.size(); ++i)
+      delete borders[i];
+    return;
+  }
+  std::vector<float> t_signal;
+  std::vector<float> n_signal;
+  std::vector<float> t_bleach;
+  std::vector<float> n_bleach;
+  
+  std::vector<float> bleach_ratio;
+  std::vector<float> signal_ratio;
+
+  for(uint i=0; i < borders.size(); ++i){
+    unsigned int l=borders[i]->width * borders[i]->height;
+    cout << "plot bleaching i: " << i << "  and l: " << l << std::endl;
+    t_signal.reserve(t_signal.size() + l);
+    n_signal.reserve(n_signal.size() + l);
+    t_bleach.reserve(t_bleach.size() + l);
+    n_bleach.reserve(n_bleach.size() + l);
+    
+    bleach_ratio.reserve(bleach_ratio.size() + l);
+    signal_ratio.reserve(signal_ratio.size() + l);
+    for(uint j=0; j < l; ++j){
+      t_signal.push_back(borders[i]->t_data[wi][j]);
+      n_signal.push_back(borders[i]->n_data[wi][j]);
+      t_bleach.push_back(borders[i]->t_bleach_count[j]);
+      n_bleach.push_back(borders[i]->n_bleach_count[j]);
+
+      if(borders[i]->n_data[wi][j] > 0 && borders[i]->n_bleach_count[j] > 0){
+	bleach_ratio.push_back( borders[i]->t_bleach_count[j] / borders[i]->n_bleach_count[j]);
+	signal_ratio.push_back( borders[i]->t_data[wi][j] / borders[i]->n_data[wi][j] );
+      }
+    }
+  }
+  std::cout << "imageBuilder plot_bleaching, n_signal size: " << n_signal.size() << std::endl;
+  for(uint i=0; i < borders.size(); ++i)
+    delete borders[i];
+  
+  QString plot_identifier = "bleach_ratio";
+  if(!scatterPlotters.count(plot_identifier))
+    scatterPlotters[plot_identifier] = new ScatterPlotter();
+  scatterPlotters[plot_identifier]->setData(bleach_ratio, signal_ratio);
+  scatterPlotters[plot_identifier]->show();
+  // and export the numbers. Quite a lot of them probably.
+  if(filename.length()){
+    QFile file(filename);
+    if(file.open(QIODevice::WriteOnly | QIODevice::Text)){
+      QTextStream out(&file);
+      for(uint i=0; i < t_signal.size(); ++i)
+	out << t_signal[i] << "\t" << n_signal[i] << "\t" << t_bleach[i] << "\t" << n_bleach[i] << "\n";
+      file.close();
+    }else{
+      warn("Unable to open file for writing");
+    }
+  }
 }
 
 void ImageBuilder::setImageCenter(f_parameter& par)

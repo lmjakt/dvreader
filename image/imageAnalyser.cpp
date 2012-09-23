@@ -59,14 +59,14 @@ ImageAnalyser::ImageAnalyser(FileSet* fs){
     x_z_slice_cache_height = x_z_slice_cache_height > data->pheight() ? data->pheight() : x_z_slice_cache_height;
  
 //    vol_cache_width = (2 * processorCache) / (min_point_height * min_point_depth);
-    vol_cache_width = data->pwidth();
-    vol_cache_width = vol_cache_width > data->pwidth() ? data->pwidth() : vol_cache_width;
-    vol_cache_width = vol_cache_width <= (min_point_height * 2) ? min_point_height * 2 : vol_cache_width;
+    // vol_cache_width = data->pwidth();
+    // vol_cache_width = vol_cache_width > data->pwidth() ? data->pwidth() : vol_cache_width;
+    // vol_cache_width = vol_cache_width <= (min_point_height * 2) ? min_point_height * 2 : vol_cache_width;
 
     cout << "ImageAnalyser::ImageAnalyser construction complete image proportions are " << data->pwidth() << ", " << data->pheight() << ", " << data->sectionNo()
 	 << "\ncache size are area_cache width :  " << area_cache_width
 	 << "\nslice cache width and height    :  " << x_z_slice_cache_width << ", " << x_z_slice_cache_height << endl; 
-    cout <<  "vol cache width                  :  " << vol_cache_width << ", " << min_point_height << ", " << min_point_depth << endl;
+    //    cout <<  "vol cache width                  :  " << vol_cache_width << ", " << min_point_height << ", " << min_point_depth << endl;
     
 
 }
@@ -294,30 +294,39 @@ bool ImageAnalyser::simpleLine(float* line, int xb, int yb, int zb, int l, Dimen
 
 bool ImageAnalyser::point(float& p, int xp, int yp, int zp, unsigned int wi){
     bool ok = false;
+    unsigned int vol_cache_width = 256;
+    unsigned int vol_cache_height = 256;
+    unsigned int vol_cache_depth = data->sectionNo();
     if( !(ok = volume_cache->point(p, xp, yp, zp, wi) )){
 	// then we need to work out what cache to get..
-	float* newCache = new float[min_point_height * min_point_depth * vol_cache_width];
-	// and then work out the xb.. 
-	int xb = xp - min_point_height;
-	xb = (xb + vol_cache_width) >= data->pwidth() ? (data->pwidth() - vol_cache_width) : xb;
-	xb = xb < 0 ? 0 : xb;
+      float* newCache = new float[vol_cache_width * vol_cache_height * vol_cache_depth];
+      
+      //float* newCache = new float[min_point_height * min_point_depth * vol_cache_width];
+      // and then work out the xb.. 
+
+      int xb = 256 * (xp / 256);
+      int yb = 256 * (yp / 256);
+      int zb = 0;
+      //	int xb = xp - min_point_height;
+      //	xb = (xb + vol_cache_width) >= data->pwidth() ? (data->pwidth() - vol_cache_width) : xb;
+      //	xb = xb < 0 ? 0 : xb;
 	// the other points are just defined as .. 
-	int yb = yp - (min_point_height / 2);
-	int zb = zp - (min_point_depth / 2);
+	//int yb = yp - (min_point_height / 2);
+	//int zb = zp - (min_point_depth / 2);
 	// and make sure that the numbers are above 0 and that the numbers + thingy don't overrun the cache
-	yb = (yb + min_point_height) > data->pheight() ? data->pheight() - min_point_height : yb;
-	zb = (zb + min_point_depth) > data->sectionNo() ? data->sectionNo() - min_point_depth : zb;
-	yb = yb < 0 ? 0 : yb;
-	zb = zb < 0 ? 0 : zb;
-	if(data->readToFloat(newCache, xb, yb, zb, vol_cache_width, min_point_height, min_point_depth, wi)){
-	    delete volume_cache;
-	    volume_cache = new VolumeCache(newCache, xb, yb, zb, vol_cache_width, min_point_height, min_point_depth, wi);
-	    ok = volume_cache->point(p, xp, yp, zp, wi);
-	}else{
-	    delete newCache;
-	    cerr << "ImageAnalyser::point  Unable to create new cache covering  " << xb << ", " << yb << ", " << zb << "   dims : " 
-		 << vol_cache_width << ", " << min_point_height << ", " << min_point_depth << endl;
-	}
+	//yb = (yb + min_point_height) > data->pheight() ? data->pheight() - min_point_height : yb;
+	//zb = (zb + min_point_depth) > data->sectionNo() ? data->sectionNo() - min_point_depth : zb;
+	//yb = yb < 0 ? 0 : yb;
+	//zb = zb < 0 ? 0 : zb;
+      if(data->readToFloat(newCache, xb, yb, zb, vol_cache_width, vol_cache_height, vol_cache_depth, wi)){
+	delete volume_cache;
+	volume_cache = new VolumeCache(newCache, xb, yb, zb, vol_cache_width, vol_cache_height, vol_cache_depth, wi);
+	ok = volume_cache->point(p, xp, yp, zp, wi);
+      }else{
+	delete newCache;
+	cerr << "ImageAnalyser::point  Unable to create new cache covering  " << xb << ", " << yb << ", " << zb << "   dims : " 
+	     << vol_cache_width << ", " << vol_cache_height << ", " << vol_cache_depth << endl;
+      }
     }
     return(ok);
 }

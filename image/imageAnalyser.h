@@ -97,7 +97,7 @@ class ImageAnalyser
     ssize_t x_z_slice_cache_width;
     ssize_t x_z_slice_cache_height;    // work these out in the constructor.. 
 
-    ssize_t vol_cache_width;
+    //    ssize_t vol_cache_width;  // hard code in the source. Attempts to be clever have been bad.
 
 
     std::vector<linearPeak> findPeaks(float* line, int length, int pr, float minPeakValue, float maxEdgeValue, int dim);  // also dumb. doesn't know how to define positions.. 

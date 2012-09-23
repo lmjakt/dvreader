@@ -10,7 +10,7 @@
     (at your option) any later version.
  
     This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty ofhttp://www.dn.se/nyheter/sverige/kraftigt-askvader--37-000-blixtnedslag
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
    
@@ -52,7 +52,7 @@ FileSet::FileSet(int* waveLengths, int waveNo, float maxLevel, int xy_margin){
     sort(waves.begin(), waves.end());
 
     // and set some other things.. like ..
-    x = y = w = h = 0;
+    real_x = real_y = real_w = real_h = 0;
     frameWidth = frameHeight = 0;
     // but since we can just do a count on the frames we don't need to set anything else up.. 
     fileName = 0;
@@ -162,8 +162,8 @@ bool FileSet::addFrame(string fname, ifstream* in, std::ios::pos_type framePos,
     frameHeight = frame->sampleHeight();
     pixelHeight = frame->p_height();
     pixelWidth = frame->p_width();
-    x = frame->xPos();
-    y = frame->yPos();
+    real_x = frame->xPos();
+    real_y = frame->yPos();
     // and then how to insert ..
     frames[x_pos][y_pos] = fstack;
     
@@ -187,8 +187,8 @@ bool FileSet::addFrame(string fname, ifstream* in, std::ios::pos_type framePos,
   x_set.insert(x_pos);
   y_set.insert(y_pos);
   z_set.insert(frame->zPos());
-  if(x_pos < x){ x = x_pos; }
-  if(y_pos < y){ y = y_pos; }
+  if(x_pos < real_x){ real_x = x_pos; }
+  if(y_pos < real_y){ real_y = y_pos; }
   
   return(true);
 }
@@ -276,8 +276,8 @@ bool FileSet::finalise(){
 		completeRectangle = false;
 	    }else{
 		// set the pixelPosition of the thingy..
-		int xp = int((frames[x_positions[i]][y_positions[j]]->x_pos() - x)/xscale);
-		int yp = int((frames[x_positions[i]][y_positions[j]]->y_pos() - y)/yscale);
+		int xp = int((frames[x_positions[i]][y_positions[j]]->x_pos() - real_x)/xscale);
+		int yp = int((frames[x_positions[i]][y_positions[j]]->y_pos() - real_y)/yscale);
 		frames[x_positions[i]][y_positions[j]]->setPixelPos(xp, yp, true);
 
 		if(frameNo != frames[x_positions[i]][y_positions[j]]->frameNo()){
@@ -375,14 +375,14 @@ bool FileSet::finalise(){
       
     }
     // then just set w, h, and d.. 
-    w = frameWidth + x_positions.back() - x_positions[0];  // this is fine, doesn't have a problem with overlaps, since there isn't one at the end. .. 
-    h = frameHeight + y_positions.back() - y_positions.front();
-    d = z_positions.back() - z_positions.front();
+    real_w = frameWidth + x_positions.back() - x_positions[0];  // this is fine, doesn't have a problem with overlaps, since there isn't one at the end. .. 
+    real_h = frameHeight + y_positions.back() - y_positions.front();
+    real_d = z_positions.back() - z_positions.front();
     
      
-    pw = (int) roundf( w / xscale );
-    ph = (int) roundf( h / yscale );   // but it is not quite correct.. (but it may be good enough.. 
-    cout << "Area covered : " << x << ", " << y << "  size : " << w << ", " << h << endl
+    pw = (int) roundf( real_w / xscale );
+    ph = (int) roundf( real_h / yscale );   // but it is not quite correct.. (but it may be good enough.. 
+    cout << "Area covered : " << real_x << ", " << real_y << "  size : " << real_w << ", " << real_h << endl
 	 << "Total number of stacks: " << x_positions.size() * y_positions.size() << endl
 	 << "Each stack having dimensions : " << frameWidth << ", " << frameHeight << endl
 	 << "containing                   : " << pixelHeight << ", " << pixelWidth << endl
@@ -397,6 +397,50 @@ bool FileSet::finalise(){
 
     return(true);  // lets see if we can handle incomplete rectangles
     return(completeRectangle);
+}
+
+// radius is in multiples of the minimal radius (0.5 * diagonal length)
+// xo and yo specify an optional offset from the center of each frameStack
+void FileSet::set_bleach_counts(float radius, int xo, int yo)
+{
+  for(unsigned int i=0; i < frame_order.size(); ++i)
+    frame_order[i]->clearBleachCount();
+  
+  for(unsigned int i=0; i < frame_order.size(); ++i){
+    int w = (int)frame_order[i]->p_width();
+    int h = (int)frame_order[i]->p_height();
+    int r = radius * (int)(0.5 * sqrt( (w * w) + (h * h) ) );
+    int x = xo + (frame_order[i]->left() + w / 2);
+    int y = yo + (frame_order[i]->bottom() + h / 2);
+    unsigned int increment = (unsigned int)frame_order[i]->frameNo();
+    for(unsigned int j=(i+1); j < frame_order.size(); ++j)
+      frame_order[j]->incrementBleachCount(x, y, r, increment);
+  } 
+}
+
+unsigned int FileSet::bleach_count_p(int x, int y)
+{
+  unsigned int bcount = 0;
+  for(unsigned int i=0; i < frame_order.size(); ++i)
+    frame_order[i]->bleachCount_g(x, y, bcount);
+  return(bcount);
+}
+
+float* FileSet::bleachCountsMap_f(float& max, bool divide_by_max)
+{
+  max = 0;
+  float* bleach_map = new float[pwidth() * pheight()];
+  for(unsigned int i=0; i < frame_order.size(); ++i){
+    float max_tmp = frame_order[i]->bleachCountsMap_f(bleach_map, 0, 0, pwidth(), pheight());
+    max = max_tmp > max ? max_tmp : max;
+  }
+  cout << "bleachCountsMap_f max: " << max << endl;
+  if(divide_by_max && max > 0){
+    int l = pwidth() * pheight();
+    for(int i=0; i < l; ++i)
+      bleach_map[i] = bleach_map[i] / max;
+  }
+  return(bleach_map);
 }
 
 void FileSet::adjustStackPosition(float xp, float yp, QPoint p){
@@ -760,6 +804,20 @@ BorderInfo* FileSet::borderInformation(float x, float y){
     return(frames[x][y]->borderInformation());
   cerr << "FileSet::borderInformation uknown frame location at : " << x << "," << y << endl;
   return(0);
+}
+
+std::vector<BorderArea*> FileSet::borderAreas()
+{
+  std::vector<BorderArea*> borders;
+  for(std::vector<FrameStack*>::iterator it=frame_order.begin(); it != frame_order.end(); ++it){
+    BorderArea* r_area = (*it)->borderArea(RIGHT);
+    BorderArea* b_area = (*it)->borderArea(BOTTOM);
+    if(r_area)
+      borders.push_back(r_area);
+    if(b_area)
+      borders.push_back(b_area);
+  }
+  return(borders);
 }
 
 float* FileSet::paintCoverage(int& w, int& h, float maxCount){

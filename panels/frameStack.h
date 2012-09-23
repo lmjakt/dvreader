@@ -70,12 +70,15 @@ class FrameStack {
     void finalise(float maxLevel, FrameInfo* frameData=0);  // sets upt the vector.. 
     void printFrames();
 
+    bool contains_pixel(int x, int y);
+    bool bleachCount_g(int x, int y, unsigned int& count);
+
     // some accessor functions..
     float x_pos(){
-	return(x);
+	return(real_x);
     }
     float y_pos(){
-	return(y);
+	return(real_y);
     }
     float imageWidth(){
 	return(width);
@@ -227,10 +230,20 @@ class FrameStack {
     }
 
     BorderInfo* borderInformation();
+    BorderArea* borderArea(POSITION pos);
     BorderArea* borderArea(FrameStack* nbor, int x, int y, int h, int w);
+    // direct access to neighbors
+    const FrameStack* left_neighbour();
+    const FrameStack* right_neighbour();
+    const FrameStack* top_neighbour();
+    const FrameStack* bottom_neighbour();
+    
 
-    // destination in mip_projection is an RGB float formatted array which has been transformed.
-    // raw_data if defined should have enough space for all the appropriate wavelengths and pixels
+    // Bleaching compensation related functions
+    void clearBleachCount();
+    void incrementBleachCount(int x, int y, int radius, unsigned int count);
+    unsigned int* bleachCounts_g(int x, int y, int w, int h);  // returns the bleach information. x and y in global coordinates. 
+    float bleachCountsMap_f(float* map, int map_x, int map_y, int map_w, int map_h); // returns the max count 
 
     private :
     std::map<unsigned int, panel_bias*> panelBiasMap; // set when setting things.
@@ -238,6 +251,8 @@ class FrameStack {
     std::vector<FrameSet*> sections;         // do I actually use this.. ? 
     std::ifstream* in;
     
+    unsigned int* bleach_count;            // the number of times a pixel has been exposed prior to this imaging.
+
     // but actually .. we have ..
     FrameInfo* frameInformation;              // which we can make or get from file.. 
     float* contribMap;                        // defines what proportion of positions should be taken from this framestack.
@@ -250,7 +265,7 @@ class FrameStack {
     float leftOverlap, topOverlap, rightOverlap, bottomOverlap;   // these refer to the corresponding neighbours.. 
     int leftBorder, rightBorder, topBorder, bottomBorder;         // these refer to global coordinates.. 
     
-    float x, y;
+    float real_x, real_y;  // the physical location
     float width, height;   // taken from the first constructor..
     float z_begin, z_end;  // sections ordered..
     unsigned int pWidth, pHeight;   // pixel height and pixel number.

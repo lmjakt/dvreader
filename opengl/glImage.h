@@ -121,7 +121,7 @@ private:
     float* backgroundImage;       // a single image that we can use to set things up.. 
     
     GLfloat xo, yo;    // x and y origin.. before magnification ! 
-    GLfloat xscale, yscale;
+    GLfloat xscale, yscale;  // yscale isn't actually used at the moment.
     int lastX, lastY;
     Qt::MouseButton buttonPressed;
     int currentX, currentY;  // the current mouse position on the image (rather than the widget position).

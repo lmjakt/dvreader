@@ -60,10 +60,10 @@ FrameStack::FrameStack(int* waveLengths, int waveNo, ifstream* inStream, float m
     
     in = inStream;
 
-
+    bleach_count = 0;
     leftNeighbour = topNeighbour = rightNeighbour = bottomNeighbour = 0;
     leftOverlap = topOverlap = rightOverlap = bottomOverlap = 0;
-    x = y = 0;
+    real_x = real_y = 0;
     width = height = 0;
     z_begin = z_end =  0;
     pWidth = pHeight = 0;
@@ -91,6 +91,7 @@ FrameStack::~FrameStack(){
     }
     delete contribMap;
     delete in;
+    delete []bleach_count;
 }
 
 bool FrameStack::addFrame(const char* fname, std::ios::pos_type framePos, std::ios::pos_type readPos, std::ios::pos_type extHeadSize,
@@ -159,13 +160,18 @@ bool FrameStack::addFrame(Frame* frame){
   }
   if(!width){
     // just insert the frame into this one and set the appropriate parameters..
-    x = frame->xPos();
-    y = frame->yPos();
+    real_x = frame->xPos();
+    real_y = frame->yPos();
     z_begin = z_end = frame->zPos();
     width = frame->sampleWidth();
     height = frame->sampleHeight();
     pWidth = frame->p_width();
     pHeight = frame->p_height();
+
+    if(width && height){
+      bleach_count = new unsigned int[ pWidth * pHeight ];
+      memset((void*)bleach_count, 0, sizeof(unsigned int) * pWidth * pHeight);
+    }
     
     // then make a new frameSet and add the frame to that..
     FrameSet* fset = new FrameSet(wave_lengths, wave_no);
@@ -179,8 +185,8 @@ bool FrameStack::addFrame(Frame* frame){
     // if we have width then we have to determine whether or not this frame belongs to this frameStack..
     // it's x and y positions should be the same.. if not then we have to let the owner of this object take
     // care of it..
-    if(frame->xPos() != x || frame->yPos() != y){
-	cerr << "Frame appears to not belong to this framestack: " << x << " != " << frame->xPos() << " || " << y << " != " << frame->yPos() << endl;
+    if(frame->xPos() != real_x || frame->yPos() != real_y){
+	cerr << "Frame appears to not belong to this framestack: " << real_x << " != " << frame->xPos() << " || " << real_y << " != " << frame->yPos() << endl;
 	return(false);
     }
     // then we try to find a frameset with the same z - position..
@@ -238,7 +244,7 @@ void FrameStack::finalise(float maxLevel, FrameInfo* frameData){
   for(uint i=0; i < fwaves.size(); i++){
     projection[i] = make_mip_projection(i, maxLevel, contrasts[i]);
   }
-  frameInformation = new FrameInfo(fwaves.size(), projection, x, y, pixelX, pixelY, pWidth, pHeight);
+  frameInformation = new FrameInfo(fwaves.size(), projection, real_x, real_y, pixelX, pixelY, pWidth, pHeight);
   
 }
 
@@ -249,6 +255,49 @@ void FrameStack::printFrames(){
 	cout << "\t" << counter++ << "\t" << (*it).second->z_pos() << "\t" << (*it).second->x_pos() << ", " << (*it).second->y_pos() 
 	     << "  size : " << (*it).second->width() << ", " << (*it).second->height() << "\t" << (*it).second->num_colors() << endl;
     }
+}
+
+bool FrameStack::contains_pixel(int x, int y)
+{
+  return( (x >= pixelX) && (x < right()) && (y > pixelY) && (y < top()) );
+}
+
+bool FrameStack::bleachCount_g(int x, int y, unsigned int& count)
+{
+  if(!contains_pixel(x, y) || !bleach_count)
+    return(false);
+  count = bleach_count[ (y-pixelY) * pWidth + (x - pixelX) ];
+  return(true);
+}
+
+float FrameStack::bleachCountsMap_f(float* map, int map_x, int map_y, int map_w, int map_h)
+{
+  if( map_x > right() || (map_x + map_w) < left() || map_y > top() || (map_y + map_h) < bottom() )
+    return(0);
+
+  if(!bleach_count)
+    return(0);
+
+  int x_beg = map_x < pixelX ? pixelX : map_x;
+  int x_end = (map_x + map_w) > right() ? right() : (map_x + map_w);
+  int y_beg = map_y < pixelY ? pixelY : map_y;
+  int y_end = (map_y + map_h) > top() ? top() : (map_y + map_h);
+
+  if( x_beg >= x_end || y_beg >= y_end )
+    return(0);
+  // have to visit every pixel since we will convert to float
+  float maxCount = 0;
+  for(int y = y_beg; y < y_end; ++y){
+    int m_y = y - map_y;
+    int l_y = y - pixelY;
+    for(int x = x_beg; x < x_end; ++x){
+      int m_x = x - map_x;
+      int l_x = x - pixelX;
+      map[ m_y * map_w + m_x ] = (float)bleach_count[ l_y * pWidth + l_x ];
+      maxCount = maxCount > map[ m_y * map_w + m_x ] ? maxCount : map[ m_y * map_w + m_x ];
+    }
+  }
+  return(maxCount);
 }
 
 void FrameStack::setContribMap(float* map){
@@ -288,7 +337,7 @@ bool FrameStack::setNeighbour(FrameStack* neibour, int pos, bool recip){
 	case 0:
 	    // left position
 	    leftNeighbour = neibour;
-	    leftOverlap = neibour->x_pos() + neibour->imageWidth() - x;
+	    leftOverlap = neibour->x_pos() + neibour->imageWidth() - real_x;
 	    olaps = leftOverlap > 0;
 //	    cout << "left overlap : " << leftOverlap << endl;
 	    if(recip){
@@ -299,7 +348,7 @@ bool FrameStack::setNeighbour(FrameStack* neibour, int pos, bool recip){
 	case 1:
 	    // top position
 	    topNeighbour = neibour;
-	    topOverlap = y + height - neibour->y_pos();
+	    topOverlap = real_y + height - neibour->y_pos();
 	    olaps = topOverlap > 0;
 //	    cout << "top overlap " << topOverlap << endl;
 	    if(recip){
@@ -310,7 +359,7 @@ bool FrameStack::setNeighbour(FrameStack* neibour, int pos, bool recip){
 	case 2:
 	    // right position
 	    rightNeighbour = neibour;
-	    rightOverlap = x + width - neibour->x_pos();
+	    rightOverlap = real_x + width - neibour->x_pos();
 	    olaps = rightOverlap > 0;
 //	    cout << "rightOverlap " << rightOverlap << endl;
 	    if(recip){
@@ -321,7 +370,7 @@ bool FrameStack::setNeighbour(FrameStack* neibour, int pos, bool recip){
 	case 3: 
 	    // bottom position
 	    bottomNeighbour = neibour;
-	    bottomOverlap = neibour->y_pos() + neibour->imageHeight() - y;
+	    bottomOverlap = neibour->y_pos() + neibour->imageHeight() - real_y;
 	    olaps = bottomOverlap > 0;
 //	    cout << "bottomOverlap " << bottomOverlap << endl;
 	    if(recip){
@@ -451,7 +500,7 @@ vector<overlap_data*> FrameStack::adjustNeighbourPositions(unsigned int secNo, u
 	cout << "calling thingy with neighbour coords " << nlix << ", " << ny1 << "  this coords : " << tlix << ", " << y1 << "  size : " << areaW << ", " << areaH << endl;
 	offsets off = findNeighbourOffset(rightNeighbour, neighborArea, nlix, ny1, thisArea, tlix, y1, areaW, areaH);
 	cout << "\tadjustNeighbours off dx " << off.dx << "\toff dy " << off.dy << "\toff corr " << off.corr << endl;
-	overlaps.push_back(new overlap_data(x, y, rightNeighbour->x_pos(), rightNeighbour->y_pos(), px, py, px + 1, py, areaW, areaH, off.dx, off.dy, thisArea, neighborArea, off));
+	overlaps.push_back(new overlap_data(real_x, real_y, rightNeighbour->x_pos(), rightNeighbour->y_pos(), px, py, px + 1, py, areaW, areaH, off.dx, off.dy, thisArea, neighborArea, off));
 	if(off.corr > minCorr){
 	    rightNeighbour->adjustPosition(off.dx, off.dy, RIGHT, off.corr);
 	    vector<overlap_data*> olaps = rightNeighbour->adjustNeighbourPositions(secNo, rolloff, instep, window, px+1, py);
@@ -495,7 +544,7 @@ vector<overlap_data*> FrameStack::adjustNeighbourPositions(unsigned int secNo, u
 	cout << "TOPNEIGHBOUR" << endl;
 	offsets off = findNeighbourOffset(topNeighbour, neighborArea, nx1, nyb, thisArea, x1, yb, areaW, areaH);
 	cout << "\tadjustNeighbours off dx " << off.dx << "\toff dy " << off.dy << "\toff corr " << off.corr << endl;
-	overlaps.push_back(new overlap_data(x, y, topNeighbour->x_pos(), topNeighbour->y_pos(), px, py, px, py+1, areaW, areaH, off.dx, off.dy, thisArea, neighborArea, off));
+	overlaps.push_back(new overlap_data(real_x, real_y, topNeighbour->x_pos(), topNeighbour->y_pos(), px, py, px, py+1, areaW, areaH, off.dx, off.dy, thisArea, neighborArea, off));
 	if(off.corr > minCorr){
 	    topNeighbour->adjustPosition(off.dx, off.dy, TOP, off.corr);
 	    vector<overlap_data*> olaps = topNeighbour->adjustNeighbourPositions(secNo, rolloff, instep, window, px, py+1);
@@ -533,7 +582,7 @@ vector<overlap_data*> FrameStack::adjustNeighbourPositions(unsigned int secNo, u
 	cout << "LEFTNEIGHBOUR" << endl;
 	offsets off = findNeighbourOffset(leftNeighbour, neighborArea, nx1, ny1, thisArea, x1, y1, areaW, areaH);
 	cout << "\tadjustNeighbours off dx " << off.dx << "\toff dy " << off.dy << "\toff corr " << off.corr << endl;
-	overlaps.push_back(new overlap_data(x, y, leftNeighbour->x_pos(), leftNeighbour->y_pos(), px, py, px-1, py, areaW, areaH, off.dx, off.dy, thisArea, neighborArea, off));
+	overlaps.push_back(new overlap_data(real_x, real_y, leftNeighbour->x_pos(), leftNeighbour->y_pos(), px, py, px-1, py, areaW, areaH, off.dx, off.dy, thisArea, neighborArea, off));
 	if(off.corr > minCorr){
 	    leftNeighbour->adjustPosition(off.dx, off.dy, LEFT, off.corr);
 	    vector<overlap_data*> olaps = leftNeighbour->adjustNeighbourPositions(secNo, rolloff, instep, window, px-1, py);
@@ -580,7 +629,7 @@ vector<overlap_data*> FrameStack::adjustNeighbourPositions(unsigned int secNo, u
 	cout << "BOTTOMNEIGHBOUR" << endl;
 	offsets off = findNeighbourOffset(bottomNeighbour, neighbourArea, nx1, ny1, thisArea, x1, y1, areaW, areaH);
 	cout << "\tadjustNeighbours off dx " << off.dx << "\toff dy " << off.dy << "\toff corr " << off.corr << endl;
-	overlaps.push_back(new overlap_data(x, y, bottomNeighbour->x_pos(), bottomNeighbour->y_pos(), 
+	overlaps.push_back(new overlap_data(real_x, real_y, bottomNeighbour->x_pos(), bottomNeighbour->y_pos(), 
 					    px, py, px, py-1, areaW, areaH, off.dx, off.dy, thisArea, neighbourArea, off));
 	if(off.corr > minCorr){
 	    bottomNeighbour->adjustPosition(off.dx, off.dy, BOTTOM, off.corr);
@@ -837,7 +886,7 @@ bool FrameStack::readToFloatProGlobal(float* dest, int xb, int iwidth, int yb, i
 }
 
 BorderInfo* FrameStack::borderInformation(){
-  BorderInfo* info = new BorderInfo(x, y);
+  BorderInfo* info = new BorderInfo(real_x, real_y);
   int x, y, w, h;
   if(leftNeighbour){
     x = left();
@@ -870,8 +919,45 @@ BorderInfo* FrameStack::borderInformation(){
   return(info);
 }
 
+BorderArea* FrameStack::borderArea(POSITION pos)
+{
+  BorderArea* ba = 0;
+  FrameStack* nbr = 0;
+  int x, y, h, w;
+  if(LEFT && leftNeighbour){
+    x = left();
+    y = bottom();
+    w = leftNeighbour->right() - left();
+    h = pHeight;
+    nbr = leftNeighbour;
+  }
+  if(RIGHT && rightNeighbour){
+    x = rightNeighbour->left();
+    y = bottom();
+    w = right() - x;
+    h = pHeight;
+    nbr = rightNeighbour;
+  }
+  if(BOTTOM && bottomNeighbour){
+    x = left();
+    y = bottom();
+    w = pWidth;
+    h = bottomNeighbour->top() - bottom();
+    nbr = bottomNeighbour;
+  }
+  if(TOP && topNeighbour){
+    x = left();
+    y = topNeighbour->bottom();
+    w = pWidth;
+    h = top() - topNeighbour->bottom();
+    nbr = topNeighbour;
+  }
+  return( borderArea(nbr, x, y, w, h));
+}
+
 // x and y are in global coordinates. Converted within this function.
-BorderArea* FrameStack::borderArea(FrameStack* nbor, int x, int y, int w, int h){
+BorderArea* FrameStack::borderArea(FrameStack* nbor, int x, int y, int w, int h)
+{
   // assume that this is correct.
   // The coordinates must work for this projection, but may nor work for
   // the neighbour and may need adjustment.
@@ -894,8 +980,83 @@ BorderArea* FrameStack::borderArea(FrameStack* nbor, int x, int y, int w, int h)
 			nw, nh, i );
     
   }
-  BorderArea* ba = new BorderArea(t_data, n_data, wave_lengths, wave_no, x, y, w, h);
+  unsigned int* tbleach = bleachCounts_g(x, y, w, h);
+  unsigned int* nbleach = nbor->bleachCounts_g(x, y, w, h);
+  BorderArea* ba = new BorderArea(t_data, n_data, wave_lengths, wave_no, tbleach, nbleach, x, y, w, h);
   return(ba);
+}
+
+const FrameStack* FrameStack::left_neighbour()
+{
+  return(leftNeighbour);
+}
+
+const FrameStack* FrameStack::right_neighbour()
+{
+  return(rightNeighbour);
+}
+
+const FrameStack* FrameStack::top_neighbour()
+{
+  return(topNeighbour);
+}
+
+const FrameStack* FrameStack::bottom_neighbour(){
+  return(bottomNeighbour);
+}
+
+void FrameStack::clearBleachCount()
+{
+  if(!bleach_count)
+    return;
+  memset((void*)bleach_count, 0, sizeof(unsigned int) * pWidth * pHeight);
+}
+
+// x is defined as a class member,, buggers.. 
+void FrameStack::incrementBleachCount(int nx, int ny, int radius, unsigned int count)
+{
+  // determine if there is any overlap
+  if( !((nx + radius) > left() && (nx - radius) < right() && (ny + radius) > bottom() && (ny - radius) < top()) )
+    return;
+  // determine start and end positions
+  int x_beg = (nx - radius) < left() ? left() : (nx - radius);
+  int x_end = (nx + radius) > right() ? right() : (nx + radius);
+  int y_beg = (ny - radius) < bottom() ? bottom() : (ny - radius);
+  int y_end = (ny + radius) > top() ? top() : (ny + radius);
+  // those limits might be a little unbalanced: maybe should be (x + radius + 1), but for now leave it
+  int sq_radius = radius * radius;    // no need to call sqrt
+  for(int y=y_beg; y < y_end; ++y){
+    for(int x=x_beg; x < x_end; ++x){
+      if( ((x-nx)*(x-nx) + (y-ny)*(y-ny)) < sq_radius )
+	bleach_count[ (y-pixelY) * pWidth + (x-pixelX) ] += count;
+    }
+  }
+}
+
+// x and y in global coordinates 
+unsigned int* FrameStack::bleachCounts_g(int x, int y, int w, int h)
+{
+  if(!w || !h || !bleach_count)
+    return(0);
+  unsigned int* binfo = new unsigned int[w * h];
+  memset((void*)binfo, 0, sizeof(unsigned int)  * w * h);
+  // if no overlap, then return immediately
+  if(!bleach_count)
+    return(binfo);
+  
+  if( !((x+w) > left() && x < right() && (y + h) > bottom() && y < top()) )
+    return(binfo);
+  int x_beg = x > left() ? x : left();
+  int x_end = (x+w) < right() ? (x+w) : right();
+  int y_beg = y > bottom() ? y : bottom();
+  int y_end = (y+h) < top() ? (y+h) : top();
+  int cp_width = x_end - x_beg;
+  for(int gy=y_beg; gy < y_end; ++gy){
+    memcpy( (void*)( binfo + (gy-y) * w + (x_beg-x) ), 
+	    (void*)( bleach_count + (gy-pixelY) * w + (x_beg-pixelX) ), 
+	    sizeof(unsigned int) * cp_width );
+  }
+  return(binfo);
 }
 
 float* FrameStack::make_mip_projection(unsigned int wi, float maxLevel, vector<float>& contrast){

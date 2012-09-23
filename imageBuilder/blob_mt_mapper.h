@@ -57,6 +57,11 @@ class Blob_mt_mapper : public QThread
   void serialise(c_array* buf);
   // we need some way of returning the blobs in a reasonable structure
   // For now use the old ../image/blob.h definition. But note that it is probably too memory intensive.
+
+  // global peak positions for member blobs.
+  bool blob_peak_pos(blob* b, int& x, int& y, int& z);
+  unsigned int channel(); // only set if mapBlobs has been called.
+
  signals:
   void error(const char*);
   
@@ -110,6 +115,7 @@ class Blob_mt_mapper : public QThread
   QSemaphore* qsem;
   bool destroy_memory;  // if true destroys imageStack, blobMap, and mask after mapping blobs. 
   unsigned int stack_channel;
+  unsigned int wave_index;  // the global channel
   std::vector<blob*> temp_blobs;
   static const unsigned int Left = 1;
   static const unsigned int Right = 2;

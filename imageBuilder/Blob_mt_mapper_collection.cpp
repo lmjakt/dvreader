@@ -230,6 +230,8 @@ vector<blob_set> Blob_mt_mapper_collection::blobSets(vector<unsigned int> superI
 }
 
 vector<blob_set> Blob_mt_mapper_collection::blobSets(vector<QString> parNames, bool use_corrected){
+  if(!class_criteria.size())
+    return(blobSets());
   vector<unsigned int> superIds;
   for(map<unsigned int, ClassCriteria>::iterator it=class_criteria.begin(); it != class_criteria.end(); ++it)
     superIds.push_back((*it).first);

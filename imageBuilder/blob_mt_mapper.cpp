@@ -33,6 +33,7 @@ Blob_mt_mapper::Blob_mt_mapper(stack_info s_info, FileSet* fset, unsigned int ma
   minEdge = 0;
   minPeak = 1.0;
   stack_channel = 0;
+  wave_index = 0;
   // stack_width, stack_height and stack_depth are still used by a couple of inline functions (linear and toVol)
   // as I suspect that might be faster. ?? 
   //stack_width = pos.w; //stack->w();   // references to these should be replaced with pos.w and so on.. 
@@ -108,6 +109,7 @@ void Blob_mt_mapper::mapBlobs(unsigned int wi, float minimumEdge, float minimumP
     return;
   }
   stack_channel = wi;
+  wave_index = pos.channels[wi]; // is this always set?
   //  if(bg_xm && bg_ym)
   //  subtract_background();
   minEdge = minimumEdge;
@@ -471,6 +473,22 @@ void Blob_mt_mapper::serialise(c_array* buf)
     (*it).second->serialise(buf);
   }
   
+}
+
+bool Blob_mt_mapper::blob_peak_pos(blob* b, int& x, int& y, int& z)
+{
+  if(!b)
+    return(false);
+  toVol(b->peakPos, x, y, z);
+  x += pos.x;
+  y += pos.y;
+  z += pos.z;
+  return(true);
+}
+
+unsigned int Blob_mt_mapper::channel()
+{
+  return(wave_index);
 }
 
 void Blob_mt_mapper::setBlobMap()

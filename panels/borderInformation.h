@@ -15,14 +15,18 @@ enum POSITION {
 struct BorderArea {
   float** t_data;
   float** n_data;
+  unsigned int* t_bleach_count;
+  unsigned int* n_bleach_count;
   int* wave_lengths;
   int wave_no;
   int width, height;
   int x, y;
   BorderArea();
   BorderArea(float** td, float** nd, int* wave_l, int wave_n, int xp, int yp, int w, int h);
+  BorderArea(float** td, float** nd, int* wave_l, int wave_n, uint* tbleach, uint* nbleach, int xp, int yp, int w, int h);
   ~BorderArea();
 };
+
 
 class BorderInfo {
  public:

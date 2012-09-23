@@ -41,6 +41,7 @@
 class Background;
 class ImageData;
 class BorderInfo;
+class BorderArea;
 class IdMap;
 class FrameStack;
 class FileSetInfo;
@@ -75,6 +76,9 @@ class FileSet {
 		  bool real, bool bigEnd, unsigned int width, unsigned int height, float dx, float dy, float dz);
     bool getStack(float& xpos, float& ypos);   // sets the appropriate values up for a given thingy.. 
     bool finalise();   // checks for a complete rectangle and sets up the x, y, and z_position vectors
+    void set_bleach_counts(float radius, int xo, int yo);
+    unsigned int bleach_count_p(int x, int y);
+    float* bleachCountsMap_f(float& max, bool divide_by_max); // sets the max value
     void adjustStackPosition(float xp, float yp, QPoint P);
     void setPosMap();
     void setPanelBias(unsigned int waveIndex, unsigned int column, unsigned int row, float scale, short bias); 
@@ -111,22 +115,23 @@ class FileSet {
     // we then also need a whole load of accessor functions to allow us to make sense of the data
     void setBackgroundParameters(std::map<fluorInfo, backgroundPars> bgp);
     BorderInfo* borderInformation(float x, float y);
+    std::vector<BorderArea*> borderAreas();
     float* paintCoverage(int& w, int& h, float maxCount);
 
     float xpos(){
-	return(x);
+	return(real_x);
     }
     float ypos(){
-	return(y);
+	return(real_y);
     }
     float width(){
-	return(w);
+	return(real_w);
     }
     float height(){
-	return(h);
+	return(real_h);
     }
     float depth(){
-	return(d);
+	return(real_d);
     }
     int pwidth(){
 	return(pw);
@@ -209,10 +214,10 @@ class FileSet {
     int xyMargin;                 // needed to create framestacks.. 
     char* fileName;               // set this at the first time we add a frame.. -- but default to 0 so we know if its been set
 
-    float x, y;   // the beginning of the area covered (the lowest values by default)..
-    float w, h;   // the width and height of the total area..
+    float real_x, real_y;   // the beginning of the area covered (the lowest values by default)..
+    float real_w, real_h;   // the width and height of the total area..
     int pw, ph;   // the pixel width of the whole image (as given by the w/pixel_size.. -- set these in finalise.. 
-    float d;      // the depth, -but set this in initialise.. along with w, h and complete rectangle.. 
+    float real_d;      // the depth, -but set this in initialise.. along with w, h and complete rectangle.. 
     int frameNo;  // the number of frames, set in finalise.. 
     bool completeRectangle;  // do we have complete coverage of a the area .. -this is set in finalise.. 
 

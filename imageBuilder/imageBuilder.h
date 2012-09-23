@@ -79,7 +79,9 @@ class ImageBuilder : public QObject
 			int source_sub_x, int source_sub_y, int cp_width, int cp_height);
   void setBigImage(float* img, int source_x, int source_y, int width, int height);
   void setBigOverlay(unsigned char* img, int source_x, int source_y, int width, int height);
-
+  unsigned char* setBigGrayOverlay(float* img, int source_x, int source_y, int width, int height,
+			       unsigned char alpha, float scale);
+  
   // something to connect functions with.. 
   void pipe_slice(std::vector<p_parameter> pars, unsigned int wi, bool reset_rgb=false);
   void pipe_slice(std::vector<p_parameter> pars, channel_info& ch_info, bool reset_rgb=false);
@@ -96,7 +98,7 @@ class ImageBuilder : public QObject
   void stackDeleted(QString);
   void displayMessage(const char*);
  private:
-  ImageAnalyser* imageAnalyser;   // this is shared with deltaviewer, and it shares the same fileSet as this class
+  ImageAnalyser* imageAnalyser;   // shares the fileSet with it's parent. Only used to map perimeters. Should change.
   GLImage* image;
   FileSet* data;
   float* rgbData;
@@ -241,8 +243,14 @@ class ImageBuilder : public QObject
   void read_cells_from_file(f_parameter& par);
   void makeMaskMaker();
   void list_objects(f_parameter& par);       // list object, use parameters to change listing. 
+  void report_parameter(f_parameter& par);
 
-  
+  // some things to do with bleach compensation
+  void set_bleach_counts(f_parameter& par);
+  void bleach_count_p(f_parameter& par);
+  void bleach_count_map(f_parameter& par);
+  void plot_blob_bleach_count(f_parameter& par);
+  void plot_bleaching(f_parameter& par);
 
   void setImageCenter(f_parameter& par);
 

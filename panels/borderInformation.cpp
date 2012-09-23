@@ -10,10 +10,25 @@ BorderArea::BorderArea(){
   t_data = 0;
   n_data = 0;
   wave_lengths = 0;
+  t_bleach_count = 0;
+  n_bleach_count = 0;
 }
 
 BorderArea::BorderArea(float** td, float** nd, int* wave_l, int wave_n, int xp, int yp, int w, int h){
   t_data = td; n_data = nd; 
+  x = xp; y = yp; width=w; height=h;
+  wave_no=wave_n;
+  wave_lengths = new int[wave_no];
+  memcpy((void*)wave_lengths, (void*)wave_l, sizeof(int)*wave_no); 
+  t_bleach_count = 0;
+  n_bleach_count = 0;
+}
+
+BorderArea::BorderArea(float** td, float** nd, int* wave_l, int wave_n, uint* tbleach, uint* nbleach, int xp, int yp, int w, int h){
+  t_data = td; 
+  n_data = nd;
+  t_bleach_count = tbleach;
+  n_bleach_count = nbleach;
   x = xp; y = yp; width=w; height=h;
   wave_no=wave_n;
   wave_lengths = new int[wave_no];
@@ -24,6 +39,8 @@ BorderArea::~BorderArea(){
   delete t_data;
   delete n_data;
   delete wave_lengths;
+  delete t_bleach_count;
+  delete n_bleach_count;
 }
 
 
