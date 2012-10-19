@@ -432,7 +432,7 @@ void GLImage::mouseMoveEvent(QMouseEvent* e){
   case Qt::RightButton :
     // change the magnification multiplier..  :: allow both up/down and left/right to change scale
     xscale += (lastY - e->y()) / (GLfloat)(200);
-    xscale += (lastX - e->x()) / (GLfloat)(200);
+    xscale += (e->x() - lastX) / (GLfloat)(200);
     emit magnificationSet(xscale);
     break;
   case Qt::MidButton :
