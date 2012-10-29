@@ -24,6 +24,13 @@ bool Cell2::contains(blob_set* bs)
   return(cell.contains(x, y));
 }
 
+bool Cell2::nucleus_contains(blob_set* bs)
+{
+  int x, y, z;
+  bs->mg_pos(x, y, z);
+  nucleus.contains(x, y);
+}
+
 bool Cell2::addBlob(blob_set* bs)
 {
   if(!contains(bs))
@@ -32,13 +39,28 @@ bool Cell2::addBlob(blob_set* bs)
   return(true);
 }
 
+void Cell2::addBurstBlob(blob_set* bs)
+{
+  nuclear_bursts.insert(bs);
+}
+
 void Cell2::clearBlobs()
 {
   blob_sets.clear();
+  nuclear_bursts.clear();
+}
+
+void Cell2::clearBurstBlobs()
+{
+  nuclear_bursts.clear();
 }
 
 set<blob_set*> Cell2::blobs(){
   return(blob_sets);
+}
+
+set<blob_set*> Cell2::burst_blobs(){
+  return(nuclear_bursts);
 }
 
 void Cell2::setCellPerimeter(Perimeter& cp)
@@ -104,6 +126,17 @@ vector<blob_set*> Cell2::blobs(set<unsigned int> blob_ids, bool use_corrected)
 {
   vector<blob_set*> b;
   for(set<blob_set*>::iterator it=blob_sets.begin(); it != blob_sets.end(); ++it){
+    unsigned int id = use_corrected ? (*it)->correctedId() : (*it)->id();
+    if(blob_ids.count(id))
+      b.push_back((*it));
+  }
+  return(b);
+}
+
+vector<blob_set*> Cell2::burst_blobs(set<unsigned int> blob_ids, bool use_corrected)
+{
+  vector<blob_set*> b;
+  for(set<blob_set*>::iterator it=nuclear_bursts.begin(); it != nuclear_bursts.end(); ++it){
     unsigned int id = use_corrected ? (*it)->correctedId() : (*it)->id();
     if(blob_ids.count(id))
       b.push_back((*it));

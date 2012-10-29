@@ -11,13 +11,7 @@ CellCollection::CellCollection()
 
 CellCollection::~CellCollection()
 {
-  set<blob_set*>::iterator it;
-  for(it = blobs.begin(); it != blobs.end(); ++it)
-    delete( *it );
-  for(it = unallocated_blobs.begin(); it != unallocated_blobs.end(); ++it)
-    delete( *it );
-  for(it = conflicting_blobs.begin(); it != conflicting_blobs.end(); ++it)
-    delete( *it );
+  deleteBlobs();
 }
 
 void CellCollection::addCell(Perimeter& cellP, Perimeter& nucP)
@@ -26,12 +20,14 @@ void CellCollection::addCell(Perimeter& cellP, Perimeter& nucP)
   cells.push_back(cell);
 }
 
+// memory leak if we don't delete.
 void CellCollection::setBlobs(vector<blob_set> bs)
 {
   clearCellBlobs();
-  blobs.clear();
-  unallocated_blobs.clear();
-  conflicting_blobs.clear();
+  deleteBlobs();      // untested could cause seg fault
+  // blobs.clear();
+  // unallocated_blobs.clear();
+  // conflicting_blobs.clear();  // this is done by deleteBlobs()
   addBlobs(bs);
 }
 
@@ -39,6 +35,13 @@ void CellCollection::addBlobs(vector<blob_set>& bs)
 {
   for(unsigned int i=0; i < bs.size(); ++i)
     addBlob(bs[i]);
+}
+
+void CellCollection::setBurstingBlobs(std::vector<blob_set> bs)
+{
+  clearBurstBlobs();
+  for(unsigned int i=0; i < bs.size(); ++i)
+    addBurstingBlob( new blob_set(bs[i]) );
 }
 
 void CellCollection::addBlob(blob_set& bs)
@@ -215,9 +218,65 @@ void CellCollection::addBlob(blob_set* bsptr)
   blobs.insert(bsptr);
 }
 
+void CellCollection::addBurstingBlob(blob_set* bsptr)
+{
+  int cell_i = -1;
+  for(uint i=0; i < cells.size(); ++i){
+    if( cells[i].nucleus_contains(bsptr) )
+      if(cell_i != -1){
+	std::cerr << "CellCollection::addBurstingBlob blob_set assigned to different cell" << std::endl;
+	return;
+      }
+    cell_i = (int)i;
+  }
+  if(cell_i == -1){
+    unallocated_burst_blobs.insert(bsptr);
+    return;
+  }
+  cells[cell_i].addBurstBlob(bsptr);
+  burst_blobs.insert(bsptr);
+}
+
 void CellCollection::clearCellBlobs()
 {
   for(uint i=0; i < cells.size(); ++i)
     cells[i].clearBlobs();
 }
 
+
+void CellCollection::clearBurstBlobs()
+{
+  for(uint i=0; i < cells.size(); ++i)
+    cells[i].clearBurstBlobs();
+  set<blob_set*>::iterator it;
+  for(it = burst_blobs.begin(); it != burst_blobs.end(); ++it)
+    delete(*it);
+  for(it = unallocated_burst_blobs.begin(); it != unallocated_burst_blobs.end();
+      ++it)
+    delete(*it);
+  burst_blobs.clear();
+  unallocated_burst_blobs.clear();
+}
+
+// burst blobs are deleted by the clearBurstBlobs function.
+void CellCollection::deleteBlobs()
+{
+  set<blob_set*>::iterator it;
+  for(it = blobs.begin(); it != blobs.end(); ++it)
+    delete( *it );
+  for(it = unallocated_blobs.begin(); it != unallocated_blobs.end(); ++it)
+    delete( *it );
+  for(it = conflicting_blobs.begin(); it != conflicting_blobs.end(); ++it)
+    delete( *it );
+
+  // for(it = burst_blobs.begin(); it != conflicting_blobs.end(); ++it)
+  //   delete( *it );
+  // for(it = unallocated_burst_blobs.begin(); it != conflicting_blobs.end(); ++it)
+  //   delete( *it );
+  
+  blobs.clear();
+  unallocated_blobs.clear();
+  conflicting_blobs.clear();
+  // burst_blobs.clear();
+  // unallocated_burst_blobs.clear();
+}

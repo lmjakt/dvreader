@@ -16,6 +16,7 @@ class CellCollection {
   void addCell(Perimeter& cellP, Perimeter& nucP);
   void setBlobs(std::vector<blob_set> bs);
   void addBlobs(std::vector<blob_set>& bs);
+  void setBurstingBlobs(std::vector<blob_set> bs);
   void addBlob(blob_set& bs);
   unsigned int cellNumber();
   int currentCell();
@@ -33,11 +34,18 @@ class CellCollection {
 
  private:
   void addBlob(blob_set* bsptr);
+  void addBurstingBlob(blob_set* bsptr);
   void clearCellBlobs();
+  void clearBurstBlobs();
+  void deleteBlobs();
   std::vector<Cell2> cells;
   std::set<blob_set*> blobs;
   std::set<blob_set*> unallocated_blobs;
   std::set<blob_set*> conflicting_blobs;
+  // blobs supposed to represent sites of transcription. If not in a nucleus, suggests background, so keep these as well
+  std::set<blob_set*> burst_blobs;
+  std::set<blob_set*> unallocated_burst_blobs;  // suspicious characters
+
   int current_cell; // defaults to -1
 
   const static int cell_file_id = 32803;

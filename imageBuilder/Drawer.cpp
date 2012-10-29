@@ -95,6 +95,11 @@ void Drawer::drawCell(Cell2 cell, set<unsigned int> blob_ids, bool use_corrected
   vector<blob_set*> blobs = cell.blobs(blob_ids, use_corrected);
   for(unsigned int i=0; i < blobs.size(); ++i)
     draw_blob_set( blobs[i] );
+
+  blobs = cell.burst_blobs(blob_ids, use_corrected);
+  for(unsigned int i=0; i < blobs.size(); ++i)
+    draw_blob_set( blobs[i] );
+
 }
 
 void Drawer::draw_blob_set(blob_set* bs)

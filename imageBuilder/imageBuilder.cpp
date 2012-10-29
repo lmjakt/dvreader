@@ -3521,9 +3521,10 @@ void ImageBuilder::set_cell_blobs(f_parameter& par)
   QString cells;  // cellCollection name
   QString mapName;   // points to the Blot_mt_mapper_collection via mapper_sets
   vector<QString> parNames; // the parameter names to use for selecting good blobs
+  QString criteria_file;
   // first if help defined, make a help statement and send warning.
   if(par.defined("help")){
-    warn("set_blobs cells=cell collection map=mapper_set par=par1,par2,par3");
+    warn("set_blobs cells=cell_collection map=mapper_set par=par1,par2,par3 [bursting] [criteria=criteria_file]");
     return;
   }
   bool use_corrected = false;
@@ -3543,7 +3544,18 @@ void ImageBuilder::set_cell_blobs(f_parameter& par)
     warn(errorString);
     return;
   }
-  cellCollections[cells]->setBlobs( mapper_sets[mapName]->blobSets(parNames, use_corrected) );
+  // optionally change the criteria used before doing anything.
+  if(par.param("criteria", criteria_file)){
+    if(!mapper_sets[mapName]->readCriteriaFromFile(criteria_file)){
+      warn("Unable to set criteria from specified file, aborting");
+      return;
+    }
+  }
+  if(!par.defined("bursting")){
+    cellCollections[cells]->setBlobs( mapper_sets[mapName]->blobSets(parNames, use_corrected) ); // this clears the blobs.
+  }else{
+    cellCollections[cells]->setBurstingBlobs( mapper_sets[mapName]->blobSets(parNames, use_corrected) );
+  }
 }
 
 void ImageBuilder::draw_cells(f_parameter& par)
