@@ -35,29 +35,39 @@
 typedef unsigned int uint;
 
 struct PerimeterParameters {
-    int length;
-    int area;
-    float signalSum; // the sum of the intensities
-    float signal_10, signal_50, signal_90;   // the 10th, 50th and 90th percentiles
-    std::vector<float> centerDistances;      // the distances from the center
-    int centerX, centerY;
-    float cd_10, cd_50, cd_90;               // and the indicated percentiles from the center
-    float mean_cd, std_cd;                   // the mean and the standard deviation of the centers
-    // from these values we can calculate a number values that are related to the shape and size
-    // of the objects spanned by the perimeters.
-    PerimeterParameters(){
-	length = area = 0;
-	signalSum = signal_10 = signal_50 = signal_90 = 0;
-	cd_10 = cd_50 = cd_90 = 100;
-	mean_cd = std_cd = 0;
-    }
+  int length;
+  int area;
+  
+  // signalSum and signals_10 etc are no longer calculated in an effort to
+  // clean up the code sufficiently. This is not a good place for them.
+  float signalSum; // the sum of the intensities
+  float signal_10, signal_50, signal_90;   // the 10th, 50th and 90th percentiles
+
+  
+  std::vector<float> centerDistances;      // the distances from the center
+  int centerX, centerY;
+  float cd_10, cd_50, cd_90;               // and the indicated percentiles from the center
+  float mean_cd, std_cd;                   // the mean and the standard deviation of the centers
+  // from these values we can calculate a number values that are related to the shape and size
+  // of the objects spanned by the perimeters.
+  PerimeterParameters(){
+    length = area = 0;
+    signalSum = signal_10 = signal_50 = signal_90 = 0;
+    cd_10 = cd_50 = cd_90 = 100;
+    mean_cd = std_cd = 0;
+  }
 };
 
+// This class seems to presume, that all points are neighbors to their adjacent points
+// with no gaps. That is to say that two points next to each other in an array are no
+// more than one pixel distant. (Counting dist(1,1) = 1)
+// This may be the source of some of the problems that I have in some of the functions that
+// use the class. 
 class Perimeter {
 
-    friend class PerimeterSet;                 // which is a lazy way to access the functions.. 
-    friend class PerimeterWindow;
-    friend class SpotMapperWindow;
+  //friend class PerimeterSet;                 // which is a lazy way to access the functions.. and needs to be removed
+  // friend class PerimeterWindow;
+  //  friend class SpotMapperWindow;
 
     int minX, minY;   // the position of the left bottom corner
     int maxX, maxY;   // the top right corner (in this sense it is easier to convert things
@@ -74,6 +84,8 @@ class Perimeter {
     int centerPosition;              // these two are not set by default, but will be calculated when either
                                      // setDetails(), centerPos(int, int) or contains(int, int) is called.
     
+    void completePerimeter();       // fill in any wholes. Should be done by all constructors
+
     public :
     Perimeter(){
       minX = minY = maxX = maxY = 0;
@@ -102,6 +114,7 @@ class Perimeter {
       maxX = maxx;
       maxY = maxy;
       nucleusId = -1;
+      completePerimeter();
     }
     
     Perimeter(std::vector<int> points, unsigned int gw, unsigned int gh){
@@ -127,11 +140,17 @@ class Perimeter {
 	minX = minY = maxX = maxY = 0;
       }
       nucleusId = -1;
+      completePerimeter();
     }
     Perimeter(std::vector<QPoint> points, unsigned int gw, unsigned int gh);
+ 
     std::vector<int> perimeterPoints(){
       return(perimeter);
     }
+    void setPerimeter(std::vector<int> per);
+    std::vector<int> completePerimeter(std::vector<int>& pts, unsigned int gw);
+    void setPerimeterParameters(char* perimeterMask, int o_x, int o_y, int w, int h, char outvalue);
+    
     unsigned int area();
     bool contains(int x, int y);
     bool sqDistanceLessThan(int sqd, int x, int y);   // returns true if the square of the distance from point x & y is is less than sqd
@@ -159,6 +178,7 @@ class Perimeter {
     bool write_to_file(std::ofstream& out);
     bool read_from_file(std::ifstream& in);
     std::vector<QPoint> qpoints();
+    PerimeterParameters perimeterPars();
 };
 
 class PerimeterSet { // contains a set of overlapping perimeters as well as the complete perimeter as determine by thingy..

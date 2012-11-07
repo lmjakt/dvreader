@@ -18,7 +18,7 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  
-    PS. If you can think of a better name, please let me know...
+    PS. If you can think of a better name, please lent me know...
 */
 //End Copyright Notice
 
@@ -457,19 +457,25 @@ void SpotMapperWindow::updatePerimeters(int x, int y){
     // I shouldn't have
     vector<outlineData> prs;  // the perimeters we want to draw..
     for(vector<PerimeterSet>::iterator it = perSets.begin(); it != perSets.end(); it++){
-	for(vector<Perimeter>::iterator pit = (*it).selectedPerimeters.begin(); pit != (*it).selectedPerimeters.end(); pit++){
-//	    cout << "We have here a case of pit->x and others is this bad ? (*pit).minX : " << (*pit).minX << endl;
-//	    cout << "\t\tpit->minX " << pit->minX << endl;
-	    if(pit->minX < x_max && pit->maxX > x
-	       &&
-	       pit->minY < y_max && pit->maxY > y){
-		outlineData od(pit->minX, pit->maxX, pit->minY, pit->maxY);
-		for(vector<int>::iterator vit=(*pit).perimeter.begin(); vit != (*pit).perimeter.end(); vit++){
-		    od.points.push_back(twoDPoint((*vit) % pit->globalWidth - x, (*vit) / pit->globalWidth - y));
-		}
-		prs.push_back(od);
-	    }
+      for(vector<Perimeter>::iterator pit = (*it).selectedPerimeters.begin(); pit != (*it).selectedPerimeters.end(); pit++){
+	//	    cout << "We have here a case of pit->x and others is this bad ? (*pit).minX : " << (*pit).minX << endl;
+	//	    cout << "\t\tpit->xmin() " << pit->xmin() << endl;
+	if(pit->xmin() < x_max && pit->xmax() > x
+	   &&
+	   pit->ymin() < y_max && pit->ymax() > y){
+	  outlineData od(pit->xmin(), pit->xmax(), pit->ymin(), pit->ymax());
+	  int xp, yp;
+	  for(uint i=0; i < (*pit).length(); ++i){
+	    (*pit).pos(i, xp, yp);
+	    od.points.push_back(twoDPoint(xp-x, yp-y));
+	  }
+	  // loop below replaced by one above
+	  // for(vector<int>::iterator vit=(*pit).perimeter.begin(); vit != (*pit).perimeter.end(); vit++){
+	  //   od.points.push_back(twoDPoint((*vit) % pit->globalWidth - x, (*vit) / pit->globalWidth - y));
+	  // }
+	  prs.push_back(od);
 	}
+      }
     }
     plotter->setLines(prs);
 }

@@ -230,55 +230,67 @@ void PerimeterWindow::redrawPerimeters(int value){
 	    outlines.reserve(persets.size());
 //	    cout << "persets size is  " << persets.size();
 	    for(uint i=0; i < persets.size(); ++i){
-		outlineData od(persets[i].outlinePerimeter.minX, persets[i].outlinePerimeter.maxX,
-			       persets[i].outlinePerimeter.minY, persets[i].outlinePerimeter.maxY);
-//		cout << "doing stuff with perset " << i << endl;
-		vector<int>::iterator it;
-		int index = 0;  // this is the stupid QPoinArray.. 
-		for(it = persets[i].outlinePerimeter.perimeter.begin(); it != persets[i].outlinePerimeter.perimeter.end(); it++){
-		    int x = (*it) % persets[i].outlinePerimeter.globalWidth - persets[i].outlinePerimeter.minX;
-		    int y = (*it) / persets[i].outlinePerimeter.globalWidth - persets[i].outlinePerimeter.minY;
-//		    cout << "  " << x << "," << y;
-		    od.points.push_back(twoDPoint(x, y));
-//		    od.points.push_back(twoDPoint(x, y));
-		    ++index;
+	      int xmin = persets[i].outlinePerimeter.xmin();
+	      int ymin = persets[i].outlinePerimeter.ymin();
+	      outlineData od(persets[i].outlinePerimeter.xmin(), persets[i].outlinePerimeter.xmax(),
+			     persets[i].outlinePerimeter.ymin(), persets[i].outlinePerimeter.ymax());
+	      //		cout << "doing stuff with perset " << i << endl;
+	      vector<int>::iterator it;
+	      //int index = 0;  // this is the stupid QPoinArray.. 
+	      for(uint j=0; j < persets[i].outlinePerimeter.length(); ++j){
+		//		for(it = persets[i].outlinePerimeter.perimeter.begin(); it != persets[i].outlinePerimeter.perimeter.end(); it++){
+		int x, y;
+		if(persets[i].outlinePerimeter.pos(j, x, y)){
+		  od.points.push_back(twoDPoint(x-xmin, y-ymin));
+		}else{
+		  std::cerr << "Something bad just happened" << std::endl;
 		}
-//		cout << endl;
-		// line colour is unfortunately white here..
-		outlines.push_back(od);
+		
+		//int x = (*it) % persets[i].outlinePerimeter.globalWidth - persets[i].outlinePerimeter.xmin();
+		//int y = (*it) / persets[i].outlinePerimeter.globalWidth - persets[i].outlinePerimeter.ymin();
+		//		    cout << "  " << x << "," << y;
+		//		    od.points.push_back(twoDPoint(x, y));
+		//++index;
+	      }
+	      //		cout << endl;
+	      // line colour is unfortunately white here..
+	      outlines.push_back(od);
 	    }
 	}else{
-	    // simply define the outline for the first perset..
-//	    cout << "\tper value is not 0 " << endl;
-	    if((uint)perValue <= persets.size()){
-		outlineData od(persets[perValue-1].outlinePerimeter.minX, persets[perValue-1].outlinePerimeter.maxX,
-			       persets[perValue-1].outlinePerimeter.minY, persets[perValue-1].outlinePerimeter.maxY);
-		origin_x = persets[perValue-1].outlinePerimeter.minX;
-		origin_y = persets[perValue-1].outlinePerimeter.minY;
-		perimeter_w = persets[perValue-1].outlinePerimeter.maxX - origin_x;
-		perimeter_h = persets[perValue-1].outlinePerimeter.maxY - origin_y;
-		vector<int>::iterator it;
-		int index = 0;
-//		cout << "collecting points for outline of set " << perValue << endl;
-		for(it = persets[perValue-1].outlinePerimeter.perimeter.begin(); it != persets[perValue-1].outlinePerimeter.perimeter.end(); it++){
-		    int x = (*it) % persets[perValue-1].outlinePerimeter.globalWidth - persets[perValue-1].outlinePerimeter.minX;		    
-		    int y = (*it) / persets[perValue-1].outlinePerimeter.globalWidth - persets[perValue-1].outlinePerimeter.minY;
-//		    cout << "  " << x << "," << y;
-		    od.points.push_back(twoDPoint(x, y));
-		    ++index;
-		}
-//		cout << endl;
-		outlines.push_back(od);
+	  // simply define the outline for the first perset..
+	  //	    cout << "\tper value is not 0 " << endl;
+	  if((uint)perValue <= persets.size()){
+	    outlineData od(persets[perValue-1].outlinePerimeter.xmin(), persets[perValue-1].outlinePerimeter.xmax(),
+			   persets[perValue-1].outlinePerimeter.ymin(), persets[perValue-1].outlinePerimeter.ymax());
+	    origin_x = persets[perValue-1].outlinePerimeter.xmin();
+	    origin_y = persets[perValue-1].outlinePerimeter.ymin();
+	    perimeter_w = persets[perValue-1].outlinePerimeter.xmax() - origin_x;
+	    perimeter_h = persets[perValue-1].outlinePerimeter.ymax() - origin_y;
+	    vector<int>::iterator it;
+	    //int index = 0;
+	    //for(it = persets[perValue-1].outlinePerimeter.perimeter.begin(); it != persets[perValue-1].outlinePerimeter.perimeter.end(); it++){
+	    for(int i=0; i < persets[perValue-1].outlinePerimeter.length(); ++i){
+	      int x,y;
+	      if(persets[perValue-1].outlinePerimeter.pos(i, x, y))
+		od.points.push_back(twoDPoint(x-origin_x, y-origin_y));
+	      //	      int x = (*it) % persets[perValue-1].outlinePerimeter.globalWidth - persets[perValue-1].outlinePerimeter.xmin();		    
+	      //int y = (*it) / persets[perValue-1].outlinePerimeter.globalWidth - persets[perValue-1].outlinePerimeter.ymin();
+	      //		    cout << "  " << x << "," << y;
+	      //od.points.push_back(twoDPoint(x, y));
+	      //++index;
 	    }
+	    //		cout << endl;
+	    outlines.push_back(od);
+	  }
 	}
     }
     if(setValue && (uint)setValue <= persets.size()){
-	setValue--;
-//	cout << "looking at set " << setValue << endl;
-	origin_x = persets[setValue].outlinePerimeter.minX;
-	origin_y = persets[setValue].outlinePerimeter.minY;
-	perimeter_w = persets[setValue].outlinePerimeter.maxX - origin_x;
-	perimeter_h = persets[setValue].outlinePerimeter.maxY - origin_y;
+      setValue--;
+      //	cout << "looking at set " << setValue << endl;
+	origin_x = persets[setValue].outlinePerimeter.xmin();
+	origin_y = persets[setValue].outlinePerimeter.ymin();
+	perimeter_w = persets[setValue].outlinePerimeter.xmax() - origin_x;
+	perimeter_h = persets[setValue].outlinePerimeter.ymax() - origin_y;
 	
 	if(perValue == 0){
 //	    cout << "getting outline for all perimters of set " << setValue << endl;
@@ -286,9 +298,9 @@ void PerimeterWindow::redrawPerimeters(int value){
 	    vector<Perimeter>::iterator pit;
 	    int col_i = 1;
 	    for(pit = persets[setValue].perimeters.begin(); pit != persets[setValue].perimeters.end(); pit++){
-		outlineData od(persets[setValue].outlinePerimeter.minX, persets[setValue].outlinePerimeter.maxX,
-			       persets[setValue].outlinePerimeter.minY, persets[setValue].outlinePerimeter.maxY);
-		int index = 0;
+		outlineData od(persets[setValue].outlinePerimeter.xmin(), persets[setValue].outlinePerimeter.xmax(),
+			       persets[setValue].outlinePerimeter.ymin(), persets[setValue].outlinePerimeter.ymax());
+		//		int index = 0;
 		vector<int>::iterator it;
 		
 		// calculate a colour .. in some reasonable manner..
@@ -298,42 +310,53 @@ void PerimeterWindow::redrawPerimeters(int value){
 		int g = (col_i * 5) % 256; 
 		od.c = QColor(r, g, b);
 		col_i++;
-		for(it = (*pit).perimeter.begin(); it != (*pit).perimeter.end(); it++){
-		    int x = (*it) % (*pit).globalWidth - persets[setValue].outlinePerimeter.minX;
-		    int y = (*it) / (*pit).globalWidth - persets[setValue].outlinePerimeter.minY;
-		    od.points.push_back(twoDPoint(x, y));
-		    ++index;
+		int xmin = persets[setValue].outlinePerimeter.xmin();
+		int ymin = persets[setValue].outlinePerimeter.ymin();
+		int x, y;
+		for(uint i=0; i < (*pit).length(); ++i){
+		  if((*pit).pos(i, x, y))
+		    od.points.push_back(twoDPoint(x-xmin, y-ymin));
+		  //		for(it = (*pit).perimeter.begin(); it != (*pit).perimeter.end(); it++){
+		  //int x = (*it) % (*pit).globalWidth - persets[setValue].outlinePerimeter.xmin();
+		  //int y = (*it) / (*pit).globalWidth - persets[setValue].outlinePerimeter.ymin();
+		  //od.points.push_back(twoDPoint(x, y));
+		  //		  ++index;
 		}
 		outlines.push_back(od);
 	    }
 	}else{
 	    if((uint)perValue <= persets[setValue].perimeters.size()){
 		perValue--;
-		outlineData od(persets[setValue].outlinePerimeter.minX, persets[setValue].outlinePerimeter.maxX,
-			       persets[setValue].outlinePerimeter.minY, persets[setValue].outlinePerimeter.maxY);
-//		cout << "getting outline for set " << setValue << "  perimter " << perValue << endl;
+		int xmin = persets[setValue].outlinePerimeter.xmin();
+		int ymin = persets[setValue].outlinePerimeter.ymin();    // specify these as they are used in the loop below
+		outlineData od(xmin, persets[setValue].outlinePerimeter.xmax(),
+			       ymin, persets[setValue].outlinePerimeter.ymax());
 		Perimeter& perimeter = persets[setValue].perimeters[perValue];
-		for(uint i=0; i < perimeter.perimeter.size(); ++i){
-		    int x = perimeter.perimeter[i] % perimeter.globalWidth - persets[setValue].outlinePerimeter.minX;
-		    int y = perimeter.perimeter[i] / perimeter.globalWidth - persets[setValue].outlinePerimeter.minY;
-		    od.points.push_back(twoDPoint(x, y));
+		int x, y;
+		for(uint i=0; i < perimeter.length(); ++i){
+		  //		for(uint i=0; i < perimeter.perimeter.size(); ++i){
+		  perimeter.pos(i, x, y);
+		  od.points.push_back(twoDPoint(x-xmin, y-ymin));
+		  // int x = perimeter.perimeter[i] % perimeter.globalWidth - persets[setValue].outlinePerimeter.xmin();
+		  //int y = perimeter.perimeter[i] / perimeter.globalWidth - persets[setValue].outlinePerimeter.ymin();
+		  //od.points.push_back(twoDPoint(x, y));
 		}
 		outlines.push_back(od);
 	    }
 	}
     }
     
-    if(setSelector->value() and perSelector->value()){
-	const PerimeterParameters& pers = persets[setValue].perimeters[perValue].parameters;
-	cout << "Perimeter Parameters : " << endl
-	     << "\tlength : " << pers.length << endl
-	     << "\tarea   : " << pers.area << endl
-	     << "\tsignal sum  : " << pers.signalSum << "\tmean : " << pers.signalSum/(float)pers.area << endl
-	     << "\t 10, 50, 90 : " << pers.signal_10 << "\t" << pers.signal_50 << "\t" << pers.signal_90 << endl
-	     << "\tcenter dist : " << pers.mean_cd << "\t" << pers.std_cd << endl
-	     << "\tcenter 10, 50, 90 : " << pers.cd_10 << "\t" << pers.cd_50 << "\t" << pers.cd_90 << endl;
+    if(setSelector->value() and perSelector->value()){   // the below seems to have no effect?
+      PerimeterParameters pers = persets[setValue].perimeters[perValue].perimeterPars();
+      cout << "Perimeter Parameters : " << endl
+	   << "\tlength : " << pers.length << endl
+	   << "\tarea   : " << pers.area << endl
+	   << "\tsignal sum  : " << pers.signalSum << "\tmean : " << pers.signalSum/(float)pers.area << endl
+	   << "\t 10, 50, 90 : " << pers.signal_10 << "\t" << pers.signal_50 << "\t" << pers.signal_90 << endl
+	   << "\tcenter dist : " << pers.mean_cd << "\t" << pers.std_cd << endl
+	   << "\tcenter 10, 50, 90 : " << pers.cd_10 << "\t" << pers.cd_50 << "\t" << pers.cd_90 << endl;
     }
-
+    
     // and at this point lets just call the appropriate..
 //    cout << "calling plotter set lines" << endl;
     plotter->setLines(outlines);
@@ -432,6 +455,14 @@ void PerimeterWindow::drawBackground(){
     plotter->update();
 }
 
+// the below is something to do with trying to set up a clustering
+// of perimeters on the basis of their properties. This didn't work
+// as well as I was hoping and I don't think there's any way to use it
+// in the current code.
+// POTENTIAL MEMORY LEAK IN THE CODE BELOW
+// data is created, but there is no call to delete
+// that might be taken care of by the perimeterComparer object, but that needs to be
+// checked.
 void PerimeterWindow::comparePerimeters(float sigma, float order){
     // Since every perimeter is actually compared independently we'll need to prepare the parameters from that perimeter
     // seperately. Since we are using complicated stuff we'll need to count the perimeter number first..
@@ -454,24 +485,24 @@ void PerimeterWindow::comparePerimeters(float sigma, float order){
     // and then simply..
     uint p = 0;
     for(uint i=0; i < persets.size(); i++){
-	for(uint j=0; j < persets[i].perimeters.size(); ++j){
-	    const PerimeterParameters& pr = persets[i].perimeters[j].parameters;
-	    float* dpt = data + p * parNo;
-	    dpt[0] = (float)pr.length;
-	    dpt[1] = (float)pr.area;
-	    dpt[2] = float(pr.length)/float(pr.area);
-	    dpt[3] = pr.signalSum;
-	    dpt[4] = pr.signalSum/float(pr.area);
-	    dpt[5] = pr.signal_10;
-	    dpt[6] = pr.signal_50;
-	    dpt[7] = pr.signal_90;
-	    dpt[8] = pr.mean_cd;
-	    dpt[9] = pr.std_cd;
-	    dpt[10] = pr.cd_10;
-	    dpt[11] = pr.cd_50;
-	    dpt[12] = pr.cd_90;
-	    ++p;
-	}
+      for(uint j=0; j < persets[i].perimeters.size(); ++j){
+	PerimeterParameters pr = persets[i].perimeters[j].perimeterPars();
+	float* dpt = data + p * parNo;
+	dpt[0] = (float)pr.length;
+	dpt[1] = (float)pr.area;
+	dpt[2] = float(pr.length)/float(pr.area);
+	dpt[3] = pr.signalSum;
+	dpt[4] = pr.signalSum/float(pr.area);
+	dpt[5] = pr.signal_10;
+	dpt[6] = pr.signal_50;
+	dpt[7] = pr.signal_90;
+	dpt[8] = pr.mean_cd;
+	dpt[9] = pr.std_cd;
+	dpt[10] = pr.cd_10;
+	dpt[11] = pr.cd_50;
+	dpt[12] = pr.cd_90;
+	++p;
+      }
     }
     // and then we can just start the objectComparer..
     cout << "Setting the data and doing the comparison for the perimeters (total of " << perNo << ")" << endl;
@@ -536,11 +567,11 @@ void PerimeterWindow::splitPerimeter(QList<QPolygon> polys){
 // 	perimeter = persets[setNo].perimeters[perNo];
 //     }
 
-   cout << "\tcurrentSet       " << setNo << endl
-	<< "\tcurrentPerimeter " << perNo << endl;
-   // I should probably do a bounds checking on the below.. but ..
-    int gw = (int)perimeter.globalWidth;
-//    int pw = perimeter->maxX - perimeter->minX;
+    cout << "\tcurrentSet       " << setNo << endl
+	 << "\tcurrentPerimeter " << perNo << endl;
+    // I should probably do a bounds checking on the below.. but ..
+    int gw = (int)perimeter.g_width();
+    //    int pw = perimeter->maxX - perimeter->minX;
 
     // then just use origin_x and origin_y to work out how to do the whole thing..
     vector<vector<int> > boundaries;
@@ -582,18 +613,23 @@ void PerimeterWindow::drawSelected(){
 	return;
     }
 //    cout << "perimeterWindow::drawSelected number of lines " << persets[setNo].selectedPerimeters.size() << endl;
-    int gw = persets[setNo].outlinePerimeter.globalWidth;
-    int pw = persets[setNo].outlinePerimeter.maxX - persets[setNo].outlinePerimeter.minX;
+    int gw = persets[setNo].outlinePerimeter.g_width();
+    int pw = persets[setNo].outlinePerimeter.xmax() - persets[setNo].outlinePerimeter.xmin();
     vector<outlineData> outlines;
     for(vector<Perimeter>::iterator it=persets[setNo].selectedPerimeters.begin(); it != persets[setNo].selectedPerimeters.end(); it++){
 	outlineData od;
 //	cout << "-----" << endl;
-	for(vector<int>::iterator vit=(*it).perimeter.begin(); vit != (*it).perimeter.end(); vit++){
-	    od.points.push_back(twoDPoint((*vit) % gw - origin_x, (*vit) / gw - origin_y));
-//	    cout << (*vit) % gw - origin_x << "," << (*vit) / gw - origin_y << "  ";
+	int x, y;
+	for(uint i=0; i < (*it).length(); ++i){
+	  (*it).pos(i, x, y);
+	  od.points.push_back(twoDPoint(x-origin_x, y-origin_y));
 	}
+	// the following loop replaced by the one above:
+	//	for(vector<int>::iterator vit=(*it).perimeter.begin(); vit != (*it).perimeter.end(); vit++){
+	//	    od.points.push_back(twoDPoint((*vit) % gw - origin_x, (*vit) / gw - origin_y));
+//	    cout << (*vit) % gw - origin_x << "," << (*vit) / gw - origin_y << "  ";
+//	}
 	outlines.push_back(od);
-//	cout << "xxxxxxxx" << endl;
     }
     plotter->setLines(outlines);
     plotter->update();

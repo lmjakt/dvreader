@@ -78,6 +78,67 @@ int countIntersects(char* mask, char b, int xb, int yb, int xe, int ye, int w, i
     return(count);  // and then we don't need to use the count variable.. 
 }    
 
+// fills in gaps in the perimeter
+void Perimeter::completePerimeter()
+{
+  perimeter = completePerimeter(perimeter, globalWidth);
+}
+
+void Perimeter::setPerimeter(std::vector<int> per)
+{
+  perimeter = per;
+  completePerimeter();
+  areaPoints.clear();
+  if(!perimeter.size()){
+    minX = minY = maxX = maxY = 0;
+    return;
+  }
+  if(!globalWidth)     // clearly this is bad, but what's a good option?
+    globalWidth = 1;
+  int x = perimeter[0] % globalWidth;
+  int y = perimeter[0] / globalWidth;
+  minX = maxX = x;
+  minY = maxY = y;
+  for(unsigned int i=1; i < perimeter.size(); ++i){
+    x = perimeter[i] % globalWidth;
+    y = perimeter[i] / globalWidth;
+    minX = x < minX ? x : minX;
+    minY = y < minY ? y : minY;
+    maxX = x > maxX ? x : maxX;
+    maxY = y > maxY ? y : maxY;
+  }
+}
+
+std::vector<int> Perimeter::completePerimeter(std::vector<int>& pts, unsigned int gw)
+{
+  std::vector<int> new_perimeter;
+  new_perimeter.reserve(pts.size());
+  if(!gw)
+    gw = 1;  // better to crash?
+  for(unsigned int i=1; i <= pts.size(); ++i){
+    int j1 = (i-1) % pts.size();
+    int j2 = i % pts.size();
+    int x1 = pts[j1] % gw;
+    int y1 = pts[j1] / gw;
+    int x2 = pts[j2] % gw;
+    int y2 = pts[j2] / gw;
+    
+    if(abs(x1-x2) > 1 || abs(y1-y2) > 1){
+      // fill in intermediates. from j1 to one before j2.
+      int n = abs(x1-x2) > abs(y1-y2) ? abs(x1-x2) : abs(y1-y2);
+      int dx = x2-x1;
+      int dy = y2-y1;
+      for(int k=0; k < n; ++k){
+	int x = x1 + (dx * k) / n;
+	int y = y1 + (dy * k) / n;
+	new_perimeter.push_back( y*gw + x );
+      }
+    }else{
+      new_perimeter.push_back(pts[i-1]);
+    }
+  }
+  return(new_perimeter);
+}
 
 Perimeter::Perimeter(vector<QPoint> points, unsigned int gw, unsigned int gh)
 {
@@ -96,6 +157,7 @@ Perimeter::Perimeter(vector<QPoint> points, unsigned int gw, unsigned int gh)
     maxY = maxY < points[i].y() ? points[i].y() : maxY;
   }
   nucleusId = -1;
+  completePerimeter();
 }
 
 /*
@@ -139,9 +201,6 @@ char* Perimeter::makeMask(char bvalue, char outvalue, int& mw, int& mh, int& m_x
     m_xo = minX - 1;
     m_yo = minY - 1;   // Note these values will often be less than 0. So take some care..
 
-//    cout << "makeMask mw " << mw << " mh " << mh << endl
-//	 << "minX " << minX << " maxX " << maxX << endl;
-
     char* m = new char[mw * mh];
     memset((void*)m, 0, mw * mh * sizeof(char));
     // and then for the magic..
@@ -152,14 +211,6 @@ char* Perimeter::makeMask(char bvalue, char outvalue, int& mw, int& mh, int& m_x
 	// Diagonals are ok if we use the below floodFill algorithm. Since the flood fill doesn't
 	// do diagonals we don't actually need to worry about it.. 
     }
-//    cout << "calling flood fill " << endl;
-//     for(int y=0; y < mh; y++){
-// 	for(int x=0; x < mw; x++){
-// 	    cout << (int)m[y * mw + x];
-// 	}
-// 	cout << endl;
-//     }
-//    cout << "makeMask before floodfill the value of begin and back : " << perimeter[0] << " --> " << perimeter.back() << endl;
     floodFill(m, mw, mh, bvalue, outvalue, 0, 0);   // 0, 0 is specified to be outside and have a null value..
     return(m);
 }
@@ -352,6 +403,11 @@ vector<QPoint> Perimeter::qpoints()
   return(qp);
 }
 
+PerimeterParameters Perimeter::perimeterPars()
+{
+  return(parameters);
+}
+
 bool Perimeter::write_to_file(ofstream& out)
 {
   if(!out)
@@ -540,6 +596,85 @@ void Perimeter::setDetails(){
     delete mask;
 }
 
+void Perimeter::setPerimeterParameters(char* perimeterMask, int o_x, int o_y, int w, int h, char outvalue){
+  // the perimeterMask is a bit funny, as it sould cover this perimeter
+  // the reason for not making it here, is to avoid repeatedly making the perimeter
+  // this way another function can use it.
+  // o_x, o_y, w, and h refer to the mask positions and dimensions.
+  
+  // this function was previously part of PerimeterSet to allow the signals to be determined
+  // this is a bad structure and we shall just remove the signal_10, etc from the 
+  // perimeterparameter code
+
+  PerimeterParameters* pars = &parameters;  // to allow the previous code.
+  // First the obvious ones..
+  pars->length = (int)(perimeter.size());
+    
+  // Then find the center
+  int cx = 0;
+  int cy = 0;
+  for(uint i=0; i < perimeter.size(); ++i){
+    int x, y;
+    pos(i, x, y);
+    cx += x;
+    cy += y;
+  }
+  cx /= perimeter.size();
+  cy /= perimeter.size();  // i.e. the mean..
+  pars->centerX = cx;
+  pars->centerY = cy;
+  // and then get the distances ..
+  pars->centerDistances.resize(perimeter.size());
+  pars->mean_cd = 0;
+  pars->std_cd = 0;
+  for(uint i=0; i < perimeter.size(); ++i){
+    int x, y;
+    pos(i, x, y);
+    pars->centerDistances[i] = sqrtf(float( (x - cx)*(x - cx) + (y - cy)*(y-cy) ));
+    pars->mean_cd += pars->centerDistances[i]; 
+  }
+  pars->mean_cd /= (float)perimeter.size();
+  // and then work out the variance..
+  for(uint i=0; i < pars->centerDistances.size(); ++i){
+    pars->std_cd += (pars->centerDistances[i] - pars->mean_cd) * (pars->centerDistances[i] - pars->mean_cd);
+  }
+  pars->std_cd /= (float)(pars->centerDistances.size());
+  pars->std_cd = sqrtf(pars->std_cd);
+  // and then to get the percentiles sort the thingy..
+  sort(pars->centerDistances.begin(), pars->centerDistances.end());  // and then we just have to work out the appropriate indices
+  pars->cd_10 = pars->centerDistances[(pars->length * 10) / 100];
+  pars->cd_50 = pars->centerDistances[(pars->length * 50) / 100];
+  pars->cd_90 = pars->centerDistances[(pars->length * 90) / 100];
+  
+  // And then we need to get statistics on the basis of the area covered and stuff like that..
+  // use the mask provided..
+  //  vector<float> signals;
+  pars->signalSum = 0;
+  pars->area = 0;
+  //signals.reserve(w * h);
+  for(int dy=0; dy < h; ++dy){
+    //int y = dy + o_y;
+    for(int dx=0; dx < w; ++dx){
+      //int x = dx + o_x;
+      //  int set_mask_pos = (y - mask_oy) * mask_w + (x - mask_ox);
+      int mask_pos = dy * w + dx;
+      // and then we just say..
+      if(perimeterMask[mask_pos] != outvalue){
+	//pars->signalSum += values[set_mask_pos];
+	pars->area++;
+	//signals.push_back(values[set_mask_pos]);
+      }
+    }
+  }
+    // and then simply
+  // sort(signals.begin(), signals.end());
+  // pars->signal_10 = signals[(pars->area * 10)/100];
+  // pars->signal_50 = signals[(pars->area * 50)/100];
+  // pars->signal_90 = signals[(pars->area * 90)/100];
+  
+  /// and that is it I think... 
+}
+
 
 PerimeterSet::PerimeterSet(const PerimeterSet& that){
     refCounter = that.refCounter;
@@ -613,29 +748,34 @@ void PerimeterSet::initialize(float* source){
     // and that is much faster than checking if something overlaps using the perimeter based methods. But at the same time
     // I don't want each perimeter to keep its own mask, that might end up being expensive. Hence we do it in this class
     // and not in the Perimater class as I tried to do it before..
+  unsigned int globalWidth = outlinePerimeter.g_width();
 
-    mask = outlinePerimeter.makeMask(bvalue, outvalue, mask_w, mask_h, mask_ox, mask_oy);
-    // and now that I have this I can fill the values with stuff.. 
-    values = new float[mask_w * mask_h];
-    memset((void*)values, 0, mask_w * mask_h * sizeof(float));
-    // and then simply ..
-    for(int dy=1; dy < mask_h; ++dy){
-	for(int dx=1; dx < mask_w; ++dx){
-	    if(mask[dy * mask_w + dx] != outvalue){
-		values[dy * mask_w + dx] = source[(dy + mask_oy) * outlinePerimeter.globalWidth + dx + mask_ox];
-	    }
-	}
+  mask = outlinePerimeter.makeMask(bvalue, outvalue, mask_w, mask_h, mask_ox, mask_oy);
+  // and now that I have this I can fill the values with stuff.. 
+  values = new float[mask_w * mask_h];
+  memset((void*)values, 0, mask_w * mask_h * sizeof(float));
+  // and then simply ..
+  for(int dy=1; dy < mask_h; ++dy){
+    for(int dx=1; dx < mask_w; ++dx){
+      if(mask[dy * mask_w + dx] != outvalue){
+	values[dy * mask_w + dx] = source[(dy + mask_oy) * globalWidth + dx + mask_ox];
+      }
     }
-    setPerimeterParameters(perimeters[0], mask, mask_ox, mask_oy, mask_w, mask_h);
-    /// which is all I really need to do. These things may need to be changed when adding a thingy.. 
+  }
+  // Not sure of the point of calling setPerimeterParameters here
+  // also note that the mask itself may not be overlapping with perimeters[0].
+  //  perimeters[0].setPerimeterParameters(mask, mask_ox, mask_oy, mask_w, mask_h);
+
+  //  setPerimeterParameters(perimeters[0], mask, mask_ox, mask_oy, mask_w, mask_h);
+  /// which is all I really need to do. These things may need to be changed when adding a thingy.. 
 }
 
 
 bool PerimeterSet::mergeMasks(Perimeter per, float* source){
     // First of all check if there is any overlap between the containing rectangles
-    if(!(per.minX < outlinePerimeter.maxX && per.maxX > outlinePerimeter.minX
+  if(!(per.xmin() < outlinePerimeter.xmax() && per.xmax() > outlinePerimeter.xmin()
 	 &&
-	 per.minY < outlinePerimeter.maxY && per.maxY > outlinePerimeter.minY)){
+       per.ymin() < outlinePerimeter.ymax() && per.ymax() > outlinePerimeter.ymin())){
 	return(false);
     }
     // int this case make another mask using different values.. and compare this one to the 
@@ -691,7 +831,7 @@ bool PerimeterSet::mergeMasks(Perimeter per, float* source){
 	for(int x=mask_ox; x < mask_ox + mask_w; ++x){
 	    if(mask[(y-mask_oy) * mask_w + x - mask_ox] != outvalue){
 		sp_mask[(y - s_minY) * sw + x - s_minX] = 0;
-		sp_values[(y - s_minY) * sw + x - s_minX] = source[y * outlinePerimeter.globalWidth + x];
+		sp_values[(y - s_minY) * sw + x - s_minX] = source[y * outlinePerimeter.g_width() + x];
 	    }else{
 	    }
 	}
@@ -701,7 +841,7 @@ bool PerimeterSet::mergeMasks(Perimeter per, float* source){
 	    
 	    if(pMask[(y-p_oy) * p_w + x - p_ox] != outvalue){
 		sp_mask[(y - s_minY) * sw + x - s_minX] = 0;
-		sp_values[(y - s_minY) * sw + x - s_minX] = source[y * outlinePerimeter.globalWidth + x];
+		sp_values[(y - s_minY) * sw + x - s_minX] = source[y * outlinePerimeter.g_width() + x];
 	    }else{
 	    }
 	}
@@ -709,8 +849,9 @@ bool PerimeterSet::mergeMasks(Perimeter per, float* source){
 
     cout << "so we call trace perimeters" << endl;
     // and now we have a bloody problem of tracing bollocks..
-    vector<int> sp_per = tracePerimeter(sp_mask, s_minX, s_minY, sw, sh, outlinePerimeter.globalWidth, 2);
-    setPerimeterParameters(per, pMask, p_ox, p_oy, p_w, p_h);
+    vector<int> sp_per = tracePerimeter(sp_mask, s_minX, s_minY, sw, sh, outlinePerimeter.g_width(), 2);
+    //    setPerimeterParameters(per, pMask, p_ox, p_oy, p_w, p_h);
+    per.setPerimeterParameters(pMask, p_ox, p_oy, p_w, p_h, outvalue);
     perimeters.push_back(per);
     delete mask;
     delete values;
@@ -721,7 +862,7 @@ bool PerimeterSet::mergeMasks(Perimeter per, float* source){
     mask_oy = s_minY;
     mask_w = sw;
     mask_h = sh;
-    outlinePerimeter.perimeter = sp_per;
+    outlinePerimeter.setPerimeter(sp_per);
     // set the parameters for the perimeter..
     return(true);
 }
@@ -753,7 +894,7 @@ vector<int> PerimeterSet::tracePerimeter(char* m, int ox, int oy, int w, int h, 
     int offsetPos = 0;
     
     vector<int> per;
-    per.reserve(outlinePerimeter.perimeter.size() * 2);
+    per.reserve(outlinePerimeter.length() * 2);
 
     int x = sx;
     int y = sy;
@@ -788,80 +929,80 @@ vector<int> PerimeterSet::tracePerimeter(char* m, int ox, int oy, int w, int h, 
     return(per);
 }
 
-void PerimeterSet::setPerimeterParameters(Perimeter& per, char* perimeterMask, int o_x, int o_y, int w, int h){
-    // although we could get the perimeter itself to make the mask, it should alreay have been made.
+// void PerimeterSet::setPerimeterParameters(Perimeter& per, char* perimeterMask, int o_x, int o_y, int w, int h){
+//     // although we could get the perimeter itself to make the mask, it should alreay have been made.
     
-    // THIS function is really ugly and should be a member of someone else, but I can't quite think clearly
-    // enough today.
+//     // THIS function is really ugly and should be a member of someone else, but I can't quite think clearly
+//     // enough today.
 
-    PerimeterParameters* pars = &per.parameters;  // just for shorthand..
-    // First the obvious ones..
-    pars->length = (int)(per.perimeter.size());
+//     PerimeterParameters* pars = &per.parameters;  // just for shorthand..
+//     // First the obvious ones..
+//     pars->length = (int)(per.perimeter.size());
     
-    // Then find the center
-    int cx = 0;
-    int cy = 0;
-    for(uint i=0; i < per.perimeter.size(); ++i){
-	int x, y;
-	per.pos(i, x, y);
-	cx += x;
-	cy += y;
-    }
-    cx /= per.perimeter.size();
-    cy /= per.perimeter.size();  // i.e. the mean..
-    pars->centerX = cx;
-    pars->centerY = cy;
-    // and then get the distances ..
-    pars->centerDistances.resize(per.perimeter.size());
-    pars->mean_cd = 0;
-    pars->std_cd = 0;
-    for(uint i=0; i < per.perimeter.size(); ++i){
-	int x, y;
-	per.pos(i, x, y);
-	pars->centerDistances[i] = sqrtf(float( (x - cx)*(x - cx) + (y - cy)*(y-cy) ));
-	pars->mean_cd += pars->centerDistances[i]; 
-    }
-    pars->mean_cd /= (float)per.perimeter.size();
-    // and then work out the variance..
-    for(uint i=0; i < pars->centerDistances.size(); ++i){
-	pars->std_cd += (pars->centerDistances[i] - pars->mean_cd) * (pars->centerDistances[i] - pars->mean_cd);
-    }
-    pars->std_cd /= (float)(pars->centerDistances.size());
-    pars->std_cd = sqrtf(pars->std_cd);
-    // and then to get the percentiles sort the thingy..
-    sort(pars->centerDistances.begin(), pars->centerDistances.end());  // and then we just have to work out the appropriate indices
-    pars->cd_10 = pars->centerDistances[(pars->length * 10) / 100];
-    pars->cd_50 = pars->centerDistances[(pars->length * 50) / 100];
-    pars->cd_90 = pars->centerDistances[(pars->length * 90) / 100];
+//     // Then find the center
+//     int cx = 0;
+//     int cy = 0;
+//     for(uint i=0; i < per.perimeter.size(); ++i){
+// 	int x, y;
+// 	per.pos(i, x, y);
+// 	cx += x;
+// 	cy += y;
+//     }
+//     cx /= per.perimeter.size();
+//     cy /= per.perimeter.size();  // i.e. the mean..
+//     pars->centerX = cx;
+//     pars->centerY = cy;
+//     // and then get the distances ..
+//     pars->centerDistances.resize(per.perimeter.size());
+//     pars->mean_cd = 0;
+//     pars->std_cd = 0;
+//     for(uint i=0; i < per.perimeter.size(); ++i){
+// 	int x, y;
+// 	per.pos(i, x, y);
+// 	pars->centerDistances[i] = sqrtf(float( (x - cx)*(x - cx) + (y - cy)*(y-cy) ));
+// 	pars->mean_cd += pars->centerDistances[i]; 
+//     }
+//     pars->mean_cd /= (float)per.perimeter.size();
+//     // and then work out the variance..
+//     for(uint i=0; i < pars->centerDistances.size(); ++i){
+// 	pars->std_cd += (pars->centerDistances[i] - pars->mean_cd) * (pars->centerDistances[i] - pars->mean_cd);
+//     }
+//     pars->std_cd /= (float)(pars->centerDistances.size());
+//     pars->std_cd = sqrtf(pars->std_cd);
+//     // and then to get the percentiles sort the thingy..
+//     sort(pars->centerDistances.begin(), pars->centerDistances.end());  // and then we just have to work out the appropriate indices
+//     pars->cd_10 = pars->centerDistances[(pars->length * 10) / 100];
+//     pars->cd_50 = pars->centerDistances[(pars->length * 50) / 100];
+//     pars->cd_90 = pars->centerDistances[(pars->length * 90) / 100];
     
-    // And then we need to get statistics on the basis of the area covered and stuff like that..
-    // use the mask provided..
-    vector<float> signals;
-    pars->signalSum = 0;
-    pars->area = 0;
-    signals.reserve(w * h);
-    for(int dy=0; dy < h; ++dy){
-	int y = dy + o_y;
-	for(int dx=0; dx < w; ++dx){
-	    int x = dx + o_x;
-	    int set_mask_pos = (y - mask_oy) * mask_w + (x - mask_ox);
-	    int mask_pos = dy * w + dx;
-	    // and then we just say..
-	    if(perimeterMask[mask_pos] != outvalue){
-		pars->signalSum += values[set_mask_pos];
-		pars->area++;
-		signals.push_back(values[set_mask_pos]);
-	    }
-	}
-    }
-    // and then simply
-    sort(signals.begin(), signals.end());
-    pars->signal_10 = signals[(pars->area * 10)/100];
-    pars->signal_50 = signals[(pars->area * 50)/100];
-    pars->signal_90 = signals[(pars->area * 90)/100];
+//     // And then we need to get statistics on the basis of the area covered and stuff like that..
+//     // use the mask provided..
+//     vector<float> signals;
+//     pars->signalSum = 0;
+//     pars->area = 0;
+//     signals.reserve(w * h);
+//     for(int dy=0; dy < h; ++dy){
+// 	int y = dy + o_y;
+// 	for(int dx=0; dx < w; ++dx){
+// 	    int x = dx + o_x;
+// 	    int set_mask_pos = (y - mask_oy) * mask_w + (x - mask_ox);
+// 	    int mask_pos = dy * w + dx;
+// 	    // and then we just say..
+// 	    if(perimeterMask[mask_pos] != outvalue){
+// 		pars->signalSum += values[set_mask_pos];
+// 		pars->area++;
+// 		signals.push_back(values[set_mask_pos]);
+// 	    }
+// 	}
+//     }
+//     // and then simply
+//     sort(signals.begin(), signals.end());
+//     pars->signal_10 = signals[(pars->area * 10)/100];
+//     pars->signal_50 = signals[(pars->area * 50)/100];
+//     pars->signal_90 = signals[(pars->area * 90)/100];
     
-    /// and that is it I think... 
-}
+//     /// and that is it I think... 
+// }
 
 void PerimeterSet::setSelection(vector<vector<int> > perims){
     selectedPerimeters.resize(0);
@@ -871,6 +1012,6 @@ void PerimeterSet::setSelection(vector<vector<int> > perims){
 	return;
     }
     for(uint i=0; i < perims.size(); ++i){
-	selectedPerimeters.push_back(Perimeter(perims[i], outlinePerimeter.globalWidth, outlinePerimeter.globalHeight));
+      selectedPerimeters.push_back(Perimeter(perims[i], outlinePerimeter.g_width(), outlinePerimeter.g_height()));
     }
 }
