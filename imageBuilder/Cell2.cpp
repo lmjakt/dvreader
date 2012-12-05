@@ -1,5 +1,6 @@
 #include "Cell2.h"
 #include <iostream>
+#include "../image/blob.h"
 
 using namespace std;
 
@@ -28,7 +29,7 @@ bool Cell2::nucleus_contains(blob_set* bs)
 {
   int x, y, z;
   bs->mg_pos(x, y, z);
-  nucleus.contains(x, y);
+  return(nucleus.contains(x, y));
 }
 
 bool Cell2::addBlob(blob_set* bs)
@@ -61,6 +62,18 @@ set<blob_set*> Cell2::blobs(){
 
 set<blob_set*> Cell2::burst_blobs(){
   return(nuclear_bursts);
+}
+
+void Cell2::setNuclearSum(unsigned int wi, float n_sum)
+{
+  nuclear_sums[wi] = n_sum;
+}
+
+float Cell2::n_sum(unsigned int wi)
+{
+  if(!nuclear_sums.count(wi))
+    return(-1);
+  return(nuclear_sums[wi]);
 }
 
 void Cell2::setCellPerimeter(Perimeter& cp)
@@ -97,6 +110,23 @@ void Cell2::writeTextSummary(ofstream& out)
   }
   for(map<unsigned int, int>::iterator it=blob_counts.begin(); it != blob_counts.end(); ++it)
     out << (*it).first << "\t" << (*it).second << "\n";
+  // for nuclear bursts we want to give a little bit more information as the intensity is somewhat important
+  out << "nuclear_bursts\n";  // one line for each burst, with information from each constituent blob
+  for(std::set<blob_set*>::iterator it=nuclear_bursts.begin(); it != nuclear_bursts.end(); ++it){
+    out << (*it)->correctedId();
+    std::vector<blob*> bs = (*it)->b();
+    std::vector<unsigned int> ids = (*it)->ids();
+    if(bs.size() != ids.size())
+      std::cerr << "Cell2::writeTextSummary bs and ids are of different sizes, bs: " << bs.size() << "  ids: " << ids.size() << std::endl;
+    
+    for(unsigned int i=0; i < bs.size() && i < ids.size(); ++i)
+      out << "\t" << ids[i] << "," << bs[i]->min << "," << bs[i]->max << "," << bs[i]->sum << "," << bs[i]->points.size();
+    out << "\n";
+  }
+  out << "nuclear_sums\n";
+  for(std::map<unsigned int, float>::iterator it=nuclear_sums.begin(); it != nuclear_sums.end(); ++it)
+    out << (*it).first << "\t" << (*it).second << "\n";
+  
 }
 
 bool Cell2::writePerimeters(ofstream& out)

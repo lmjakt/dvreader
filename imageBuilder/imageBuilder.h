@@ -233,6 +233,7 @@ class ImageBuilder : public QObject
   void make_cell_mask(f_parameter& par);
   void make_cells(f_parameter& par);
   void set_cell_blobs(f_parameter& par);
+  void set_nuclear_signals(f_parameter& par); // single channel nuclear signals
   //  void set_bursting_blobs(f_parameter& par);
   void draw_cells(f_parameter& par);
   void draw_cell(f_parameter& par);

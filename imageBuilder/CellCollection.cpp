@@ -44,6 +44,13 @@ void CellCollection::setBurstingBlobs(std::vector<blob_set> bs)
     addBurstingBlob( new blob_set(bs[i]) );
 }
 
+void CellCollection::setNuclearSum(unsigned int cell_id, unsigned int wi, float sum)
+{
+  if(cell_id >= cells.size())
+    return;
+  cells[cell_id].setNuclearSum(wi, sum);
+}
+
 void CellCollection::addBlob(blob_set& bs)
 {
   blob_set* bsptr = new blob_set(bs);

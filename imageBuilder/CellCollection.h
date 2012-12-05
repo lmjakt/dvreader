@@ -17,6 +17,7 @@ class CellCollection {
   void setBlobs(std::vector<blob_set> bs);
   void addBlobs(std::vector<blob_set>& bs);
   void setBurstingBlobs(std::vector<blob_set> bs);
+  void setNuclearSum(unsigned int cell_id, unsigned int wi, float sum);
   void addBlob(blob_set& bs);
   unsigned int cellNumber();
   int currentCell();

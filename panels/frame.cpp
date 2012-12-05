@@ -497,11 +497,12 @@ bool Frame::setBackground(){
     delete buffer;
     return(false);
   }
-  delete []buffer;
   if(!background->setBackground(pWidth, pHeight, buffer)){
     cerr << "unable to set background. we should probably die or something" << endl;
+    delete []buffer;
     return(false);
   }
+  delete []buffer;
   return(true);
 
   // delete background.background;  // this should be ok, even if it is 0 according to something I read

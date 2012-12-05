@@ -2,6 +2,7 @@
 #define CELL2_H
 
 #include <set>
+#include <map>
 #include <vector>
 #include "../spotFinder/perimeter.h"
 #include "blob_set.h"
@@ -21,6 +22,8 @@ class Cell2 {
   void clearBurstBlobs();
   std::set<blob_set*> blobs();  // does not have ownership!
   std::set<blob_set*> burst_blobs();
+  void setNuclearSum(unsigned int wi, float n_sum);
+  float n_sum(unsigned int wi); // returns -1 for unspecified wave index
   void setCellPerimeter(Perimeter& cp);
   Perimeter cellPerimeter();
   Perimeter nucleusPerimeter();
@@ -33,6 +36,9 @@ class Cell2 {
  private:
   Perimeter cell;
   Perimeter nucleus;
+  std::map<unsigned int, float> nuclear_sums;  // the sum of some signal (i.e. sum flourescence for a given channel)
+  // dangerous usage. The below do not belong to this class, and the user must
+  // make sure that the pointers are created and destroyed at appropriate times
   std::set<blob_set*> blob_sets;
   std::set<blob_set*> nuclear_bursts;  // should represent sites of active transcription
 };

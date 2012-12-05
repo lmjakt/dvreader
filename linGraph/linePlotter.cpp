@@ -245,7 +245,6 @@ void LinePlotter::paintEvent(QPaintEvent* e){
       p.setBrush(QColor(100, 100, 100, 100));
       if(leftMaskPos > 0){
 	int xp =  (int)(w * leftMaskPos)/maxLength;
-	cout << "leftMaskPos : " << w << " * " << leftMaskPos << " / " << maxLength << " = " << xp << endl;
 	p.drawRect(0, 0, xp, (int)h);
       }
       if(rightMaskPos < (int)maxLength){
