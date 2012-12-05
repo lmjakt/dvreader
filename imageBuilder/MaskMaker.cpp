@@ -422,7 +422,8 @@ void MaskMaker::mergeSegments()
 	break;  // goes back to adding points from segment.. 
       point_set.insert(off);
       newPerimeter.push_back( perimeter[i] );
-      paintPoint(perimeter[i], 0, 0, 255, 255);
+      if(!(i % 10))
+	paintPoint(perimeter[i], 0, 0, 255, 255);
       //      cout << "per point added : " << i << endl;
     }
   }
@@ -447,7 +448,8 @@ bool MaskMaker::addPoints(vector<QPoint>& points, vector<QPoint>& segment, set<i
       return(false);
     point_set.insert(off);
     points.push_back(segment[i]);
-    paintPoint(segment[i], 0, 0, 255, 255);
+    if(!(i % 5))
+      paintPoint(segment[i], 0, 0, 255, 255);
   }
   return(true);
 }

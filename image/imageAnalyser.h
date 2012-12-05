@@ -36,6 +36,8 @@
 // These have been placed here in order to allow the object to have a number of different caches
 // that can be used when accessing data from the fileSet
 
+// the comments below and thoughts about processorCache are useless, and are I think completely
+// ignored in the actual program.
 // It might be an idea to try and keep individual caches within the size of the processor cache
 // --and then try to make sure that we design things a bit carefully.. 
 const int processorCache = 1024000;  // if we were really smart we could get that from /proc/cpuinfo
@@ -44,15 +46,17 @@ const int min_point_depth = 14;    // these should be big enough to include ever
                              // however, it would be good if they were tunable a little bit more easily
                              // actually make them big enough to try and include more than one point.. 
 
+// This looks very dangerous, as references to values will be passed around
+// without any way of knowing where to delete them. 
 struct PerimeterData {
-    parameterData p_data;
-    std::vector<PerimeterSet> perimeterData;
-    PerimeterData(){
-    }
-    PerimeterData(parameterData pd, std::vector<PerimeterSet> perd){
-	p_data = pd;
-	perimeterData = perd;
-    }
+  parameterData p_data;  // used by ParameterChooser, but that's pretty much deprecated, and perimeterWindow.
+  std::vector<PerimeterSet> perimeterData;
+  PerimeterData(){
+  }
+  PerimeterData(parameterData pd, std::vector<PerimeterSet> perd){
+    p_data = pd;
+    perimeterData = perd;
+  }
 };
 
 
@@ -74,6 +78,8 @@ class ImageAnalyser
     parameterData findContrasts(float* source, unsigned int w, unsigned int h);
     parameterData findSets(float* source, unsigned int w, unsigned int h, int minSize, int maxSize, float minValue);
     PerimeterData findPerimeters(float* source, unsigned int w, unsigned int h, int minSize, int maxSize, float minValue);
+
+    float* perimeterPixels(Perimeter per, int z, unsigned int wi, unsigned int& p_length, float& pixel_sum);
 
     // some convenience functions..
     std::vector<std::vector<float> > x_line(int y_pos, int z_pos);

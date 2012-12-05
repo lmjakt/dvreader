@@ -139,6 +139,7 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   general_functions["edit_cells"] = &ImageBuilder::modifyCells;
   general_functions["reassign_blobs"] = &ImageBuilder::reassign_blobs_cells;
   general_functions["set_cell_blobs"] = &ImageBuilder::set_cell_blobs;
+  general_functions["set_nuclear_signals"] = &ImageBuilder::set_nuclear_signals;
   general_functions["export_cells"] = &ImageBuilder::export_cell_summary;
   general_functions["write_cells"] = &ImageBuilder::write_cells_borders;
   general_functions["read_cells"] = &ImageBuilder::read_cells_from_file;
@@ -3555,6 +3556,49 @@ void ImageBuilder::set_cell_blobs(f_parameter& par)
     cellCollections[cells]->setBlobs( mapper_sets[mapName]->blobSets(parNames, use_corrected) ); // this clears the blobs.
   }else{
     cellCollections[cells]->setBurstingBlobs( mapper_sets[mapName]->blobSets(parNames, use_corrected) );
+  }
+}
+
+void ImageBuilder::set_nuclear_signals(f_parameter& par)
+{
+  if(par.defined("help")){
+    warn("set_nuclear_signals cells=cell_collection_name wi=wave_index z=z_position");
+    return;
+  }
+  QString errorString;
+  QTextStream qts(&errorString);
+  QString cells;
+  unsigned int wi=0;
+  int z;
+  if(!par.param("cells", cells))
+    qts << "Please specify cell collection name cells=..\n";
+  if(!par.param("wi", wi))
+    qts << "Please specify wave index to use wi=..\n";
+  if(!par.param("z", z))
+    qts << "Please specify the z-position z=..\n";
+  if(wi >= channels.size())
+    qts << "wi is too big, should be less than: " << channels.size() << "\n";
+  if(cells.length() && !cellCollections.count(cells))
+    qts << "Unknown cell collection specified\n";
+
+  if(errorString.length()){
+    warn(errorString);
+    return;
+  }
+  
+  CellCollection* cc = cellCollections[cells];
+  unsigned int cell_no = cc->cellNumber();
+  
+  if(!imageAnalyser)
+    imageAnalyser = new ImageAnalyser(data);
+
+  for(unsigned int i=0; i < cell_no; ++i){
+    unsigned int p_length=0;
+    float pixel_sum = 0;
+    float* n_pixels = imageAnalyser->perimeterPixels(cc->nucleusPerimeter(i), z, wi, p_length, pixel_sum);
+    // at this point we don't use the pixel_sum, but we do use the pixel_sum
+    delete []n_pixels;
+    cc->setNuclearSum(i, wi, pixel_sum);
   }
 }
 

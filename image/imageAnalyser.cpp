@@ -1121,6 +1121,62 @@ PerimeterData ImageAnalyser::findPerimeters(float* source, unsigned int w, unsig
 //    return(parameterData(values, w, h));
 }
 
+// returns an array of floats of pixels within the given perimeter
+float* ImageAnalyser::perimeterPixels(Perimeter per, int z, unsigned int wi, unsigned int& p_length, float& pixel_sum)
+{
+  int x = per.xmin();
+  int y = per.ymin();
+  int w = 1 + per.xmax() - x;
+  int h = 1 + per.ymax() - y;
+
+  if(w < 1 || h < 1)
+    return(0);
+  
+  float* img_data = new float[ w * h ];
+  memset((void*)img_data, 0, sizeof(float) * w * h);
+  if(!data->readToFloat(img_data, x, y, z, w, h, 1, wi, true)){ // use_cmap=true
+    delete []img_data;
+    return(0);
+  }
+  
+  char border_value = 1;
+  char out_value = 2;
+  int mw, mh, m_xo, m_yo;  // the mask coordinates and borders
+  char* perMask = per.makeMask(border_value, out_value, mw, mh, m_xo, m_yo);
+  // this mask has 0 values for positions within the boundary and non-zero values
+  // for positions outside of the boundary. This is to allow encoding of overlapping
+  // borders and such niceties.
+  if(!perMask || m_xo > x || m_yo > y){
+    std::cerr << "ImageAnalyser::perimeterPixels makeMask returned 0 or other bad coordinate" << std::endl;
+    delete []img_data;
+    return(0);
+  }
+  float* pixel_values = new float[ w * h ];
+  pixel_sum = 0;
+  p_length = 0;
+  
+  int my = m_yo - (y + 1);
+  for(int yp=y; yp < (y + h); ++yp){
+    ++my;
+    int mx = m_xo - (x + 1);
+    for(int xp=x; xp < (x + w); ++xp){
+      ++mx;
+      std::cout << yp << "," << xp << " : " << p_length << "  : " << img_data[ yp * w + xp ] << " --> " << pixel_sum << std::endl;
+      if(!perMask[ my * mw + mx ]){
+	pixel_values[p_length] = img_data[ yp * w + xp ];
+	pixel_sum += pixel_values[p_length];
+	++p_length;
+      }
+    }
+  }
+  delete []img_data;
+  return(pixel_values);
+}
+
+// This looks like a BAD FUNCTION that should be removed ASAP.
+// Unfortunately it's used by findPerimeters, to fill up the
+// perimeterData structure. It looks very likely that there is
+// a memory leak somewhere.
 void ImageAnalyser::fillPerimeter(float* dest, unsigned int w, unsigned int h, vector<int>& perimeter, int minX, int minY, int perWidth, int perHeight){
     cout << "ImageAnalyser fillPerimeter called " << endl;
     // in order to do this, make a mask, and define the points within that. 
