@@ -113,7 +113,10 @@ void Cell2::writeTextSummary(ofstream& out)
   // for nuclear bursts we want to give a little bit more information as the intensity is somewhat important
   out << "nuclear_bursts\n";  // one line for each burst, with information from each constituent blob
   for(std::set<blob_set*>::iterator it=nuclear_bursts.begin(); it != nuclear_bursts.end(); ++it){
+    int x, y, z;
+    (*it)->mg_pos(x, y, z);
     out << (*it)->correctedId();
+    out << "\t" << x << "," << y << "," << z;
     std::vector<blob*> bs = (*it)->b();
     std::vector<unsigned int> ids = (*it)->ids();
     if(bs.size() != ids.size())

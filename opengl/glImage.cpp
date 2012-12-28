@@ -31,6 +31,8 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
+#include <QPainter>
+#include <QImage>
 #include "glImage.h"
 #include <qimage.h>
 #include <iostream>
@@ -65,10 +67,12 @@ GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texSize, 
   textureHeight = texSize;
   textures = 0;   // reassign when initialising.. 
   overlay_textures = 0;
+  text_textures = 0;
 
   xCross = yCross = 0.0;
   drawCross = false;
   showOverlay=false;
+  showText = false;
   currentX = currentY = 0;
   // width and height are used to work out the backgroundHeight and backgroundWidth...
   // In fact it seems that backgroundWidth and imageWidth are never different from textureWidth
@@ -95,10 +99,12 @@ GLImage::GLImage(unsigned int width, unsigned int height, unsigned int texWidth,
     textureHeight = texHeight;
     textures = 0;   // reassign when initialising.. 
     overlay_textures = 0;
+    text_textures = 0;
 
     xCross = yCross = 0.0;
     drawCross = false;
     showOverlay = false;
+    showText = false;
 
     setFocusPolicy(Qt::ClickFocus);
     setAttribute(Qt::WA_NoSystemBackground);
@@ -166,16 +172,28 @@ void GLImage::setBigImage(float* data, int source_x, int source_y,
   }
 }
 
-void GLImage::setBigOverlay(unsigned char* data, int source_x, int source_y, int width, int height){
+void GLImage::setBigOverlay(unsigned char* data, int source_x, int source_y, int width, int height, OverlayLayer layer){
   if(width <= 0 || height <= 0)
     return;
+  GLuint* olay_textures = overlay_textures;
+  if(layer == TEXT_LAYER)
+    olay_textures = text_textures;
   for(int y=0; y < theight; ++y){
     for(int x=0; x < twidth; ++x){
       mapOverlayToTexture(data, source_x, source_y, width, height,
-			  x * textureWidth, y * textureHeight, overlay_textures[y * twidth + x]);
+			  x * textureWidth, y * textureHeight, olay_textures[y * twidth + x]);
     }
   }
-  showOverlay=true;
+  switch(layer){
+  case DRAWING_LAYER:
+    showOverlay=true;
+    break;
+  case TEXT_LAYER:
+    showText=true;
+    break;
+  default:
+    std::cerr << "setBigOverlay unknown layer type" << layer << std::endl;
+  }
 }
 
 void GLImage::clearTextures(){
@@ -241,7 +259,7 @@ bool GLImage::mapOverlayToTexture(unsigned char* image_data, int source_x, int s
     return(false);
 
   unsigned char* texture_data = new unsigned char[ 4 * olap.cp_h * olap.cp_w];
-  // we are using an RGB triplet, so we need to multiply by three everywhere.. 
+  // we are using an RGBA, so we need to multiply by four everywhere.. 
   if(olap.cp_w == textureWidth && olap.cp_w == source_w){
     memcpy((void*)(texture_data),
 	   (void*)(image_data + (4 * olap.s_by * source_w)),
@@ -588,8 +606,17 @@ void GLImage::paintGL(){
 	      glBindTexture(GL_TEXTURE_2D, overlay_textures[i * twidth + j]);
 	      glBegin(GL_QUADS);
 	      
-	      GLfloat xoo = j * 2 * x;
-	      GLfloat yoo = i * h;
+	      glTexCoord2f(0, 0); glVertex3f((-x + xo + xoo) * xscale, (y1 + yo + yoo) * xscale, 1);
+	      glTexCoord2f(0, 1.0); glVertex3f((-x + xo + xoo) * xscale, (y2 + yo + yoo) * xscale, 1);
+	      glTexCoord2f(1.0, 1.0); glVertex3f((x + xo + xoo) * xscale, (y2 + yo + yoo) * xscale, 1);
+	      glTexCoord2f(1.0, 0); glVertex3f((x + xo + xoo) * xscale, (y1 + yo + yoo) * xscale, 1);
+	      
+	      glEnd();
+	    }
+	    // The below is for testing the drawing of text using text_textures (RGBA, in a similar manner to above
+	    if(showText){
+	      glBindTexture(GL_TEXTURE_2D, text_textures[i * twidth + j]);
+	      glBegin(GL_QUADS);
 	      
 	      glTexCoord2f(0, 0); glVertex3f((-x + xo + xoo) * xscale, (y1 + yo + yoo) * xscale, 1);
 	      glTexCoord2f(0, 1.0); glVertex3f((-x + xo + xoo) * xscale, (y2 + yo + yoo) * xscale, 1);
@@ -598,7 +625,6 @@ void GLImage::paintGL(){
 	      
 	      glEnd();
 	    }
-
 	}
     }
     glFlush();
@@ -645,7 +671,7 @@ void GLImage::initializeGL()
   if(textures){
     delete textures;
   }
-  backgroundImage = make_background(textureWidth, textureHeight);
+  float* backgroundImage = make_background(textureWidth, textureHeight);
   
   glClearColor(0.0, 0.0, 0.0, 0.0);
   glShadeModel(GL_FLAT);
@@ -670,7 +696,7 @@ void GLImage::initializeGL()
       
     }
   }
-
+  delete []backgroundImage;
   // I tried putting the below code into a separate function, bt for some reason, that results in lots of white squares;
   // I don't quite understand that (presumably some state changes when we leave this function body, but I don't quite understand
   // that.. So for now leave it here, and comment out the generate_overlay_textures function.. 
@@ -679,44 +705,60 @@ void GLImage::initializeGL()
   // // use GL_BYTE as the internal storage, then 4 * byte for RGBA
   unsigned char* test_overlay_image = new unsigned char[textureWidth * textureHeight * 4];
   memset((void*)test_overlay_image, 0, sizeof(unsigned char) * 4 * textureWidth * textureHeight);
-  // // and then make a circle or something .. 
-  // for(int r=50; r < 75; ++r){
-  //   for(int dy=-r; dy <= r; ++dy){
-  //     int dx = (int)sqrt( (float)( (r * r) - (dy * dy) ) );
-  //     int y = (textureHeight / 2) + dy;
-  //     int x1 = (textureWidth / 2) - dx;
-  //     int x2 = (textureWidth / 2) + dx;
-  //     int off1 = 4 * (y * textureWidth + x1);
-  //     int off2 = 4 * (y * textureWidth + x2);
-      
-  //     test_overlay_image[ off1 ] = 255;
-  //     test_overlay_image[ off1 + 1] = 255;
-  //     test_overlay_image[ off1 + 2] = 255;
-  //     test_overlay_image[ off1 + 3] = 125;
-      
-  //     test_overlay_image[ off2 ] = 125;
-  //     test_overlay_image[ off2 + 1] = 125;
-  //     test_overlay_image[ off2 + 2] = 125;
-  //     test_overlay_image[ off2 + 3] = 50;
-  //   }
-  // }
+
+  // The below code demonstrates how we can draw text onto the overlay texture
+  // It shouldn't really work, as ARGB != RGBA
+  // but strangely enough it seems to do so.
+  // The question is where to put the text drawing functions.
+  // Probably better to put them in ImageBuilder, in which case having a separate
+  // layer doesn't make so much sense
+  QImage* q_test_img = new QImage(textureWidth, textureHeight, QImage::Format_ARGB32);
+  q_test_img->fill(0);
+  QPainter p(q_test_img);
+  p.setPen(QPen(QColor(0, 255, 255, 125), 1));  // white colour, should give the same for RGBA and ARGB
+  QFont current_font;
+  current_font.setPixelSize(50);
+  p.setFont(current_font);
+  p.setRenderHint(QPainter::TextAntialiasing, false);
+  p.setRenderHint(QPainter::Antialiasing, false);
+  p.translate(QPoint(0, textureHeight));
+  p.scale(1.0, -1.0);
+  p.drawText(0, 0, textureWidth, textureHeight, Qt::AlignCenter, "Hello World");
+  p.end();
+  const uchar* painted_bits = q_test_img->constBits();
   
-    
+
   if(overlay_textures)
     delete overlay_textures;
+  if(text_textures)
+    delete text_textures;
   overlay_textures = new GLuint[theight * twidth];
+  text_textures = new GLuint[theight * twidth];
   glGenTextures(twidth * theight, overlay_textures);
   for(int i=0; i < theight; i++){
     for(int j=0; j < twidth; j++){
       glBindTexture(GL_TEXTURE_2D, overlay_textures[i * twidth + j]);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      //      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      //      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textureWidth, textureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, test_overlay_image);
+
+      glBindTexture(GL_TEXTURE_2D, text_textures[i * twidth + j]);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textureWidth, textureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, test_overlay_image);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textureWidth, textureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, painted_bits);
+
     }
-  }    
+  }
+  delete []test_overlay_image;
+  delete q_test_img;
+  //  delete []test_text_image;
+  //delete []painted_bits;
 }
 
 

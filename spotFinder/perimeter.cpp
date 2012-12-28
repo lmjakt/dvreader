@@ -519,6 +519,7 @@ bool Perimeter::contains(int x, int y){
     int p = y * globalWidth + x;
     if(!areaPoints.size())
 	setDetails();
+    //std::cout << "Perimeter::contains: " << (1 + maxX - minX) * (1 + maxY - minY) << " : " << areaPoints.size() << std::endl;
     return(areaPoints.count(p));
 }
 

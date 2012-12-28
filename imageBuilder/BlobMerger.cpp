@@ -216,7 +216,7 @@ vector<blob_set> BlobMerger::collapseDuplicates(map<blob*, set<blob*> >& blob_li
     set<blob*> nbs = (*map_it).second;
     blob_links.erase(map_it);
     blob_set bs(pos.x, pos.y, pos.z);
-    bs.push( seed, seed->mapper->map_id, seed->mapper );
+    //bs.push( seed, seed->mapper->map_id, seed->mapper );
     for(set<blob*>::iterator it=nbs.begin(); it != nbs.end(); ++it){
       bs.push( (*it), (*it)->mapper->map_id, (*it)->mapper );
       if( blob_links.count(*it) && sets_identical(nbs, blob_links[ (*it) ]) )

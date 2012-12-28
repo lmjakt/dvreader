@@ -51,7 +51,8 @@ class GLImage : public QGLWidget
       
     public:
 
-    GLImage(unsigned int width, unsigned int height, unsigned int texSize,  GLfloat aspRatio=1.0, QWidget* parent=0, const char* name=0 );
+    GLImage(unsigned int width, unsigned int height, unsigned int texSize,  
+	    GLfloat aspRatio=1.0, QWidget* parent=0, const char* name=0 );
     GLImage(unsigned int width, unsigned int height, unsigned int texWidth,  unsigned int texHeight,
 	    GLfloat aspRatio=1.0, QWidget* parent=0, const char* name=0 );
     ~GLImage();
@@ -59,14 +60,15 @@ class GLImage : public QGLWidget
     int currentMouseX();
     int currentMouseY();
     enum ViewState { VIEW, DRAW };
-
+    enum OverlayLayer { DRAWING_LAYER, TEXT_LAYER };
+    
 public slots:
 
  void setImage(float* data, int x, int y, int col, int row);           // using an rgb coordinate system.. 
  void setBigImage(float* data, int source_x, int source_y, 
 	       int width, int height);
  void setBigOverlay(unsigned char* data, int source_x, int source_y,
-		    int width, int height);
+		    int width, int height, OverlayLayer layer=DRAWING_LAYER);
  void clearTextures();
  void setMagnification(float m);
  void setPosition(int x, int y);
@@ -113,12 +115,15 @@ private:
     
     GLuint* textures;
     GLuint* overlay_textures;  // RGBA GL_UNSIGNED_BYTE overlay textures (that can be switched on or off by some means)
+    GLuint* text_textures; // Text texture, separate textures from the overlay ones, since to
+                           // QImage encodes as ARGB.
     bool showOverlay;
+    bool showText;
     GLint twidth, theight;   // the number of textures, not the
     GLint textureWidth;
     GLint textureHeight;
     std::vector<float*> images;   // the images that we want to map to the different areas.. 
-    float* backgroundImage;       // a single image that we can use to set things up.. 
+    //float* backgroundImage;       // a single image that we can use to set things up.. 
     
     GLfloat xo, yo;    // x and y origin.. before magnification ! 
     GLfloat xscale, yscale;  // yscale isn't actually used at the moment.

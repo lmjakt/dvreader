@@ -141,7 +141,7 @@ bool CellCollection::writeTextSummary(QString fname)
   }
   out << "Total " << cells.size() << "Cells\n";
   for(unsigned int i=0; i < cells.size(); ++i){
-    out << i + 1 << "\t";
+    out << "Cell no: " << i + 1 << "\n";
     cells[i].writeTextSummary(out);
   }
   out.close();
@@ -229,12 +229,13 @@ void CellCollection::addBurstingBlob(blob_set* bsptr)
 {
   int cell_i = -1;
   for(uint i=0; i < cells.size(); ++i){
-    if( cells[i].nucleus_contains(bsptr) )
+    if( cells[i].nucleus_contains(bsptr) ){
       if(cell_i != -1){
 	std::cerr << "CellCollection::addBurstingBlob blob_set assigned to different cell" << std::endl;
 	return;
       }
-    cell_i = (int)i;
+      cell_i = (int)i;
+    }
   }
   if(cell_i == -1){
     unallocated_burst_blobs.insert(bsptr);

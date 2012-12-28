@@ -1161,9 +1161,9 @@ float* ImageAnalyser::perimeterPixels(Perimeter per, int z, unsigned int wi, uns
     int mx = m_xo - (x + 1);
     for(int xp=x; xp < (x + w); ++xp){
       ++mx;
-      std::cout << yp << "," << xp << " : " << p_length << "  : " << img_data[ yp * w + xp ] << " --> " << pixel_sum << std::endl;
+      //      std::cout << yp << "," << xp << " : " << p_length << "  : " << img_data[ yp * w + xp ] << " --> " << pixel_sum << std::endl;
       if(!perMask[ my * mw + mx ]){
-	pixel_values[p_length] = img_data[ yp * w + xp ];
+	pixel_values[p_length] = img_data[ (yp-y) * w + (xp-x) ];
 	pixel_sum += pixel_values[p_length];
 	++p_length;
       }

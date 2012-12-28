@@ -14,9 +14,10 @@
 #include "blob_set.h"
 #include "Blob_mt_mapper_collection.h"
 #include "../image/imageAnalyser.h"
+#include "../opengl/glImage.h"
 
 class FileSet;
-class GLImage;
+//class GLImage;
 // Note that the distchooser and tabwidget in this case represent a kind of terrible
 // hack. We should find a better way of handling them.
 class DistChooser;
@@ -78,7 +79,8 @@ class ImageBuilder : public QObject
   void setBigSubOverlay(unsigned char* img, int source_x, int source_y, int source_width, int source_height,
 			int source_sub_x, int source_sub_y, int cp_width, int cp_height);
   void setBigImage(float* img, int source_x, int source_y, int width, int height);
-  void setBigOverlay(unsigned char* img, int source_x, int source_y, int width, int height);
+  void setBigOverlay(unsigned char* img, int source_x, int source_y, int width, int height,
+		     GLImage::OverlayLayer layer=GLImage::DRAWING_LAYER);
   unsigned char* setBigGrayOverlay(float* img, int source_x, int source_y, int width, int height,
 			       unsigned char alpha, float scale);
   
@@ -102,7 +104,8 @@ class ImageBuilder : public QObject
   GLImage* image;
   FileSet* data;
   float* rgbData;
-  unsigned char* overlayData;  // RGBA unsigned byte data for overlays etc.. 
+  unsigned char* overlayData;  // RGBA unsigned byte data for overlays etc..
+  unsigned char* textOverlayData; // RGBA text overlay data.. 
   unsigned short* sBuffer;
   unsigned int texture_size;
   std::vector<channel_info> channels;
@@ -266,6 +269,10 @@ class ImageBuilder : public QObject
   bool setVisible(int& x, int& y, int& width, int& height);
   bool editPerimeter(Perimeter per, QString perSource, int perId, bool clear);
   
+  // Some functions for drawing text.
+  // these modify textOverlayData and use default font to begin with
+  void clearTextLayer();
+  void drawText(QString text, int x, int y); 
 
   // note that the below functin may destroy image if it returns a different image.. 
   float* modifyImage(int x, int y, int w, int h, float* image, f_parameter& par);

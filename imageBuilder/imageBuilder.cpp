@@ -64,7 +64,9 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
 
   rgbData = new float[ data->pwidth() * data->pheight() * 3];
   overlayData = new unsigned char[4 * data->pwidth() * data->pheight() ];
+  textOverlayData = new unsigned char[4 * data->pwidth() * data->pheight() ];
   memset((void*)overlayData, 0, sizeof(unsigned char) * 4 * data->pwidth() * data->pheight());
+  memset((void*)textOverlayData, 0, sizeof(unsigned char) * 4 * data->pwidth() * data->pheight());
   sBuffer = new unsigned short[ data->pwidth() * data->pheight() ];
   channels = ch;//class ImageAnalyser;
 
@@ -163,6 +165,7 @@ ImageBuilder::~ImageBuilder()
   delete []rgbData;
   delete []sBuffer;
   delete []overlayData;
+  delete []textOverlayData;
   // I may need to delete the distributions separately, not sure,,
   delete distTabs;
   for(map<QString, ImStack*>::iterator it=imageStacks.begin();
@@ -847,6 +850,7 @@ void ImageBuilder::resetOverlayData()
 {
   memset((void*)overlayData, 0, sizeof(unsigned char) * 4 * data->pwidth() * data->pheight());
   image->setBigOverlay(overlayData, 0, 0, data->pwidth(), data->pheight());
+  
 }
 
 void ImageBuilder::reportParameters(){
@@ -1257,11 +1261,12 @@ void ImageBuilder::setBigImage(float* img, int source_x, int source_y, int width
 }
 
 
-void ImageBuilder::setBigOverlay(unsigned char* img, int source_x, int source_y, int width, int height)
+void ImageBuilder::setBigOverlay(unsigned char* img, int source_x, int source_y, int width, int height,
+				 GLImage::OverlayLayer layer)
 {
   if(!image->isVisible())
     image->show();
-  image->setBigOverlay(img, source_x, source_y, width, height);
+  image->setBigOverlay(img, source_x, source_y, width, height, layer);
   image->updateGL();
 }
 
@@ -3629,8 +3634,19 @@ void ImageBuilder::draw_cells(f_parameter& par)
 		      colors[ i % colors.size() ], true);
     drawer.drawLines( cellCollections[cellName]->nucleusPerimeter(i).qpoints(),
 		      colors[ i % colors.size() ], true);
+    if(par.defined("id")){ // draw the ids
+      int x,y;
+      QString cell_id;
+      cell_id.setNum(i);
+      cellCollections[cellName]->nucleusPerimeter(i).centerPos(x, y);
+      drawText(cell_id, x, y);
+    }
   }
-  setBigOverlay(overlayData, 0, 0, data->pwidth(), data->pheight());
+  setBigOverlay(overlayData, 0, 0, data->pwidth(), data->pheight(), GLImage::DRAWING_LAYER);
+  // I seem to have problems with having two layers of transparent textures. I can only get
+  // one of them to work. Hence for the time being textOverlayData is not used.
+  //if(par.defined("id"))
+  //  setBigOverlay(textOverlayData, 0, 0, data->pwidth(), data->pheight(), GLImage::TEXT_LAYER);
   image->setViewState(GLImage::VIEW);
 }
 
@@ -4279,6 +4295,59 @@ bool ImageBuilder::editPerimeter(Perimeter per, QString perSource, int perId, bo
   //image->setMagnification(1.0);
   image->setViewState(GLImage::DRAW);
   return(true);
+}
+
+void ImageBuilder::clearTextLayer()
+{
+  if(textOverlayData)
+    memset((void*)textOverlayData, 0, sizeof(unsigned char) * 4 * data->pwidth() * data->pheight());
+  image->setBigOverlay(textOverlayData, 0, 0, data->pwidth(), data->pheight(), GLImage::TEXT_LAYER);
+}
+
+// for drawing simple pieces of text onto 
+// x and y indicate center of position
+//
+// IMPORTANT: this function uses overlayData to draw into. It was
+// intended to use textOverlayData and to use two separate texture
+// layers ontop of the main one. However, that isn't working for some
+// for unknown reasons. For now, just use the overlayData.
+void ImageBuilder::drawText(QString text, int x, int y)
+{
+  QPainter p;
+  QFont label_font;
+  label_font.setPixelSize(20);
+  int max_dim = 1024;  // arbitrary
+  QImage slate(max_dim, max_dim, QImage::Format_ARGB32);
+  p.begin(&slate);
+  p.setFont(label_font);
+  QRect brect = p.boundingRect(0, 0, max_dim, max_dim, Qt::AlignLeft|Qt::AlignTop, text);
+  p.end();
+  QImage q_img(brect.size(), QImage::Format_ARGB32);
+  q_img.fill(0);
+  p.begin(&q_img);
+  p.setFont(label_font);
+  p.fillRect(0, 0, brect.width(), brect.height(), QBrush(QColor(125, 125, 0, 125)));
+  p.setPen(QPen(QColor(255, 255, 255, 255), 1));
+  p.setRenderHint(QPainter::TextAntialiasing, false);
+  p.translate(0, brect.height());
+  p.scale(1.0, -1.0);
+  p.drawText(brect, Qt::AlignCenter, text);
+  p.end();
+  const uchar* bits = q_img.constBits();
+
+  // then simply copy to appropriate region.
+  int xp = x - (brect.width() / 2);
+  int yp = y - (brect.height() / 2);
+  xp = xp < 0 ? 0 : xp;
+  yp = yp < 0 ? 0 : yp;
+  int cp_w = xp + brect.width() < data->pwidth() ? brect.width() : data->pwidth() - xp;
+  int cp_h = yp + brect.height() < data->pheight() ? brect.height() : data->pheight() - yp;
+  for(int i=0; i < cp_h; ++i){
+    for(int j=0; j < 4 * cp_w; ++j)
+    memcpy((void*)(overlayData + 4 * (((yp+i) * data->pwidth()) + xp)), 
+    	   (void*)(bits + 4 * (i * brect.width())), sizeof(unsigned char) * 4 * cp_w);
+  }
+  // and done.
 }
 
 // this function may destroy image. image should be set to the return value.
