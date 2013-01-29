@@ -1,6 +1,7 @@
 #include "Annotation.h"
 #include <iostream>
 #include <set>
+#include <math.h>
 
 Annotation::Annotation()
 {
@@ -21,8 +22,10 @@ QColor Annotation::node_color(unsigned int n, QString ch)
   if(!color_maps.count(ci))
     return( null_color );
   float v = annotation.value(n, ci);
-  if(!color_maps[ ci ].count(v) )
+  if(!color_maps[ ci ].count(v) ){
+    std::cerr << "Unknown level for ci: " << ci << "  v: " << v << "    size of map: " << color_maps[ci].size() << std::endl;
     return( null_color );
+  }
   return( color_maps[ci][v] );
 }
 
@@ -59,10 +62,15 @@ void Annotation::init(){
     std::map<float, QColor> colors;
     for(uint j=0; j < annotation.n_size(); ++j)
       levels.insert( annotation.value(j, i) );
-    unsigned int c = 0;
-    for(std::set<float>::iterator it=levels.begin(); it != levels.end(); ++it){
-      colors.insert( std::make_pair((*it), base_colors[ c % base_colors.size() ]) );
-      ++c;
+    
+    if(levels.size() > 12){
+      colors = generateParameterColors(levels); // assume linear scaling
+    }else{
+      unsigned int c = 0;
+      for(std::set<float>::iterator it=levels.begin(); it != levels.end(); ++it){
+	colors.insert( std::make_pair((*it), base_colors[ c % base_colors.size() ]) );
+	++c;
+      }
     }
     color_maps.insert( std::make_pair( i, colors ) );
   }
@@ -89,3 +97,40 @@ std::vector<QColor> Annotation::generateColors()
   return(colors);
 }
 
+// Use HSV coloring to generate a color map float -> QColor
+
+std::map<float, QColor> Annotation::generateParameterColors(std::set<float> levels, bool use_log)
+{
+  std::map<float, QColor> colors;
+  if(!levels.size()){
+    return(colors);
+  }
+  float min_value = *levels.begin();
+  float max_value = *levels.rbegin();
+  if(use_log && min_value <= 0){
+    std::cerr << "generateParameterColors: use_log is true, but 0 or negative values present\n"
+	      << "use_log forced to false" << std::endl;
+    use_log = false;
+  }
+  min_value = use_log ? log(min_value) : min_value;
+  max_value = use_log ? log(max_value) : max_value;
+  float range = max_value - min_value;
+  if(!range){
+    colors.insert(std::make_pair(*levels.begin(), QColor(255, 0, 0))); // do not insert min_value as this would be the 
+    return(colors);
+  }
+  QColor c;
+  for(std::set<float>::iterator it=levels.begin(); it != levels.end(); ++it){
+    float v = use_log ? log(*it) : *it;
+    // we want to run colors from blue (240) -> purple (300)
+    // via red (300) in the opposite direction.
+    // we make the maximum value 300 since we do not want to run
+    // blue --> blue (360 = full circle)
+    int hue = (int)(300.0 * (v - min_value) / range);
+    hue = (360 + (240 - hue)) % 360;
+    c.setHsv(hue, 255, 220);
+    colors.insert(std::make_pair(*it, c));
+    std::cout << "Inserting color level: " << *it << "  HSV: " << hue << ",255,220" << std::endl;
+  }
+  return(colors);
+}

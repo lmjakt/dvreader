@@ -63,6 +63,7 @@ class DistanceViewer : public QWidget
   void setPointFilter(QString filter_field, std::set<float> filter_values, bool filter_inverse);
   void set_simple_gaussian_background(std::vector<unsigned int> dims,
 				      unsigned char* color_matrix, float var);
+  void set_density_background(float rad_multiplier=2.0);
 
   bool export_points(QString fname);    // the mapped positions (usually 2D)
   bool export_positions(QString fname); // the origional positions

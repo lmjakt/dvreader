@@ -28,5 +28,6 @@ class Annotation {
 
   void init();
   std::vector<QColor> generateColors();
+  std::map<float, QColor> generateParameterColors(std::set<float> levels, bool use_log=false);
 };
 #endif

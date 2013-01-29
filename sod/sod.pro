@@ -14,6 +14,8 @@ HEADERS         = \
                 node_set.h \
 		Annotation.h \
                 posInfo.h \
+		DensityPlot.h \
+		ColorScale.h \
                 ../customWidgets/clineEdit.h \
                 ../imageBuilder/f_parameter.h
 SOURCES         = \
@@ -26,6 +28,8 @@ SOURCES         = \
                 BackgroundDrawer.cpp \
                 node_set.cpp \
 		Annotation.cpp \
+		DensityPlot.cpp \
+		ColorScale.cpp \
                 ../imageBuilder/f_parameter.cpp \
                 main.cpp
 TARGET          = dimSqueezer

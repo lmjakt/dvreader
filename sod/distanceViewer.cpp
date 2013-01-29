@@ -238,6 +238,11 @@ void DistanceViewer::set_simple_gaussian_background(std::vector<unsigned int> di
   drawer->set_simple_gaussian_background(dims, color_matrix, var);
 }
 
+void DistanceViewer::set_density_background(float rad_multiplier)
+{
+  drawer->set_density_background(rad_multiplier);
+}
+
 bool DistanceViewer::export_points(QString fname)
 {
   QFile ofile(fname);

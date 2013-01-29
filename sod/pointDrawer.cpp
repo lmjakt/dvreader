@@ -25,6 +25,8 @@
 #include "pointDrawer.h"
 #include "distanceMapper.h"    // for the dpoint .. bit messy but there you go..
 #include "BackgroundDrawer.h"
+#include "DensityPlot.h"
+#include "ColorScale.h"
 #include <math.h>
 #include <vector>
 #include <stdlib.h>
@@ -61,6 +63,7 @@ PointDrawer::PointDrawer(QWidget* parent, const char* name)
   rubberBand->setPalette(bandPalette);
   frameCounter = 0;
   point_plot_type = STRESS;
+  annotation_field = "";
   diameter = 16;             // diameter for circles representing.. things.. 
   pos.setMargin(32);
   margin = 32;               // number of pixels around the edge that we don't want to draw..
@@ -192,8 +195,63 @@ void PointDrawer::set_simple_gaussian_background(std::vector<unsigned int> dims,
     cerr << "PointDrawer::set_simple_gaussian_background: failed to obtain background " << endl;
     return;
   }
+  if(bg_data)
+    delete []bg_data;
   bg_data = nbg;
   bg_image = QImage(bg_data, pos.w(), pos.h(), QImage::Format_ARGB32);
+  update();
+}
+
+void PointDrawer::set_density_background(float rad_multiplier)
+{
+  int radius = abs((int)(rad_multiplier * (float)diameter / 2.0));
+  if(!radius)
+    return;
+  std::vector<float> x;
+  std::vector<float> y;
+  x.reserve(points.size());
+  y.reserve(points.size());
+  for(uint i=0; i < points.size(); ++i){
+    if(filterPoint(i))
+      continue;
+    x.push_back( points[i]->coordinates[0] );
+    y.push_back( points[i]->coordinates[1] );
+  }
+  DensityPlot dplot(x, y, &pos);
+  unsigned short max_value;
+  
+  unsigned short* density = dplot.densityPlot(radius, &max_value);
+  //  unsigned short* density = dplot.densityPlot(pos.w(), pos.h(), diameter, &max_value);
+  if(!density){
+    cerr << "PointDrawer::set_density_background obtained a null map" << endl;
+    return;
+  }
+  // convert to image somehow. Would like to use same HSV mapping as for
+  // points, this will be slower, but since the units are quantised we don't
+  // really need a map.
+
+  ColorScale c_scale;
+  unsigned char* cmap = c_scale.arrayedColorIndexUS(max_value);
+  if(!cmap){
+    delete []density;
+    cerr << "PointDrawer::set_density_background obtained a null cmap" << endl;
+    return;
+  }
+  // and now for the magic, stuff.
+  unsigned char* new_bg = new unsigned char[ 4 * width() * height() ];
+  for(unsigned int i=0; i < (width() * height()); ++i){
+    unsigned int off_set = 4 * density[i];
+    new_bg[i * 4] = cmap[ off_set + 3]; // blue
+    new_bg[i * 4 + 1] = cmap[ off_set + 2]; // green
+    new_bg[i * 4 + 2] = cmap[ off_set + 1]; // red
+    new_bg[i * 4 + 3] = cmap[ off_set]; // alpha
+  //  *(int*)(new_bg + i * 4) = *(int*)(cmap + 4 * density[i]);
+  }
+  delete []cmap;
+  bg_image = QImage(new_bg, width(), height(), QImage::Format_ARGB32);
+  if(bg_data)
+    delete []bg_data;
+  bg_data = new_bg;
   update();
 }
 
@@ -324,6 +382,9 @@ void PointDrawer::drawPicture(QPainter& p)
       drawPie(p, points[i], x, y, label);
       continue;
     }
+    // for the following the point diameter is constant so we can say
+    x = x - (diameter / 2);
+    y = y - (diameter / 2);
     if(point_plot_type == DOTS){
       drawDots(p, points[i], x, y, dot_offsets);
       continue;

@@ -78,6 +78,7 @@ class PointDrawer : public QWidget
   // background images..
   void set_simple_gaussian_background(std::vector<unsigned int> dims, 
 				      unsigned char* color_matrix, float var);
+  void set_density_background(float rad_multiplier=2.0); // uses current filter and diameter for drawing. 
 
 
   // n-dimensional grid

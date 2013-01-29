@@ -263,6 +263,11 @@ void SodController::set_plot_par(f_parameter& par)
     viewer->resetStressRange();
   if(par.defined("make_triangles"))
     viewer->makeTriangles();
+  if(par.defined("density")){
+    float rad_multiplier = 2.0;
+    par.param("radius", rad_multiplier);
+    viewer->set_density_background(rad_multiplier);
+  }
 }
 
 void SodController::titrate(f_parameter& par)
