@@ -3,6 +3,8 @@ TEMPLATE        = app
 CONFIG          += qt opengl debug thread
 QT		+= qt3support svg
 CONFIG          += console
+INCLUDEPATH	+= /usr/local/cuda/include
+LIBS		+= -lOpenCL
 HEADERS         = \
                 SodController.h \
                 distanceViewer.h \
@@ -16,6 +18,10 @@ HEADERS         = \
                 posInfo.h \
 		DensityPlot.h \
 		ColorScale.h \
+		../open_cl/oCL_base.h \
+		../open_cl/clError.h \
+		oCL_DistanceMapper.h \
+		oCL_DistanceMapperManager.h \
                 ../customWidgets/clineEdit.h \
                 ../imageBuilder/f_parameter.h
 SOURCES         = \
@@ -30,6 +36,10 @@ SOURCES         = \
 		Annotation.cpp \
 		DensityPlot.cpp \
 		ColorScale.cpp \
+		../open_cl/oCL_base.cpp \
+		../open_cl/clError.cpp \
+		oCL_DistanceMapper.cpp \
+		oCL_DistanceMapperManager.cpp \
                 ../imageBuilder/f_parameter.cpp \
                 main.cpp
 TARGET          = dimSqueezer

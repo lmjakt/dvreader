@@ -2,6 +2,7 @@
 #include "clError.h"
 #include <iostream>
 #include <fstream>
+#include <string.h>
 
 OCL_base::OCL_base(const char* kernel_source, const char* kernel_name, bool compile_source)
 {
@@ -22,7 +23,7 @@ OCL_base::OCL_base(const char* kernel_source, const char* kernel_name, bool comp
 
 OCL_base::~OCL_base()
 {
-    // all of the following return a cl_uint error code
+  // all of the following return a cl_uint error code
   // we should naturally check this, but for first implementation
   // let's try without.
 
@@ -119,7 +120,17 @@ void OCL_base::init_kernel(const char* kernel_source, const char* kernel_name, b
 				      (const size_t*)&end_pos, &ret);
   report_error_pf("clCreateProgramWithSource", ret);
 
+  
+  // bool allow_debug = true;
+  // char* options = new char[10]; //
+  // strcpy(options, "-g");        // why??
+  // if(allow_debug){
+  //   clBuildProgram(program, 1, &device_id, options, NULL, NULL);
+  // }else{
+  // unfortunately -g doesn't work.
+
   clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
+  //}
   report_error_pf("clBuildProgram", ret);
 
   char* build_log = NULL;

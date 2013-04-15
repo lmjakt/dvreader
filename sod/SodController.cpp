@@ -2,6 +2,7 @@
 #include "distanceViewer.h"
 #include "pointDrawer.h"
 #include "Annotation.h"
+#include "oCL_DistanceMapperManager.h"
 #include "../customWidgets/clineEdit.h"
 #include <QPlainTextEdit>
 #include <QVBoxLayout>
@@ -32,6 +33,7 @@ SodController::SodController(QWidget* parent)
   general_functions["read_distances"] = &SodController::read_distances;
   general_functions["read_positions"] = &SodController::read_positions;
   general_functions["read_annotation"] = &SodController::read_annotation;
+  general_functions["shrink_dims"] = &SodController::shrink_dims;
   general_functions["set_plot_par"] = &SodController::set_plot_par;
   general_functions["titrate"] = &SodController::titrate;
   general_functions["gaussian_bg"] = &SodController::make_gaussian_background;
@@ -45,6 +47,11 @@ SodController::~SodController()
 {
   for(std::map<QString, DistanceViewer*>::iterator it=distanceViewers.begin(); it != distanceViewers.end(); ++it)
     delete((*it).second);
+
+  for(std::map<QString, OCL_DistanceMapperManager*>::iterator it=ocl_mappers.begin();
+      it != ocl_mappers.end(); ++it)
+    delete((*it).second);
+
   // delete other components?
   delete input;
   delete output;
@@ -155,6 +162,19 @@ void SodController::read_positions(f_parameter& par)
   
   bool set_mapper = true;
   par.param("set_mapper", set_mapper);
+  if(set_mapper && !distanceViewers.count(pos_name)){
+    distances[pos_name] = positions[pos_name].distances();
+    std::vector<int> memberInts = int_range(distances[pos_name].n_size());
+    bool trackCoordinates = true;
+    par.param("coords", trackCoordinates);
+    if(!par.defined("gpu")){
+      distanceViewers[ pos_name ] = new DistanceViewer(memberInts, distances[pos_name].Nodes(), pos_name, trackCoordinates);
+      distanceViewers[ pos_name ]->show();
+      distanceViewers[ pos_name ]->raise();
+    }else{     // set up a gpu
+      ocl_mappers[pos_name] = new OCL_DistanceMapperManager(&positions[pos_name], &distances[pos_name]);
+    }
+  }
   if(set_mapper && distanceViewers.count(pos_name)){
     distanceViewers[pos_name]->set_starting_dimensionality(ns.n_dim());
     distanceViewers[pos_name]->setPositions(ns.Nodes(), grid_points);
@@ -194,6 +214,29 @@ void SodController::read_annotation(f_parameter& par)
   distanceViewers[dist_name]->setAnnotation(annot);
 }
 
+void SodController::shrink_dims(f_parameter& par)
+{
+  if(par.defined("help")){
+    warn("shrink_dims mapper=name iter=1000 target_dim=2");
+    return;
+  }
+  QString mapper_name;
+  if(!par.param("mapper", mapper_name)){
+    warn("It is necessary to specify a mapper name");
+    return;
+  }
+  if(!ocl_mappers.count(mapper_name)){
+    warn("Unknown mapper_name please try again");
+    return;
+  }
+  unsigned int iter = 1000;
+  unsigned int target_dim=2;
+  par.param("iter", iter);
+  par.param("target_dim", target_dim);
+
+  ocl_mappers[mapper_name]->reduce_dimensions(iter, target_dim);
+}
+
 void SodController::set_plot_par(f_parameter& par)
 {
   if(par.defined("help")){
@@ -222,6 +265,11 @@ void SodController::set_plot_par(f_parameter& par)
   QString annotation_field;
   if(par.param("field", annotation_field))
     viewer->plotByAnnotationField(annotation_field);
+  if(par.defined("color_scale")){
+    int x, y, w, h;
+    if(par.param("x", x) && par.param("y", y) && par.param("w", w) && par.param("h", h))
+      viewer->drawAnnotationScale(x, y, w, h);
+  }
   QString filter_field;
   std::set<float> filter_values;
   bool filter_inverse=true;
@@ -501,6 +549,14 @@ void SodController::warn(QString message)
   output->appendPlainText(message);
 }
 
+std::vector<int> SodController::int_range(unsigned int size, int beg)
+{
+  std::vector<int> r(size);
+  for(unsigned int i=0; i < size; ++i)
+    r[i] = beg++;
+  return(r);
+}
+
 // The file should contain rows and columns (more than 2).
 // The first column identifies the node and the
 // following columns contain it's coordinates. (These
@@ -553,3 +609,4 @@ node_set SodController::read_node_set(QString fileName, bool has_col_header)
   }
   return(ns);
 }
+

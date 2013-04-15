@@ -1,6 +1,7 @@
 #include "node_set.h"
 #include <QFile>
 #include <iostream>
+#include <math.h>
 
 node_set::node_set()
   : dimensions(0)
@@ -17,6 +18,19 @@ node_set::node_set(std::vector<QString> labels, std::vector<std::vector<float> >
   : labels(labels), nodes(nodes), col_labels(col_labels), dimensions(0)
 {
   init();
+}
+
+// calculates a set of distances from the positions specified in pos
+node_set node_set::distances()
+{
+  std::vector<std::vector<float> > dist(nodes.size());
+  for(unsigned int i=0; i < nodes.size(); ++i){
+    dist[i].resize( nodes.size() );
+    for(unsigned int j=0; j < nodes.size(); ++j)
+      dist[i][j] = e_distance(nodes[i], nodes[j]);
+  }
+  node_set dist_set(labels, dist);
+  return(dist_set);
 }
 
 void node_set::init()
@@ -39,6 +53,20 @@ void node_set::init()
       return;
     }
   }
+}
+
+float node_set::e_distance(std::vector<float>& a, std::vector<float>& b)
+{
+  float d = 0;
+  if(a.size() != b.size()){
+    std::cerr << "node_set::e_distance a and b have different sizes, calculating partial distance" 
+	      << a.size() << " != " << b.size() << std::endl;
+  }
+  unsigned int k = a.size() < b.size() ? a.size() : b.size();
+  for(unsigned int i=0; i < k; ++i)
+    d += (a[i] - b[i]) * (a[i] - b[i]);
+  d = sqrt(d);
+  return(d);
 }
 
 unsigned int node_set::n_size()

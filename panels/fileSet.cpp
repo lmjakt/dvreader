@@ -290,6 +290,9 @@ bool FileSet::finalise(){
     
     // This next section sets up the relationships between frames (i.e. for each frame which is it's
     // neighboring frames (left and right and top..
+    //completeRectangle = false;  // this will prevent time taken to adjust overlaps    
+    // not doing the below seems to cause problems to the adjust positions function. Something below needs
+    // to be done.
     if(completeRectangle){
       for(uint i=0; i < x_positions.size(); i++){
 	for(uint j=0; j < y_positions.size(); j++){

@@ -10,6 +10,7 @@
 #include "CellCollection.h"
 #include "CellParCollector.h"
 #include "Drawer.h"
+#include "PointDilater.h"
 #include "../dataStructs.h"
 #include "../datastructs/channelOffset.h"
 #include "../image/two_d_background.h"
@@ -132,6 +133,7 @@ ImageBuilder::ImageBuilder(FileSet* fs, vector<channel_info>& ch, QObject* paren
   general_functions["read_criteria"] = &ImageBuilder::readBlobCriteria;
   general_functions["project_blobs"] = &ImageBuilder::project_blob_collections;
   general_functions["project_blob_sets"] = &ImageBuilder::project_blob_sets;
+  general_functions["dilate_blobs"] = &ImageBuilder::dilate_blob_sets;
   general_functions["project_blob_ids"] = &ImageBuilder::project_blob_ids;
   general_functions["make_cell_mask"] = &ImageBuilder::make_cell_mask;
   general_functions["edit_cell"] = &ImageBuilder::modifyCellPerimeter;
@@ -1124,7 +1126,8 @@ void ImageBuilder::toRGB(float* fb, float* rgb, channel_info& ci, unsigned long 
 
 // assumes that rgb has the same dimesions as rgbData. (i.e. data->pwidth() * data->pheight())
 void ImageBuilder::toRGB(float* fb, float* rgb, channel_info& ci, unsigned long l,
-			 int x_off, int y_off, int width, int height, bool clear)
+			 int x_off, int y_off, int width, int height, bool clear,
+			 bool use_max_level)
 {
   // In any case if clear is true, then lets clear..class ImageAnalyser;
 
@@ -1156,11 +1159,12 @@ void ImageBuilder::toRGB(float* fb, float* rgb, channel_info& ci, unsigned long 
   
   // and then line by line.. 
   float v;
+  float ml = use_max_level ? ci.maxLevel : 1.0;
   for(int dy=0; dy <  height; ++dy){
     float* src = (fb + dy * width);
     float* dst = rgb + 3 * (((y_off + dy) * data->pwidth()) + x_off);
     for(int dx = 0; dx < width; ++dx){
-      v = ci.bias + ci.scale * (*src);
+      v = ci.bias + ci.scale * (*src)/ml;
       if(v > 0){
 	*dst += (v * ci.color.r);
 	*(dst + 1) += (v * ci.color.g);
@@ -3365,6 +3369,62 @@ void ImageBuilder::project_blob_sets(f_parameter& par)
       project_blob( blobs[i].b(j), pos, colors[ blobs[i].id() % colors.size() ]);
   }
   setBigOverlay(overlayData, 0, 0, data->pwidth(), data->pheight());
+}
+
+void ImageBuilder::dilate_blob_sets(f_parameter& par)
+{
+  QString errorString;
+  QTextStream qts(&errorString);
+  if(par.defined("help")){
+    qts << "dilate_blobs blobs=blob_id xr=x_radius yr=y_radius zr=z_radius [use_visible=false]";
+    warn(errorString);
+    return;
+  }
+  QString blob_id;
+  QString stack_name;
+  int xr, yr, zr;
+  if(!par.param("blobs", blob_id))
+    qts << "Please specify the id of the blob_sets to use\n";
+  if(blob_id.length() && !mapper_sets.count(blob_id))
+    qts << "Unknown blob_sets: " << blob_id << "\n";
+  if(!par.param("stack", stack_name))
+    qts << "Please specify a name for the stack\n";
+  if(!par.param("xr", xr) || !par.param("yr", yr) || !par.param("zr", zr))
+    qts << "Please specify xr, yr and zr\n";
+  if(errorString.length()){
+    warn(errorString);
+    return;
+  }
+  bool use_visible = false;
+  par.param("use_visible", use_visible);
+  // and then work out the size of the stack to be calculated.
+  int x = 0;
+  int y = 0;
+  int z = 0;
+  int width = data->pwidth();
+  int height = data->pheight();
+  int depth = data->sectionNo();
+  if(use_visible){
+    if(!setVisible(x, y, width, height)){
+      warn("Unable to setVisible");
+      return;
+    }
+  }
+  // and at this point we can just make a thingy and call the function.
+  PointDilater dilater;
+  vector<blob_set> blobs = mapper_sets[blob_id]->blobSets();
+  ImStack* imStack = dilater.dilate(x, y, z, width, height, depth,
+			     blobs, xr, yr, zr);
+  // 
+  // show the middle layer of it.
+  float* layer = imStack->image(0, depth/2);
+  channel_info cinfo = imStack->cinfo(0);
+  toRGB(layer, rgbData, cinfo, (unsigned long)(width * height),
+	x, y, width, height, true, false);
+  setRGBImage(rgbData, data->pwidth(), data->pheight());
+  if(imageStacks.count(stack_name))
+    delete imageStacks[stack_name];
+  imageStacks[stack_name] = imStack;
 }
 
 // I think ids refers to cell ids rather than

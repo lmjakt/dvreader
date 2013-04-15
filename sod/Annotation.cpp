@@ -29,6 +29,34 @@ QColor Annotation::node_color(unsigned int n, QString ch)
   return( color_maps[ci][v] );
 }
 
+std::vector<QColor> Annotation::color_scale(QString ch, unsigned int divs, float& min, float& max)
+{
+  std::vector<QColor> colors;
+  if(!column_map.count(ch) || !annotation.n_size()){
+    min = 0; max = 1;
+    std::cerr << "Annotation scale returning empty vector string " << ch.toAscii().constData() << std::endl;
+    return(colors);
+  }
+  unsigned int c = column_map[ch];
+  min = max = annotation.value(0, c);
+  for(unsigned int i=1; i < annotation.n_size(); ++i){
+    float v = annotation.value(i, c);
+    min = min < v ? min : v;
+    max = max > v ? max : v;
+  }
+  float range = max - min;
+  float step = range / (divs-1);
+  std::set<float> levels;
+  std::map<float, QColor> color_map;
+  for(unsigned int i=0; i < divs; ++i)
+    levels.insert( min + step*i );
+  color_map = generateParameterColors(levels);
+  for(std::map<float, QColor>::iterator it=color_map.begin(); it != color_map.end(); ++it)
+    colors.push_back( (*it).second );
+
+  return(colors);
+}
+
 // returns true if the point matches the values in fv
 bool Annotation::filter(unsigned int n, QString ch, std::set<float> fv)
 {
@@ -130,7 +158,6 @@ std::map<float, QColor> Annotation::generateParameterColors(std::set<float> leve
     hue = (360 + (240 - hue)) % 360;
     c.setHsv(hue, 255, 220);
     colors.insert(std::make_pair(*it, c));
-    std::cout << "Inserting color level: " << *it << "  HSV: " << hue << ",255,220" << std::endl;
   }
   return(colors);
 }

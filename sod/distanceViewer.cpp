@@ -227,6 +227,11 @@ void DistanceViewer::plotByAnnotationField(QString field)
   drawer->plotAnnotationField(field);
 }
 
+void DistanceViewer::drawAnnotationScale(int x, int y, int w, int h)
+{
+  drawer->drawAnnotationScale(x, y, w, h);
+}
+
 void DistanceViewer::setPointFilter(QString filter_field, std::set<float> filter_values, bool filter_inverse)
 {
   drawer->setPointFilter(filter_field, filter_values, filter_inverse);

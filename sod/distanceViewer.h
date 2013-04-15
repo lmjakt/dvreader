@@ -60,6 +60,7 @@ class DistanceViewer : public QWidget
   void setPlotScale(float scale);
   void setPointDiameter(int d);
   void plotByAnnotationField(QString field);
+  void drawAnnotationScale(int x, int y, int w, int h);
   void setPointFilter(QString filter_field, std::set<float> filter_values, bool filter_inverse);
   void set_simple_gaussian_background(std::vector<unsigned int> dims,
 				      unsigned char* color_matrix, float var);

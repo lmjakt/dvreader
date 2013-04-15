@@ -12,6 +12,8 @@ class DistanceViewer;
 class CLineEdit;
 class QPlainTextEdit;
 
+class OCL_DistanceMapperManager;
+
 class SodController : public QWidget
 {
   Q_OBJECT
@@ -31,6 +33,8 @@ class SodController : public QWidget
   unsigned int commandPos, historySize;
   std::map<QString, DistanceViewer*> distanceViewers;
   
+  std::map<QString, OCL_DistanceMapperManager*> ocl_mappers;
+  
   // data members that we can do stuff with
   std::map<QString, node_set> positions;
   std::map<QString, node_set> distances;
@@ -44,6 +48,7 @@ class SodController : public QWidget
   void read_distances(f_parameter& par);
   void read_positions(f_parameter& par);
   void read_annotation(f_parameter& par);
+  void shrink_dims(f_parameter& par);
   void set_plot_par(f_parameter& par);
   void titrate(f_parameter& par);
   void make_gaussian_background(f_parameter& par);
@@ -57,6 +62,7 @@ class SodController : public QWidget
 
   // and some useful functions
   void warn(QString message);
+  std::vector<int> int_range(unsigned int size, int beg=0);
   node_set read_node_set(QString fileName, bool has_col_header=FALSE);
 
 };

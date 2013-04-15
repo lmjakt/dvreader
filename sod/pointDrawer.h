@@ -70,6 +70,7 @@ class PointDrawer : public QWidget
   void setPlotScale(float s);
   void setAnnotation(Annotation annot);
   void plotAnnotationField(QString field);
+  void drawAnnotationScale(int x, int y, int w, int h);
   void setPointFilter(QString filter_field, std::set<float> filter_values, bool filter_inverse);
 
   void postscript(QString fname, float w, float h); // in points. No resolution specified.
@@ -104,6 +105,7 @@ class PointDrawer : public QWidget
   void drawDots(QPainter& p, dpoint* point, int x, int y, std::vector<QPoint>& offsets);
   void drawConnections(QPainter& p, dpoint* point);
   void drawGridPoint(QPainter& p, dpoint* gpoint);
+  void drawColorScale(QPainter& p, std::vector<QColor> colors, float min, float max, int x, int y, int w, int h);
   void determine_coordinate_scale();
 
   bool filterPoint(unsigned int i);
@@ -137,6 +139,7 @@ class PointDrawer : public QWidget
   PointPlotType point_plot_type;
   Annotation annotation;
   QString annotation_field;
+  QRect annotation_scale;  // denotes the position of the scale bar.
   /// the below values would be better to pack into some sort of struct.
   QString annotation_filter_field;
   std::set<float> annotation_filter_values;

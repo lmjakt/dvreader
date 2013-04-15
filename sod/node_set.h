@@ -10,6 +10,8 @@ class node_set {
   node_set(std::vector<QString> labels, std::vector<std::vector<float> > nodes);
   node_set(std::vector<QString> names, std::vector<std::vector<float> > nodes, std::vector<QString> col_labels);
   
+  node_set distances();
+
   unsigned int n_size();
   unsigned int n_dim();
   std::vector<std::vector<float> > Nodes();
@@ -24,6 +26,8 @@ class node_set {
   
  private:
   void init();
+  float e_distance(std::vector<float>& a, std::vector<float>& b);
+
   std::vector<QString> labels;
   std::vector<std::vector<float> > nodes;
   std::vector<QString> col_labels;

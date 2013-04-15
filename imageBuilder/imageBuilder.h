@@ -151,7 +151,9 @@ class ImageBuilder : public QObject
   void sub_slice_bg(unsigned int wi, unsigned int slice, unsigned short* sb);
   void toRGB(unsigned short* sb, float* rgb, channel_info& ci, unsigned long l);
   void toRGB(float* fb, float* rgb, channel_info& ci, unsigned int long l);
-  void toRGB(float* fb, float* rgb, channel_info& ci, unsigned long l, int x_off, int y_off, int width, int height, bool clear=false);
+  void toRGB(float* fb, float* rgb, channel_info& ci, unsigned long l, 
+	     int x_off, int y_off, int width, int height, bool clear=false,
+	     bool use_max_level=false);
   bool clearRGBSubRect(float* fb, uint fw, uint fh, uint cx, uint cy, uint c_width, uint c_height);
   unsigned short* background(unsigned int wi, unsigned int slice, bool& ok);
   unsigned short* background(unsigned short* sb, unsigned int w, unsigned int h, backgroundPars& bgp);
@@ -232,6 +234,7 @@ class ImageBuilder : public QObject
   //  void make_blob_model(f_parameter& par); // this is problematic; see .cpp for details
   void project_blob_collections(f_parameter& par);    // projects contents of collection of things.. 
   void project_blob_sets(f_parameter& par);
+  void dilate_blob_sets(f_parameter& par);
   void project_blob_ids(f_parameter& par);   // colour blobs by id (group or perimeter id). Assumes there is a mapping between collection_sets
   void make_cell_mask(f_parameter& par);
   void make_cells(f_parameter& par);

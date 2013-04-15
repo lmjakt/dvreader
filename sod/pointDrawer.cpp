@@ -45,6 +45,7 @@
 #include <QMenu>
 #include <QMouseEvent>
 #include <QRubberBand>
+#include <QRectF>
 
 using namespace std;
 
@@ -81,13 +82,13 @@ PointDrawer::PointDrawer(QWidget* parent, const char* name)
   bg_data = 0;
   bg_drawer = 0;
   
+  defaultColors.push_back(QColor("blue"));
   defaultColors.push_back(QColor("green"));
   defaultColors.push_back(QColor("cyan"));
   defaultColors.push_back(QColor("red"));
   defaultColors.push_back(QColor("magenta"));
   defaultColors.push_back(QColor("yellow"));
   defaultColors.push_back(QColor("pink"));
-  defaultColors.push_back(QColor("blue"));
   defaultColors.push_back(QColor("brown"));
   defaultColors.push_back(QColor("grey"));
 }
@@ -149,6 +150,13 @@ void PointDrawer::plotAnnotationField(QString field)
     annotation_field = field;
     update();
   }
+}
+
+// set w & h to 0 to suppress drawing of the scale
+void PointDrawer::drawAnnotationScale(int x, int y, int w, int h)
+{
+  annotation_scale.setRect(x, y, w, h);
+  update();
 }
 
 void PointDrawer::setPointFilter(QString filter_field, std::set<float> filter_values, bool filter_inverse)
@@ -398,6 +406,13 @@ void PointDrawer::drawPicture(QPainter& p)
       p_color = annotation.node_color(i, annotation_field);
     
     drawPoint(p, points[i], x, y, p_color);
+  }
+  if(point_plot_type == ANNOT && annotation_scale.width() && annotation_scale.height()){
+    float min, max;
+    unsigned int divs = 100;
+    std::vector<QColor> colors = annotation.color_scale(annotation_field, divs, min, max); // 
+    drawColorScale(p, colors, min, max, annotation_scale.left(), annotation_scale.top(),
+		   annotation_scale.width(), annotation_scale.height() );
   }
   if(gridPoints.size()){
     p.setPen(labelPen);
@@ -703,6 +718,25 @@ void PointDrawer::drawGridPoint(QPainter& p, dpoint* gpoint)
       cout << "\t" << (int)gpoint->neighbors[i]->position[j];
     cout << endl;
     p.drawLine(x1, y1, x2, y2);
+  }
+}
+
+// width and height are for the complete scale
+// hence increments will be drawn as boxes at width / colors.size()
+void PointDrawer::drawColorScale(QPainter& p, std::vector<QColor> colors, float min, float max,
+				 int x, int y, int w, int h)
+{
+  if(w <= 0 || h <= 0)
+    return;
+  float step_size = (float)w / (float)colors.size();
+  float b_width = step_size > 1 ? step_size : 2; // minimum size
+
+  QRectF box((float)x, (float)y, b_width, (float)h);
+  p.setPen(Qt::NoPen);
+  for(unsigned int i=0; i < colors.size(); ++i){
+    p.setBrush( colors[i] );
+    p.drawRect(box);
+    box.translate(step_size, 0);
   }
 }
 
