@@ -173,6 +173,7 @@ void SodController::read_positions(f_parameter& par)
       distanceViewers[ pos_name ]->raise();
     }else{     // set up a gpu
       ocl_mappers[pos_name] = new OCL_DistanceMapperManager(&positions[pos_name], &distances[pos_name]);
+      ocl_mappers[pos_name]->print_pointers();
     }
   }
   if(set_mapper && distanceViewers.count(pos_name)){
@@ -229,12 +230,15 @@ void SodController::shrink_dims(f_parameter& par)
     warn("Unknown mapper_name please try again");
     return;
   }
+  ocl_mappers[mapper_name]->print_pointers();
   unsigned int iter = 1000;
   unsigned int target_dim=2;
+  unsigned int local_work_size = 128;
   par.param("iter", iter);
   par.param("target_dim", target_dim);
+  par.param("local_work_size", local_work_size);
 
-  ocl_mappers[mapper_name]->reduce_dimensions(iter, target_dim);
+  ocl_mappers[mapper_name]->reduce_dimensions(iter, target_dim, local_work_size);
 }
 
 void SodController::set_plot_par(f_parameter& par)

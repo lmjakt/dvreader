@@ -26,7 +26,7 @@
 
 __kernel void move_deltoids(__global float* pos_i, __global float* pos_j, __global float* stress, 
 			    uint dim_no, __global float* dim_factors, __global float* distances, uint node_no,
-			    __global float* force_vector){
+			    __global float* force_vector, __global unsigned int* error_buffer){
 
   size_t g_i = get_global_id(0);
   size_t l_i = get_local_id(0);
@@ -52,21 +52,27 @@ __kernel void move_deltoids(__global float* pos_i, __global float* pos_j, __glob
     int ni = (g_i + i) % node_no;
     __global float* that_pos = pos_i + (dim_no * ni);
     float ps_distance = 0;
-    float ideal_distance = distances[ (g_i * node_no) + i ];
+    float ideal_distance = distances[ (g_i * node_no) + ni ];
     
     for(uint j=0; j < dim_no; ++j)
       ps_distance += dim_factors[j] * ((this_pos[j] - that_pos[j]) * (this_pos[j] - that_pos[j]));
+
+    //if(g_i == 1) stress[ni] = ideal_distance;
+    //if(ideal_distance != ideal_distance) error_buffer[g_i] |= 1;
+    //if(ps_distance != ps_distance) error_buffer[g_i] += 1;
+    //stress[g_i] = ideal_distance;
 
     ps_distance = sqrt(ps_distance);
 
     float error = (ideal_distance - ps_distance);
     p_stress += fabs(error);
-    if(error && ps_distance);
-    for(uint j=0; j < dim_no; ++j){
-      // the coord_dist needs to maintain direction. It's divided by the total
-      // euclidean distance to normalise.
-      float coord_dist = dim_factors[j] * (this_pos[j] - that_pos[j]);
-      fv[j] += (error * coord_dist)/ps_distance;
+    if(error && ps_distance){
+      for(uint j=0; j < dim_no; ++j){
+	// the coord_dist needs to maintain direction. It's divided by the total
+	// euclidean distance to normalise.
+	float coord_dist = dim_factors[j] * (this_pos[j] - that_pos[j]);
+	fv[j] += (error * coord_dist)/ps_distance;
+      }
     }
   }
   // and at this point we can create a new position simply as

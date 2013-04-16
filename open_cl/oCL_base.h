@@ -29,6 +29,7 @@ class OCL_base {
   
   // and some functions
   void init_kernel(const char* kernel_source, const char* kernel_name, bool compile_source);   // read and compile the kernel
+  cl_ulong time_command(cl_event* event);
 
 };
 

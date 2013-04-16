@@ -11,7 +11,9 @@ class OCL_DistanceMapperManager {
   
   // testing function, returns nothing..always starts with the full positions
   // in N-dimensional space. Get the function to print out some timing info
-  void reduce_dimensions(unsigned int iter_no, unsigned int target_dim);
+  void reduce_dimensions(unsigned int iter_no, unsigned int target_dim, unsigned int local_work_size);
+
+  void print_pointers();
 
  private:
   OCL_DistanceMapper* mapper;

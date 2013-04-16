@@ -3,6 +3,7 @@
 #include "oCL_DistanceMapper.h"
 #include <iostream>
 
+
 OCL_DistanceMapperManager::OCL_DistanceMapperManager(node_set* pos, node_set* dist)
 {
   nodes = node_distances = 0;
@@ -18,10 +19,11 @@ OCL_DistanceMapperManager::OCL_DistanceMapperManager(node_set* pos, node_set* di
   if(dist->n_size() != node_no || dist->n_dim() != (node_no)){
     std::cerr << "OCL_DistanceMapperManager dist has unsuitable dimensions " 
 	      << "node_no: " << node_no << "  dist_dim " << dist->n_dim() << std::endl;
+    return;
   }
   
-  float* nodes = new float[node_no * dimensionality];
-  float* node_distances = new float[node_no * node_no];
+  nodes = new float[node_no * dimensionality];
+  node_distances = new float[node_no * node_no];
 
   for(uint i=0; i < node_no; ++i){
     for(uint j=0; j < dimensionality; ++j)
@@ -42,9 +44,16 @@ OCL_DistanceMapperManager::~OCL_DistanceMapperManager()
 }
 
 
-void OCL_DistanceMapperManager::reduce_dimensions(unsigned int iter_no, unsigned int target_dim)
+void OCL_DistanceMapperManager::reduce_dimensions(unsigned int iter_no, unsigned int target_dim, 
+						  unsigned int local_work_size)
 {
+  mapper->set_local_item_size(local_work_size);
   mapper->reduce_dimensions(nodes, node_no, dimensionality, target_dim,
 			    iter_no, node_distances);
 }
 
+void OCL_DistanceMapperManager::print_pointers()
+{
+  std::cout << "nodes:          " << nodes << std::endl;
+  std::cout << "node_distances: " << node_distances << std::endl;
+}

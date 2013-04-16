@@ -134,7 +134,7 @@ void OCL_base::init_kernel(const char* kernel_source, const char* kernel_name, b
   report_error_pf("clBuildProgram", ret);
 
   char* build_log = NULL;
-  size_t log_size = 0;
+  size_t log_size = 1000;
   ret = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, build_log, &log_size);
   report_error_pf("clGetProgramBuildInfo", ret);
   build_log = new char[log_size+1];
@@ -144,11 +144,24 @@ void OCL_base::init_kernel(const char* kernel_source, const char* kernel_name, b
   if(log_size){
     std::cerr << "clBuildProgram Error encountered:\n" << build_log;
   }
-  delete build_log;
+  delete []build_log;
 
   kernel = clCreateKernel(program, kernel_name, &ret);
   report_error_pf("clCreateKernel", ret);
   
   delete []kernel_buffer;
   
+}
+
+cl_ulong OCL_base::time_command(cl_event* event)
+{
+  cl_ulong start = 0;
+  cl_ulong end = 0;
+  cl_int ret_value = 0;
+  ret_value = clGetEventProfilingInfo(*event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  if(ret_value) report_error_pf("Time event start", ret_value);
+  ret_value = clGetEventProfilingInfo(*event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  if(ret_value) report_error_pf("Time event end", ret_value);
+  return(end-start);
+
 }
