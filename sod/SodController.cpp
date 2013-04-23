@@ -172,6 +172,8 @@ void SodController::read_positions(f_parameter& par)
       distanceViewers[ pos_name ]->show();
       distanceViewers[ pos_name ]->raise();
     }else{     // set up a gpu
+      if(ocl_mappers.count(pos_name))
+	delete(ocl_mappers[pos_name]);
       ocl_mappers[pos_name] = new OCL_DistanceMapperManager(&positions[pos_name], &distances[pos_name]);
       ocl_mappers[pos_name]->print_pointers();
     }

@@ -4,6 +4,8 @@
 #include <fstream>
 #include <string.h>
 
+const unsigned int default_local_item_size = 128;
+
 OCL_base::OCL_base(const char* kernel_source, const char* kernel_name, bool compile_source)
 {
   platform_id = NULL;
@@ -16,9 +18,29 @@ OCL_base::OCL_base(const char* kernel_source, const char* kernel_name, bool comp
   program = NULL;
   kernel = NULL;
   
-  local_item_size = 128;
+  local_item_size = default_local_item_size;
+  
+  std::string define_statements("");  // empty string
 
-  init_kernel(kernel_source, kernel_name, compile_source);
+  init_kernel(kernel_source, kernel_name, define_statements, compile_source);
+}
+
+OCL_base::OCL_base(const char* kernel_source, const char* kernel_name,
+		   std::string define_statements, bool compile_source)
+{
+  platform_id = NULL;
+  device_id = NULL;
+  num_devices = 0;
+  num_platforms = 0;
+  
+  context = NULL;
+  command_que = NULL;
+  program = NULL;
+  kernel = NULL;
+  
+  local_item_size = default_local_item_size;
+
+  init_kernel(kernel_source, kernel_name, define_statements, compile_source);
 }
 
 OCL_base::~OCL_base()
@@ -69,7 +91,43 @@ void OCL_base::device_properties()
 	    << "Local memory     : " << local_mem_size << std::endl;
 }
 
-void OCL_base::init_kernel(const char* kernel_source, const char* kernel_name, bool compile_source)
+void OCL_base::kernel_properties()
+{
+  if(!device_id || !kernel){
+    std::cerr << "kernel_properties: no known kernel or device" << std::endl;
+    return;
+  }
+  //size_t global_work_size[3];
+  size_t work_group_size;
+  size_t compile_work_group_size[3];
+  cl_ulong local_mem_size;
+  size_t preferred_work_group_size_multiple;
+  cl_ulong private_mem_size;
+
+  // don't bother checking
+  //clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_GLOBAL_WORK_SIZE, sizeof(global_work_size), &global_work_size, NULL);
+  clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(work_group_size), &work_group_size, NULL);
+  clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_COMPILE_WORK_GROUP_SIZE, 
+			   sizeof(compile_work_group_size), &compile_work_group_size, NULL);
+  clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_LOCAL_MEM_SIZE, sizeof(local_mem_size), &local_mem_size, NULL);
+  clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, 
+			   sizeof(preferred_work_group_size_multiple), &preferred_work_group_size_multiple, NULL);
+  clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(private_mem_size), &private_mem_size, NULL);
+
+  std::cout << "Kernel properties:\n"
+    //	    << "KERNEL_GLOBAL_WORK_SIZE            : " << global_work_size[0] << " : " 
+    //	    << global_work_size[1] << " : " << global_work_size[2] << "\n"
+	    << "KERNEL_WORK_GROUP_SIZE             : " << work_group_size << "\n"
+	    << "KERNEL_COMPILE_WORK_GROUP_SIZE     : " << compile_work_group_size[0] << " : "
+	    << compile_work_group_size[1] << " : " << compile_work_group_size[2] << "\n"
+	    << "KERNEL_LOCAL_MEM_SIZE              : " << local_mem_size << "\n"
+	    << "PREFERRED_WORK_GROUP_SIZE_MULTIPLE : " << preferred_work_group_size_multiple << "\n"
+	    << "KERNEL_PRIVATE_MEM_SIZE            : " << private_mem_size << std::endl;
+
+}
+
+void OCL_base::init_kernel(const char* kernel_source, const char* kernel_name, 
+			   std::string define_statements, bool compile_source)
 {
   if(!compile_source){
     std::cerr << "Binary sources not supported yet" << std::endl;
@@ -89,9 +147,23 @@ void OCL_base::init_kernel(const char* kernel_source, const char* kernel_name, b
     std::cerr << "Unable to read from kernel source file" << std::endl;
     return;
   }
-  char* kernel_buffer = new char[ (size_t)end_pos + 1 ];
-  kernel_buffer[end_pos] = 0;  // this may not be needed.
-  in.read(kernel_buffer, end_pos);
+  // prepend #define statements to the kernal source.
+  // add one extra \n to the 
+
+  size_t k_buffer_size = 1 + define_statements.size() + (size_t)end_pos + 1;
+  char* kernel_buffer = new char[ k_buffer_size ];
+  memset((void*)kernel_buffer, 0, sizeof(char) * k_buffer_size);
+  //  kernel_buffer[k_buffer_size] = 0;  // this may not be needed.
+  
+  size_t copied_bytes = define_statements.copy(kernel_buffer, define_statements.size());
+  if(copied_bytes != define_statements.size()){
+    std::cerr << "Unable to copy the full define statements" << std::endl;
+    delete []kernel_buffer;
+  }
+
+  kernel_buffer[ define_statements.size() ] = '\n'; // add a new line for safety
+
+  in.read((kernel_buffer + 1 + define_statements.size()), end_pos);
   if(in.gcount() != end_pos){
     std::cerr << "Unable to read to end of kernel source file: " << end_pos << " != " << in.gcount() << std::endl;
     delete []kernel_buffer;
@@ -117,20 +189,11 @@ void OCL_base::init_kernel(const char* kernel_source, const char* kernel_name, b
   report_error_pf("clCreateCommandQueue", ret);
 
   program = clCreateProgramWithSource(context, 1, (const char**)&kernel_buffer, 
-				      (const size_t*)&end_pos, &ret);
+				      (const size_t*)&k_buffer_size, &ret);
   report_error_pf("clCreateProgramWithSource", ret);
 
   
-  // bool allow_debug = true;
-  // char* options = new char[10]; //
-  // strcpy(options, "-g");        // why??
-  // if(allow_debug){
-  //   clBuildProgram(program, 1, &device_id, options, NULL, NULL);
-  // }else{
-  // unfortunately -g doesn't work.
-
   clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
-  //}
   report_error_pf("clBuildProgram", ret);
 
   char* build_log = NULL;
@@ -143,6 +206,7 @@ void OCL_base::init_kernel(const char* kernel_source, const char* kernel_name, b
   
   if(log_size){
     std::cerr << "clBuildProgram Error encountered:\n" << build_log;
+    std::cerr << ".....\n" << kernel_buffer << "\n....." << std::endl;
   }
   delete []build_log;
 

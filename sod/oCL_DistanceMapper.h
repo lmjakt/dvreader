@@ -4,11 +4,12 @@
 #include "../open_cl/oCL_base.h"
 #include "distanceMapper.h"
 #include <vector>
+#include <string>
 
 class OCL_DistanceMapper : public OCL_base
 {
  public:
-  OCL_DistanceMapper();
+  OCL_DistanceMapper(std::string def_statement);
   ~OCL_DistanceMapper();
 
   std::vector<stressInfo> reduce_dimensions(float* points, unsigned int node_no, 

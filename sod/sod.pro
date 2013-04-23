@@ -1,6 +1,6 @@
 # change debug to release and recompile when working
 TEMPLATE        = app
-CONFIG          += qt opengl debug thread
+CONFIG          += qt opengl release thread
 QT		+= qt3support svg
 CONFIG          += console
 INCLUDEPATH	+= /usr/local/cuda/include

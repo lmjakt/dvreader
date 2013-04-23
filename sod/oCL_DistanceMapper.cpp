@@ -2,12 +2,13 @@
 #include "../open_cl/oCL_base.h"
 #include "../open_cl/clError.h"
 #include <string.h>
+#include <fstream>
 
 const char* kernel_source = "/home/martin/cellular/dvreader/mainline/sod/move_deltoids.cl";
 const char* kernel_name = "move_deltoids";
 
-OCL_DistanceMapper::OCL_DistanceMapper()
-  : OCL_base(kernel_source, kernel_name, true)
+OCL_DistanceMapper::OCL_DistanceMapper(std::string def_statement)
+  : OCL_base(kernel_source, kernel_name, def_statement, true)
 {
   dimFactors = 0;
 }
@@ -24,13 +25,6 @@ std::vector<stressInfo> OCL_DistanceMapper::reduce_dimensions(float* points, uns
 							     unsigned int iterations,
 							     float* distances)
 {
-  // check the distances for a given node
-  unsigned int check_node = 1;
-  std::cout << "Ideal distances for node " <<  check_node   << std::endl;
-  for(uint i=0; i < node_no; ++i)
-    std::cout << i  << ": " << distances[ check_node * node_no + i] << std::endl;
-  std::cout << std::endl;
-
 
   std::vector<stressInfo> stress_data;
   // check whether kernel and stuff is set up correctly //
@@ -231,6 +225,22 @@ std::vector<stressInfo> OCL_DistanceMapper::reduce_dimensions(float* points, uns
     
   }
   std::cout << "\nEnd of shrinking" << std::endl;
+  
+  // let's write a table of positions that we can plot with R or something
+  std::ofstream out("oCL_DM_positions.txt");
+  if(!out){
+    std::cerr << "oCL_DistanceMapper unable to open a file to stick numbers in" << std::endl;
+  }else{
+    for(uint i=0; i < node_no; ++i){
+      out << i;
+      for(uint j=0; j < dimensionality; ++j)
+	out << "\t" << points[i * dimensionality + j];
+      out << "\n";
+    }
+    out.close();
+  }
+
+
   delete []error_buffer; // and maybe the others as well?
   delete []points_j;
   delete []stress;

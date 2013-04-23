@@ -4,14 +4,19 @@
 // a base class for single kernel GPU implemented kernel functions.
 
 #include <CL/cl.h>
+#include <string>
 
 class OCL_base {
  public:
   OCL_base(const char* kernel_source, const char* kernel_name, bool compile_source=true);
+  OCL_base(const char* kernel_source, const char* kernel_name, 
+	   std::string define_statements, bool compile_source=true);
+
   ~OCL_base();
 
   void set_local_item_size(size_t li_size);
   void device_properties();
+  void kernel_properties();
 
  protected:
   cl_platform_id platform_id;
@@ -28,7 +33,8 @@ class OCL_base {
   size_t local_item_size;
   
   // and some functions
-  void init_kernel(const char* kernel_source, const char* kernel_name, bool compile_source);   // read and compile the kernel
+  void init_kernel(const char* kernel_source, const char* kernel_name, 
+		   std::string define_statements, bool compile_source);   // read and compile the kernel
   cl_ulong time_command(cl_event* event);
 
 };

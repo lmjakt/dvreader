@@ -2,6 +2,7 @@
 #include "node_set.h"
 #include "oCL_DistanceMapper.h"
 #include <iostream>
+#include <sstream>
 
 
 OCL_DistanceMapperManager::OCL_DistanceMapperManager(node_set* pos, node_set* dist)
@@ -31,9 +32,13 @@ OCL_DistanceMapperManager::OCL_DistanceMapperManager(node_set* pos, node_set* di
     for(uint j=0; j < node_no; ++j)
       node_distances[i * node_no + j] = dist->value(i, j);
   }
+  std::ostringstream define_statement;
+  define_statement << "#define DIM_NO " << dimensionality << "\n"
+		   << "#define NODE_NO " << node_no;
 
-  mapper = new OCL_DistanceMapper();
+  mapper = new OCL_DistanceMapper(define_statement.str());
   mapper->device_properties();
+  mapper->kernel_properties();
 }
 
 OCL_DistanceMapperManager::~OCL_DistanceMapperManager()
