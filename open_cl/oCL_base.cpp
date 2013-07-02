@@ -83,11 +83,14 @@ void OCL_base::device_properties()
   ret = clGetDeviceInfo(device_id, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &local_mem_size, NULL);
   size_t device_max_work_group_size = 0;
   ret = clGetDeviceInfo(device_id, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &device_max_work_group_size, NULL);
-  
+  cl_ulong device_max_constant_buffer_size = 0;
+  ret = clGetDeviceInfo(device_id, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof(cl_ulong), &device_max_constant_buffer_size, NULL);
+
   std::cout << "Device properties:" << std::endl
 	    << "Max compute units: " << compute_unit_no << std::endl
 	    << "Max work group   : " << device_max_work_group_size << std::endl
 	    << "Global memory    : " << global_mem_size << std::endl
+	    << "Max_constant     : " << device_max_constant_buffer_size << std::endl
 	    << "Local memory     : " << local_mem_size << std::endl;
 }
 
