@@ -4,7 +4,9 @@
 #include <string.h>
 #include <fstream>
 
-const char* kernel_source = "/home/martin/cellular/dvreader/mainline/sod/move_deltoids.cl";
+//const char* kernel_source = "/home/martin/cellular/dvreader/mainline/sod/move_deltoids_dummy.cl";
+//const char* kernel_source = "/home/martin/cellular/dvreader/mainline/sod/move_deltoids.cl";
+const char* kernel_source = "/home/martin/cellular/dvreader/mainline/sod/move_deltoids_2.cl";
 const char* kernel_name = "move_deltoids";
 
 OCL_DistanceMapper::OCL_DistanceMapper(std::string def_statement)
@@ -72,12 +74,20 @@ std::vector<stressInfo> OCL_DistanceMapper::reduce_dimensions(float* points, uns
   std::cout << "local item size is : " << local_item_size << "\n"
 	    << "global item size is: " << global_item_size << std::endl;
 
+  // if we want to make use of reasonable calls to async_work_group_copy
+  // we need to make sure that the data itself aligns to multiples of 
+  // the local_item_size
+  float* points_i = new float[ global_item_size * dimensionality ];
+  memset((void*)points_i, 0,  sizeof(float) * global_item_size * dimensionality);
+  memcpy((void*)points_i, (void*)points, sizeof(float) * node_no * dimensionality);
+
   // set up the appropriate buffers
-  float* points_j = new float[ node_no * dimensionality ];
+    //  float* points_j = new float[ node_no * dimensionality ];
+  float* points_j = new float[ global_item_size * dimensionality ];
   memset((void*)points_j, 0, sizeof(float) * node_no * dimensionality);
 
   float* stress = new float[ node_no ];
-  float* force_vector = new float[ node_no * dimensionality ];
+  //float* force_vector = new float[ node_no * dimensionality ];
   
   cl_int ret = 0;
 
@@ -87,9 +97,13 @@ std::vector<stressInfo> OCL_DistanceMapper::reduce_dimensions(float* points, uns
   // note we use NULL here since we are not asking the GPU to use
   // host memory
   cl_mem pos_i_obj = clCreateBuffer(context, CL_MEM_READ_WRITE,
-				    sizeof(float) * node_no * dimensionality, NULL, &ret);
+				    sizeof(float) * global_item_size * dimensionality, NULL, &ret);
+  //  cl_mem pos_i_obj = clCreateBuffer(context, CL_MEM_READ_WRITE,
+  //				    sizeof(float) * node_no * dimensionality, NULL, &ret);
   cl_mem pos_j_obj = clCreateBuffer(context, CL_MEM_READ_WRITE,
-				    sizeof(float) * node_no * dimensionality, NULL, &ret);
+				    sizeof(float) * global_item_size * dimensionality, NULL, &ret);
+  //  cl_mem pos_j_obj = clCreateBuffer(context, CL_MEM_READ_WRITE,
+  //				    sizeof(float) * node_no * dimensionality, NULL, &ret);
   cl_mem stress_obj = clCreateBuffer(context, CL_MEM_READ_WRITE,
 				     sizeof(float) * node_no, NULL, &ret);
   cl_mem dim_factors_obj = clCreateBuffer(context, CL_MEM_READ_ONLY,
@@ -97,8 +111,8 @@ std::vector<stressInfo> OCL_DistanceMapper::reduce_dimensions(float* points, uns
   cl_mem distances_obj = clCreateBuffer(context, CL_MEM_READ_ONLY,
 					sizeof(float) * node_no * node_no, NULL, &ret);
   
-  cl_mem force_vector_obj = clCreateBuffer(context, CL_MEM_READ_WRITE,
-					   sizeof(float) * node_no * dimensionality, NULL, &ret);
+  //cl_mem force_vector_obj = clCreateBuffer(context, CL_MEM_READ_WRITE,
+  //					   sizeof(float) * node_no * dimensionality, NULL, &ret);
 
   cl_mem error_buffer_obj = clCreateBuffer(context, CL_MEM_READ_WRITE,
   					   sizeof(unsigned int) * node_no * node_no, NULL, &ret);
@@ -115,8 +129,11 @@ std::vector<stressInfo> OCL_DistanceMapper::reduce_dimensions(float* points, uns
   cl_event write_mem_event;
   //// enque the resulting buffers
   ret = clEnqueueWriteBuffer(command_que, pos_j_obj, CL_TRUE, 0,
-			     sizeof(float) * node_no * dimensionality, (void*)points_j,
+			     sizeof(float) * global_item_size * dimensionality, (void*)points_j,
 			     0, NULL, &write_mem_event);
+  //  ret = clEnqueueWriteBuffer(command_que, pos_j_obj, CL_TRUE, 0,
+  //			     sizeof(float) * node_no * dimensionality, (void*)points_j,
+  //			     0, NULL, &write_mem_event);
   pre_mem_enque_time += time_command(&write_mem_event);
 
   ret = clEnqueueWriteBuffer(command_que, stress_obj, CL_TRUE, 0,
@@ -129,10 +146,10 @@ std::vector<stressInfo> OCL_DistanceMapper::reduce_dimensions(float* points, uns
 			     0, NULL, &write_mem_event);
   pre_mem_enque_time += time_command(&write_mem_event);
   
-  ret = clEnqueueWriteBuffer(command_que, force_vector_obj, CL_TRUE, 0,
-			     sizeof(float) * dimensionality * node_no, (void*)force_vector,
-			     0, NULL, &write_mem_event);
-  pre_mem_enque_time += time_command(&write_mem_event);
+  //ret = clEnqueueWriteBuffer(command_que, force_vector_obj, CL_TRUE, 0,
+  //			     sizeof(float) * dimensionality * node_no, (void*)force_vector,
+  //			     0, NULL, &write_mem_event);
+  //pre_mem_enque_time += time_command(&write_mem_event);
   
   ret = clEnqueueWriteBuffer(command_que, error_buffer_obj, CL_TRUE, 0,
   			     sizeof(unsigned int) * node_no * node_no, (void*)error_buffer,
@@ -151,8 +168,8 @@ std::vector<stressInfo> OCL_DistanceMapper::reduce_dimensions(float* points, uns
   ret = clSetKernelArg(kernel, 3, sizeof(uint), &dimensionality);
   ret = clSetKernelArg(kernel, 5, sizeof(cl_mem), (void*)&distances_obj);
   ret = clSetKernelArg(kernel, 6, sizeof(uint), (void*)&node_no);
-  ret = clSetKernelArg(kernel, 7, sizeof(cl_mem), (void*)&force_vector_obj);
-  ret = clSetKernelArg(kernel, 8, sizeof(cl_mem), (void*)&error_buffer_obj);
+  //  ret = clSetKernelArg(kernel, 7, sizeof(cl_mem), (void*)&force_vector_obj);
+  ret = clSetKernelArg(kernel, 7, sizeof(cl_mem), (void*)&error_buffer_obj);
 
   if(ret) report_error_pf("end of clSetKernelArg section", ret);
 
@@ -170,8 +187,11 @@ std::vector<stressInfo> OCL_DistanceMapper::reduce_dimensions(float* points, uns
   std::cout << "Entering the iterations loop" << std::endl;
   for(unsigned int i=0; i < iterations; ++i){
     ret = clEnqueueWriteBuffer(command_que, pos_i_obj, CL_TRUE, 0,
-			       sizeof(float) * node_no * dimensionality, (void*)points,
+			       sizeof(float) * global_item_size * dimensionality, (void*)points_i,
 			       0, NULL, &write_mem_event);
+    //    ret = clEnqueueWriteBuffer(command_que, pos_i_obj, CL_TRUE, 0,
+    //			       sizeof(float) * node_no * dimensionality, (void*)points,
+    //			       0, NULL, &write_mem_event);
     loop_mem_que_time += time_command(&write_mem_event);
     ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&pos_i_obj);
 
@@ -193,9 +213,12 @@ std::vector<stressInfo> OCL_DistanceMapper::reduce_dimensions(float* points, uns
 
     // read the old points to the new ones
     cl_event read_event;
+    //    ret = clEnqueueReadBuffer(command_que, pos_j_obj, CL_TRUE, 0,
+    //			      sizeof(float) * node_no * dimensionality,
+    //			      points, 0, NULL, &read_event);
     ret = clEnqueueReadBuffer(command_que, pos_j_obj, CL_TRUE, 0,
-			      sizeof(float) * node_no * dimensionality,
-			      points, 0, NULL, &read_event);
+			      sizeof(float) * global_item_size * dimensionality,
+			      points_i, 0, NULL, &read_event);
     mem_read_time += time_command(&read_event);
     // read the stress vector
     ret = clEnqueueReadBuffer(command_que, stress_obj, CL_TRUE, 0,
@@ -206,9 +229,10 @@ std::vector<stressInfo> OCL_DistanceMapper::reduce_dimensions(float* points, uns
     // if the thing compiles first
     float stress_sum = 0;
     for(uint j=0; j < node_no; ++j){
-      stress_sum += stress[j];
+      stress_sum += stress[j];  // THE REAL CODE
+      //      std::cout << "  " << stress[j]; // FOR debugging
     }
-
+    //std::cout << std::endl;
     std::cout << "  " << stress_sum;
     
     // ret = clEnqueueReadBuffer(command_que, error_buffer_obj, CL_TRUE, 0,
@@ -234,7 +258,7 @@ std::vector<stressInfo> OCL_DistanceMapper::reduce_dimensions(float* points, uns
     for(uint i=0; i < node_no; ++i){
       out << i;
       for(uint j=0; j < dimensionality; ++j)
-	out << "\t" << points[i * dimensionality + j];
+	out << "\t" << points_i[i * dimensionality + j];
       out << "\n";
     }
     out.close();
@@ -243,8 +267,9 @@ std::vector<stressInfo> OCL_DistanceMapper::reduce_dimensions(float* points, uns
 
   delete []error_buffer; // and maybe the others as well?
   delete []points_j;
+  delete []points_i;
   delete []stress;
-  delete []force_vector;
+  //  delete []force_vector;
   
   std::cout << "Timing data in s" << std::endl;
   std::cout << "Pre mem enque time : " << pre_mem_enque_time / 1e9 << "\n"
@@ -253,7 +278,7 @@ std::vector<stressInfo> OCL_DistanceMapper::reduce_dimensions(float* points, uns
 	    << "Mem read time      : " << mem_read_time / 1e9 << "\n";
 
 
-  return(stress_data);  // actually a waste of time..
+  return(stress_data);  // actually contains nothing at the moment.
 }
 
 
