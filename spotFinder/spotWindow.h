@@ -35,7 +35,14 @@
 #include <qlayout.h>
 //Added by qt3to4:
 #include <QVBoxLayout>
+// apple doesn't have values.h, but does have limits.h
+#ifdef __APPLE__
+#include <limits.h>
+#include <float.h>  // this should be the one, but not sure
+#define MINFLOAT FLT_MIN
+#else
 #include <values.h>
+#endif
 #include "../linGraph/plotWidget.h"
 #include "channelWidget.h"
 #include "modelWidget.h"

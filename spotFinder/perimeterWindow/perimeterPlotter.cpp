@@ -22,8 +22,14 @@
 */
 //End Copyright Notice
 
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#include <GLUT/glut.h>
+#else
 #include <GL/gl.h>
 #include <GL/glut.h>
+#endif
+
 #include "perimeterPlotter.h"
 #include <qpainter.h>
 #include <qmatrix.h>

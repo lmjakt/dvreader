@@ -1398,8 +1398,8 @@ void DeltaViewer::determineSpotDensities(int r, double sigma, double order){
 	cerr << "determineSpotDensities radius is less than 0 " << r << endl;
 	return;
     }
-    sigma = abs(sigma);
-    order = abs(order);  // just to make sure, these don't make much sense if negative
+    sigma = fabs(sigma);
+    order = fabs(order);  // just to make sure, these don't make much sense if negative
     // gaussian blur to give us e density map.. 
     unsigned int w = completeArea.pw;
     unsigned int h = completeArea.ph;

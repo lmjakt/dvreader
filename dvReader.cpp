@@ -26,6 +26,7 @@
 #include <string>
 #include <qstring.h>
 #include <iostream>
+#include <ostream> 
 #include <stdlib.h>
 #include <sstream>
 #include <math.h>
@@ -402,7 +403,7 @@ bool DVReader::readICSv1File(const char* fName){
 	vector<string> words = getWords(ws, ls, in);
 	// just ooutpot to make sure its working..
 	for(uint i=0; i < words.size(); i++){
-	    cout << words[i] << "\t";
+	  cout << words[i].c_str() << "\t";
 	}
 	cout << endl;
 	if(!words.size()){

@@ -40,6 +40,10 @@
 using namespace std;
 
 int main(int argc, char** argv){
+  // supposedly on mac the stack is increased automatically and
+  // the following code fails. Hence, let's remove it
+
+  #ifndef __APPLE__
   // some of the recursive functions require a bigger stack.
   struct rlimit stack_limit;
   if(getrlimit(RLIMIT_STACK, &stack_limit)){
@@ -54,6 +58,8 @@ int main(int argc, char** argv){
     cerr << "Unable to increase stack limit to : " << stack_limit.rlim_cur << endl;
     exit(1);
   }
+  // end of non-mac section
+#endif
 
   // the above seems to cause a segmentation fault. consider using ulimit -s
   // don't know why, but crash happens with no stack comment.. ??

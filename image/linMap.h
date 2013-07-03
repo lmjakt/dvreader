@@ -16,6 +16,8 @@
 
 //#typedef blob ptr;
 
+typedef unsigned int uint;
+
 template <class T> struct tupel {
   tupel(){
     x = 0;

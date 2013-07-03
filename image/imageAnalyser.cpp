@@ -29,7 +29,13 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#ifdef __APPLE__
+#include <limits.h>
+#define MAXLONG LLONG_MAX
+#else
 #include <values.h>
+#endif
+
 #include <stdio.h>
 #include <algorithm>
 
@@ -331,6 +337,8 @@ bool ImageAnalyser::point(float& p, int xp, int yp, int zp, unsigned int wi){
     return(ok);
 }
 
+// this function should probably be removed as I have written better ones
+// but need to check from where it's called
 threeDPeaks* ImageAnalyser::findAllPeaks(unsigned int wl, int pr, float minPeakValue, float maxEdgeProportion, float bgm){   // the same as above but goes through all the slices.. 
     float waveLength = float(data->channel(wl));   // we are using this for to make the simple_drop, but should probably get rid of it
     threeDPeaks* peakInfo = new threeDPeaks(pr, 255, 255, 255);
@@ -405,10 +413,10 @@ threeDPeaks* ImageAnalyser::findAllPeaks(unsigned int wl, int pr, float minPeakV
 	int count = 0;
 	for(int x=0; x < rb; ++x){
 //	for(int x=0; x < w; ++x){
-	    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time);
+//	    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time);
 	    long start = time.tv_nsec;
 	    if(simpleLine(zline, x, y, 0, d, ZDIM, wl)){
-		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time);
+	      //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time);
 		long end = time.tv_nsec;
 		if(end - start > maxTime)
 		    maxTime = (end - start);

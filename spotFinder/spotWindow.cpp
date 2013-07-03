@@ -32,7 +32,14 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFileDialog>
+// no values.h on MAC
+#ifdef __APPLE__
+#include <float.h>
+#define MINFLOAT FLT_MIN
+#else
 #include <values.h>
+#endif
+
 #include <fstream>
 #include <string>
 

@@ -3,7 +3,12 @@
 
 // a base class for single kernel GPU implemented kernel functions.
 
+#ifdef __APPLE__
+#include <OpenCL/opencl.h>
+#else
 #include <CL/cl.h>
+#endif
+
 #include <string>
 
 class OCL_base {

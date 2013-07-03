@@ -1,8 +1,13 @@
 #ifndef IMEXPAND_CL_H
 #define IMEXPAND_CL_H
 
-#include "oCL_base.h"
+#ifdef __APPLE__
+#include <OpenCL/opencl.h>
+#else
 #include <CL/cl.h>
+#endif
+
+#include "oCL_base.h"
 
 class ImStack;
 
