@@ -36,7 +36,7 @@ vector<blob_set> BlobMerger::mergeBlobs(vector<Blob_mt_mapper*> bl_mappers, vect
   radius = r;
   initOffsets();
   initMaps();
-  
+
   return(merge());
 }
 
@@ -61,8 +61,6 @@ void BlobMerger::initOffsets()
 
 vector<int> BlobMerger::adjustOffsets(ChannelOffset& ch_off)
 {
-  //if(map_id >= mappers.size())
-  //  return(offsets);
   vector<int> adjusted(offsets.size());
   for(unsigned int i=0; i < offsets.size(); ++i){
     adjusted[i] = offsets[i] + 
@@ -129,23 +127,6 @@ vector<blob*> BlobMerger::getNeighborBlobs(unsigned int map_id, int p, ChannelOf
   return(nb);
 }
 
-// bool BlobMerger::isComplete(vector<blob*> bv)
-// {
-//   set<blob*> b;
-//   b.insert(bv.begin(), bv.end());
-//   for(set<blob*>::iterator it=b.begin(); it != b.end(); ++it){
-//     int pos = (*it)->peakPos;
-//     for(unsigned int i=0; i < maps.size(); ++i){
-//       vector<blob*> nb = getNeighborBlobs(i, pos);
-//       for(unsigned int j=0; j < nb.size(); ++j){
-// 	if(!b.count(nb[j]))
-// 	  return(false);
-//       }
-//     }
-//   }
-//   return(true);
-// }
-
 vector<blob_set> BlobMerger::merge()
 {
   map<blob*, set<blob*> > blob_links;
@@ -167,40 +148,6 @@ vector<blob_set> BlobMerger::merge()
   }
   // No error codes set..
   return( collapseDuplicates(blob_links) );
-	  
-
-  // vector<blob_set> bsets;
-  // set<blob*> mergedBlobs;
-
-  // for(unsigned int i=0; i < mappers.size(); ++i){
-  //   for(multimap<unsigned int, blob*>::iterator it=mappers[i]->blobs.begin();
-  // 	it != mappers[i]->blobs.end(); ++it){
-  //     if(mergedBlobs.count( (*it).second ))
-  // 	continue;
-  //     blob_set bs(pos.x, pos.y, pos.z);
-  //     bs.push((*it).second, mappers[i]->map_id, mappers[i]);
-  //     mergedBlobs.insert( (*it).second );
-  //     for(unsigned j=0; j < mappers.size(); ++j){
-  // 	if(i != j){
-  // 	  vector<blob*> nb = getNeighborBlobs(j, (*it).second->peakPos);
-  // 	  if(nb.size() > 1)
-  // 	    bs.addError(blob_set::MULTI);
-  // 	  for(uint k=0; k < nb.size(); ++k){
-  // 	    if(mergedBlobs.count(nb[k])){
-  // 	      bs.addError(blob_set::INCOMPLETE);
-  // 	      continue;
-  // 	    }
-  // 	    bs.push(nb[k], mappers[j]->map_id, mappers[j]);
-  // 	    mergedBlobs.insert(nb[k]);
-  // 	  }
-  // 	}
-  //     }
-  //     if(!isComplete(bs.b()))
-  // 	bs.addError(blob_set::EXTENSIBLE);
-  //     bsets.push_back(bs);
-  //   }
-  // }
-  // return(bsets);
 }
 
 // Note that the set<blob*> pointed to by blob* needs to include blob* itself
@@ -255,7 +202,7 @@ set<blob*> BlobMerger::checkNeighbours(blob* seed, set<blob*> nbs)
   for(it1=nbs.begin(); it1 != nbs.end(); ++it1){
     it2 = it1;
     ++it2;
-    while(it2 != nbs.end()){
+    while(it2 != nbs.end()){  /// BUG ?? BUG (*it1) and (*it1) are the same.. 
       if( blobDistance( (*it1), (*it1) ) > maxBlobDistance ){
 	blobs_to_remove.insert(*it1);
 	blobs_to_remove.insert(*it2);

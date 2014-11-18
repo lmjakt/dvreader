@@ -2587,15 +2587,6 @@ void ImageBuilder::map_blobs(f_parameter& par)
       // Need to rewrite to make use of use_cmap ..
       //  Mapper should be able to get it's own data from thingy. and do the correct thing.
 
-      // sem->acquire();
-      // ImStack* stack = imageStack(wi, x, y, 0, stack_width, stack_width, data->sectionNo(), use_cmap);
-      // if(!stack){
-      // 	sem->release();
-      // 	continue;
-      // }
-      // sem->release();
-      // Blob_mt_mapper* mapper = new Blob_mt_mapper(stack, mapper_id, true);  // stack will be deleted at end of run()
-
       if(bg_xm)
 	mapper->setBgPar(bg_xm, bg_ym, bg_q);
       if(blobModel)
@@ -2606,7 +2597,14 @@ void ImageBuilder::map_blobs(f_parameter& par)
       mappers.push_back(mapper); 
     }
   }
-  // at which point all mapping should have been done.
+  // At this point some of the threads may still be running. To go further we need
+  // not make sure that all mappers are done:
+  unsigned int max_wait=10000; // this is in ms
+  for(unsigned int i=0; i < mappers.size(); ++i){
+    if(!mappers[i]->wait(max_wait))
+      warn("Mapper failed to return within 10s. Errors are possible");
+  }
+  // And now we should be able to proceed
   cout << "Created a total of " << mappers.size() << " map objects" << endl;
   if(mapper_collections.count(map_name)){
     for(uint i=0; i < mapper_collections[map_name].size(); ++i)
